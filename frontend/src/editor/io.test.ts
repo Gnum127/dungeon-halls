@@ -104,9 +104,16 @@ describe('deserializeMap validation', () => {
     expectMapLoadError(withObjects([{ id: 0, kindId: 'door', x: 0, y: 0 }]))
     expectMapLoadError(withObjects([{ id: 1.5, kindId: 'door', x: 0, y: 0 }]))
     expectMapLoadError(withObjects([{ id: -1, kindId: 'door', x: 0, y: 0 }]))
+    expectMapLoadError(withObjects([{ id: Number.MAX_SAFE_INTEGER, kindId: 'door', x: 0, y: 0 }]))
     expectMapLoadError(withObjects([{ id: 1, kindId: 'dragon', x: 0, y: 0 }]))
     expectMapLoadError(withObjects([{ id: 1, kindId: 'door', x: 9, y: 0 }]))
     expectMapLoadError(withObjects([{ id: 1, kindId: 'door', x: 0.5, y: 0 }]))
+  })
+
+  it('accepts the highest valid object id', () => {
+    const maxSafe = Number.MAX_SAFE_INTEGER - 1
+    const model = deserializeMap(withObjects([{ id: maxSafe, kindId: 'door', x: 0, y: 0 }]))
+    expect(model.objects[0]?.id).toBe(maxSafe)
   })
 
   it('rejects duplicate ids and overlapping cells', () => {

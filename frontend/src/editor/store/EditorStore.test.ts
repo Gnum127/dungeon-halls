@@ -129,6 +129,16 @@ describe('EditorStore', () => {
     expect(store.getModel()).toBe(replacement)
   })
 
+  it('reset with the same model reference is a no-op', () => {
+    const store = makeStore()
+    const listener = vi.fn()
+    store.subscribe(listener)
+
+    store.reset(store.getModel())
+
+    expect(listener).not.toHaveBeenCalled()
+  })
+
   it('keeps history depth at HISTORY_LIMIT entries and evicts the oldest states', () => {
     const store = new EditorStore(createEmptyMap(10, 10))
     const snapshots: MapModel[] = [store.getModel()]

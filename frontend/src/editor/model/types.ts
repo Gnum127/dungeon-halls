@@ -1,7 +1,7 @@
-import type { TileGrid } from '../../shared/tiles'
+import type { TileGrid } from '@/shared/tiles'
 
-export { EMPTY_TILE, MAX_MAP_DIMENSION, TILE_TYPES } from '../../shared/tiles'
-export type { TileGrid, TileTypeName, TileValue } from '../../shared/tiles'
+export { EMPTY_TILE, MAX_MAP_DIMENSION, TILE_TYPES } from '@/shared/tiles'
+export type { TileGrid, TileTypeName, TileValue } from '@/shared/tiles'
 
 export const MAP_VERSION = 1
 

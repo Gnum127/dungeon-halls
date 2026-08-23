@@ -19,7 +19,29 @@ describe('normalizeSeed', () => {
   it('mixes close seeds apart (float seeds truncate first)', () => {
     expect(normalizeSeed(1)).not.toBe(normalizeSeed(2))
     expect(normalizeSeed(1.9)).toBe(normalizeSeed(1))
+    // Соседи через границу int32 перемешиваются в разные значения…
+    expect(normalizeSeed(2147483647)).not.toBe(normalizeSeed(2147483646))
+    // …хотя усечение до int32 делает ±границы коллидировать с -1 по дизайну.
     expect(normalizeSeed(Number.NaN)).toBe(normalizeSeed(0))
+  })
+})
+
+// Известные ответы фиксируют алгоритм: замена PRNG сломает сейвы
+// со строкой seed — это должно падать громко.
+describe('known answers', () => {
+  it('mulberry32 sequence for seed 42 matches reference', () => {
+    const rng = createRng(42)
+
+    expect(rng.next()).toBeCloseTo(0.18946275836788118, 15)
+    expect(rng.next()).toBeCloseTo(0.6580629078671336, 15)
+    expect(rng.next()).toBeCloseTo(0.31931386212818325, 15)
+    expect(rng.next()).toBeCloseTo(0.0815762197598815, 15)
+  })
+
+  it('nextInt(6) sequence for seed 7 matches reference', () => {
+    const rng = createRng(7)
+
+    expect([1, 2, 3, 4, 5].map(() => rng.nextInt(6))).toEqual([3, 4, 2, 4, 2])
   })
 })
 
@@ -67,19 +89,28 @@ describe('nextInt()', () => {
     for (let i = 0; i < 20; i += 1) expect(rng.nextInt(1)).toBe(0)
   })
 
-  it('covers all buckets without heavy bias (smoke)', () => {
+  // Для РАВНОМЕРНОГО uint32-источника смещение наивного `%` ограничено одной
+  // единицей из 2^32 и статистически необнаружимо — поэтому отсутствие bias
+  // гарантируется структурно (rejection sampling) и закреплено
+  // known-answer тестами выше. Здесь проверяем сам wide-rejection путь:
+  // при max близком к 2^32 отбрасывается ~25% значений, цикл обязан
+  // завершаться, а результат — лежать в диапазоне.
+  it('wide-rejection path terminates and stays in range', () => {
     const rng = createRng(11)
-    const buckets = [0, 0, 0]
-    for (let i = 0; i < 3000; i += 1) buckets[rng.nextInt(3)]! += 1
-
-    // Без rejection sampling перекос доходил бы до ~25%; здесь его нет.
-    for (const count of buckets) expect(count).toBeGreaterThan(700)
+    for (let i = 0; i < 9000; i += 1) {
+      const value = rng.nextInt(0xc0000001)
+      expect(value).toBeGreaterThanOrEqual(0)
+      expect(value).toBeLessThan(0xc0000001)
+    }
   })
 
-  it.each([0, -1, 2.5, Number.NaN])('rejects invalid maxExclusive %s', (bad) => {
-    const rng = createRng(1)
-    expect(() => rng.nextInt(bad)).toThrow(RangeError)
-  })
+  it.each([0, -1, 2.5, Number.POSITIVE_INFINITY, Number.NaN])(
+    'rejects invalid maxExclusive %s',
+    (bad) => {
+      const rng = createRng(1)
+      expect(() => rng.nextInt(bad)).toThrow(RangeError)
+    },
+  )
 
   it('rejects maxExclusive above the uint32 domain instead of hanging', () => {
     const rng = createRng(1)

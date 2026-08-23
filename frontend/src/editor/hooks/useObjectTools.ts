@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react'
+import { isEditableTarget } from '../dom/isEditableTarget'
 import type { Command } from '../model/commands'
 import { findObjectById } from '../model/objects'
 import type { MapModel } from '../model/types'
 import { isInsideMap } from '../tools/brush'
 import type { EditorTool } from '../tools/editorTool'
 import { isCellFree, topmostObjectAt } from '../tools/objects'
-import { isEditableTarget } from '../dom/isEditableTarget'
 import type { Viewport } from '../render/viewport'
 import { useCellFromEvent } from './useCellFromEvent'
 
@@ -29,6 +29,7 @@ interface DragState {
   lastX: number
   lastY: number
 }
+
 const LEFT_BUTTON = 0
 
 /**

@@ -9,6 +9,7 @@ function Probe({ options }: { options: HotkeysOptions }) {
     <div>
       <input data-testid="input" />
       <textarea data-testid="textarea" />
+      <div data-testid="contenteditable" />
     </div>
   )
 }
@@ -74,15 +75,18 @@ describe('useEditorHotkeys', () => {
   it('ignores hotkeys from contenteditable targets and AltGr combos; shift+B/E do nothing', () => {
     const h = makeOptions()
     const { getByTestId } = render(<Probe options={h} />)
-    const editable = getByTestId('input') as HTMLInputElement
-    Object.defineProperty(editable, 'isContentEditable', {
+    // Не-редактируемый по тегу элемент: сработает только ветка isContentEditable.
+    const editableDiv = getByTestId('contenteditable')
+    Object.defineProperty(editableDiv, 'isContentEditable', {
       configurable: true,
       value: true,
     })
 
     // AltGr (Ctrl+Alt) не считается Ctrl-комбинацией.
     press(window, { code: 'KeyZ', key: 'z', ctrlKey: true, altKey: true })
+    press(window, { code: 'KeyY', key: 'y', ctrlKey: true, altKey: true })
     expect(h.onUndo).not.toHaveBeenCalled()
+    expect(h.onRedo).not.toHaveBeenCalled()
 
     // Shift-варианты одиночных клавиш инструмент не переключают.
     press(window, { code: 'KeyB', key: 'B', shiftKey: true })
@@ -91,7 +95,7 @@ describe('useEditorHotkeys', () => {
     expect(h.onSelectEraser).not.toHaveBeenCalled()
 
     // Contenteditable-цель игнорируется.
-    press(editable, { code: 'KeyZ', key: 'z', ctrlKey: true })
+    press(editableDiv, { code: 'KeyZ', key: 'z', ctrlKey: true })
     expect(h.onUndo).not.toHaveBeenCalled()
   })
 

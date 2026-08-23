@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react'
+import { vi } from 'vitest'
 import { createEmptyMap } from '../model/createEmptyMap'
 import { TILE_TYPES } from '../model/types'
 import type { MapModel } from '../model/types'
@@ -31,5 +32,24 @@ describe('useEditor', () => {
       store.undo()
     })
     expect(screen.getByTestId('first-tile')).toHaveTextContent('0')
+  })
+
+  it('unsubscribes from the store on unmount', () => {
+    const store = new EditorStore(createEmptyMap(3, 3))
+    let unsubscribed = false
+    const realSubscribe = store.subscribe.bind(store)
+    const subscribeSpy = vi.spyOn(store, 'subscribe').mockImplementation((listener) => {
+      const unsubscribe = realSubscribe(listener)
+      return () => {
+        unsubscribed = true
+        unsubscribe()
+      }
+    })
+
+    const { unmount } = render(<Probe store={store} />)
+    unmount()
+
+    expect(subscribeSpy).toHaveBeenCalledTimes(1)
+    expect(unsubscribed).toBe(true)
   })
 })

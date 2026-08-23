@@ -36,6 +36,10 @@ export class EditorStore {
 
   dispatch = (command: Command): void => {
     const next = applyCommand(this.current, command)
+    // no-op команда не создаёт запись истории и не уведомляет подписчиков
+    if (next === this.current) {
+      return
+    }
     this.past.push(this.current)
     if (this.past.length > HISTORY_LIMIT) {
       this.past.shift()

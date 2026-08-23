@@ -74,13 +74,24 @@ describe('applyCommand', () => {
     expect(next.tiles[1 * 3 + 1]).toBe(WATER)
   })
 
-  it('empty batch returns a new model with identical tiles', () => {
+  it('empty batch is a no-op and returns the same model', () => {
     const source = makeMap()
     const next = applyCommand(source, { kind: 'setTiles', updates: [] })
 
-    expect(next).not.toBe(source)
-    expect(next.tiles).not.toBe(source.tiles)
-    expect([...next.tiles]).toEqual([...source.tiles])
+    expect(next).toBe(source)
+  })
+
+  it('writing identical values is a no-op and returns the same model', () => {
+    const source = applyCommand(makeMap(), { kind: 'setTile', x: 0, y: 0, tile: FLOOR })
+    const next = applyCommand(source, {
+      kind: 'setTiles',
+      updates: [
+        { x: 0, y: 0, tile: FLOOR },
+        { x: 1, y: 1, tile: 0 },
+      ],
+    })
+
+    expect(next).toBe(source)
   })
 
   it.each([

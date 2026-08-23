@@ -26,7 +26,9 @@ function assertValidUpdate(update: TileUpdate, model: MapModel): void {
 
 export function applyCommand(model: MapModel, command: Command): MapModel {
   const updates =
-    command.kind === 'setTile' ? [{ x: command.x, y: command.y, tile: command.tile }] : command.updates
+    command.kind === 'setTile'
+      ? [{ x: command.x, y: command.y, tile: command.tile }]
+      : command.updates
 
   for (const update of updates) {
     assertValidUpdate(update, model)

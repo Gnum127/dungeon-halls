@@ -18,5 +18,6 @@ export function createEmptyMap(width: number, height: number): MapModel {
     width,
     height,
     tiles: new Uint8Array(width * height).fill(EMPTY_TILE),
+    objects: [],
   }
 }

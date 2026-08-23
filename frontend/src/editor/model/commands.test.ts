@@ -22,6 +22,23 @@ describe('applyCommand', () => {
     expect(nonEmpty).toBe(1)
   })
 
+  it('accepts boundary coordinates and tile values', () => {
+    const WALL = TILE_TYPES.length - 1
+    const next = applyCommand(makeMap(), { kind: 'setTile', x: 2, y: 2, tile: WALL })
+
+    expect(next.tiles[2 * 3 + 2]).toBe(WALL)
+  })
+
+  it('preserves version, dimensions and objects of the source model', () => {
+    const source = makeMap()
+    const next = applyCommand(source, { kind: 'setTile', x: 0, y: 0, tile: FLOOR })
+
+    expect(next.version).toBe(source.version)
+    expect(next.width).toBe(source.width)
+    expect(next.height).toBe(source.height)
+    expect(next.objects).toBe(source.objects)
+  })
+
   it('does not mutate the source model', () => {
     const source = makeMap()
     applyCommand(source, { kind: 'setTile', x: 0, y: 0, tile: FLOOR })

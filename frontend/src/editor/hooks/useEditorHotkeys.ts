@@ -10,7 +10,9 @@ export interface HotkeysOptions {
 const EDITABLE_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT'])
 
 function isEditableTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && EDITABLE_TAGS.has(target.tagName)
+  return (
+    target instanceof HTMLElement && (EDITABLE_TAGS.has(target.tagName) || target.isContentEditable)
+  )
 }
 
 /**
@@ -27,7 +29,9 @@ export function useEditorHotkeys(options: HotkeysOptions): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return
-      const ctrl = event.ctrlKey || event.metaKey
+      // AltGr на европейских раскладках выглядит как Ctrl+Alt — не считаем
+      // такие нажатия Ctrl-комбинациями.
+      const ctrl = (event.ctrlKey || event.metaKey) && !event.altKey
       const handlers = latestRef.current
 
       if (ctrl && event.code === 'KeyZ') {
@@ -41,7 +45,7 @@ export function useEditorHotkeys(options: HotkeysOptions): void {
         handlers.onRedo()
         return
       }
-      if (!ctrl && !event.altKey && !event.metaKey) {
+      if (!ctrl && !event.altKey && !event.metaKey && !event.shiftKey) {
         if (event.code === 'KeyB') {
           event.preventDefault()
           handlers.onSelectBrush()

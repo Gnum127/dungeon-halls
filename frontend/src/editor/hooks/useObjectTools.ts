@@ -31,6 +31,14 @@ interface DragState {
 
 const LEFT_BUTTON = 0
 
+const EDITABLE_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT'])
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement && (EDITABLE_TAGS.has(target.tagName) || target.isContentEditable)
+  )
+}
+
 /**
  * Инструменты объектов: размещение кликом, выбор и перемещение перетаскиванием
  * (одно перетаскивание = одна команда), удаление выделенного по Delete.
@@ -131,6 +139,8 @@ export function useObjectTools(options: ObjectToolsOptions): {
     if (tool.type !== 'select' || selectedId === null) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Delete' && event.key !== 'Backspace') return
+      // Не перехватываем клавиши у полей ввода (единый guard с хоткеями).
+      if (isEditableTarget(event.target)) return
       event.preventDefault()
       store.dispatch({ kind: 'removeObject', id: selectedId })
       onSelect(null)

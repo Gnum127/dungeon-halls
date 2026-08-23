@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useEditor } from '../hooks/useEditor'
 import { useCanvasSize } from '../hooks/useCanvasSize'
 import { useDevicePixelRatio } from '../hooks/useDevicePixelRatio'
@@ -7,10 +6,9 @@ import { useMiddleButtonPan } from '../hooks/useMiddleButtonPan'
 import { useWheelZoom } from '../hooks/useWheelZoom'
 import { useTerrainBrush } from '../hooks/useTerrainBrush'
 import { useObjectTools } from '../hooks/useObjectTools'
-import { useCellFromEvent } from '../hooks/useCellFromEvent'
+import { useHoverCell } from '../hooks/useHoverCell'
 import type { EditorStore } from '../store/EditorStore'
 import type { Command } from '../model/commands'
-import { isInsideMap } from '../tools/brush'
 import { renderMap } from '../render/renderMap'
 import { drawStrokePreview } from '../render/strokePreview'
 import { drawCellHighlight } from '../render/cellHighlight'
@@ -54,42 +52,6 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
     viewportRef.current = viewport
   }, [viewport])
 
-  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
-
-  const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null)
-  const hoverClientRef = useRef<{ clientX: number; clientY: number } | null>(null)
-
-  const applyHover = useCallback(() => {
-    const point = hoverClientRef.current
-    if (!point) return
-    const cell = cellFromEvent(point)
-    if (!isInsideMap(model, cell.x, cell.y)) {
-      setHoverCell(null)
-      return
-    }
-    setHoverCell((previous) =>
-      previous && previous.x === cell.x && previous.y === cell.y ? previous : cell,
-    )
-  }, [cellFromEvent, model])
-
-  const trackHover = useCallback(
-    (event: ReactPointerEvent<HTMLCanvasElement>) => {
-      hoverClientRef.current = { clientX: event.clientX, clientY: event.clientY }
-      applyHover()
-    },
-    [applyHover],
-  )
-
-  const clearHover = useCallback(() => {
-    hoverClientRef.current = null
-    setHoverCell(null)
-  }, [])
-
-  // Пан/зум под неподвижным курсором меняют клетку — пересчитываем.
-  useEffect(() => {
-    applyHover()
-  }, [viewport, model, applyHover])
-
   const handleZoom = useCallback((screenX: number, screenY: number, factor: number) => {
     setPanZoom((current) => zoomAt(current, screenX, screenY, current.cellSize * factor))
   }, [])
@@ -132,6 +94,13 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
     onSelect: handleSelect,
   })
 
+  const { hoverCell, handlers: hoverHandlers } = useHoverCell({
+    canvasRef,
+    viewportRef,
+    viewport,
+    model,
+  })
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || viewport.width < 1 || viewport.height < 1) return
@@ -153,12 +122,8 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
   }, [model, viewport, dpr, pendingCells, brushTile, hoverCell])
 
   const pointerHandlers = useMemo(
-    () =>
-      mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, {
-        onPointerMove: trackHover,
-        onPointerLeave: clearHover,
-      }),
-    [panHandlers, brushHandlers, objectHandlers, trackHover, clearHover],
+    () => mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, hoverHandlers),
+    [panHandlers, brushHandlers, objectHandlers, hoverHandlers],
   )
 
   return (

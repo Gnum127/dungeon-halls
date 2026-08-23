@@ -31,7 +31,12 @@ function Probe({ store, tool, selectedId, onSelect }: ProbeProps) {
     selectedId,
     onSelect,
   })
-  return <canvas ref={canvasRef} data-testid="canvas" {...handlers} />
+  return (
+    <div>
+      <canvas ref={canvasRef} data-testid="canvas" {...handlers} />
+      <input data-testid="input" />
+    </div>
+  )
 }
 
 const TERRAIN_TOOL: EditorTool = { type: 'terrain', tile: 1 }
@@ -251,6 +256,18 @@ describe('useObjectTools', () => {
     render(<Probe store={store} tool={TERRAIN_TOOL} selectedId={1} onSelect={vi.fn()} />)
 
     expect(() => fireEvent.keyDown(window, { key: 'Delete' })).not.toThrow()
+    expect(store.getModel().objects).toHaveLength(1)
+  })
+
+  it('Delete from an editable target does not remove the selected object', () => {
+    const store = new EditorStore(createEmptyMap(8, 8))
+    store.dispatch({ kind: 'addObject', x: 1, y: 1, kindId: 'chair' })
+    const { getByTestId } = render(
+      <Probe store={store} tool={SELECT_TOOL} selectedId={1} onSelect={vi.fn()} />,
+    )
+    // Событие от input: цель — редактируемый элемент, хоткей не действует.
+    fireEvent.keyDown(getByTestId('input'), { key: 'Delete' })
+
     expect(store.getModel().objects).toHaveLength(1)
   })
 

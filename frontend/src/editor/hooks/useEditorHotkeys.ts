@@ -1,18 +1,11 @@
 import { useEffect, useRef } from 'react'
+import { isEditableTarget } from '../dom/isEditableTarget'
 
 export interface HotkeysOptions {
   onUndo: () => void
   onRedo: () => void
   onSelectBrush: () => void
   onSelectEraser: () => void
-}
-
-const EDITABLE_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT'])
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement && (EDITABLE_TAGS.has(target.tagName) || target.isContentEditable)
-  )
 }
 
 /**

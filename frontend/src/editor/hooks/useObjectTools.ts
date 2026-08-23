@@ -7,6 +7,7 @@ import type { MapModel } from '../model/types'
 import { isInsideMap } from '../tools/brush'
 import type { EditorTool } from '../tools/editorTool'
 import { isCellFree, topmostObjectAt } from '../tools/objects'
+import { isEditableTarget } from '../dom/isEditableTarget'
 import type { Viewport } from '../render/viewport'
 import { useCellFromEvent } from './useCellFromEvent'
 
@@ -28,16 +29,7 @@ interface DragState {
   lastX: number
   lastY: number
 }
-
 const LEFT_BUTTON = 0
-
-const EDITABLE_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT'])
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement && (EDITABLE_TAGS.has(target.tagName) || target.isContentEditable)
-  )
-}
 
 /**
  * Инструменты объектов: размещение кликом, выбор и перемещение перетаскиванием

@@ -16,7 +16,7 @@
 `docs/quality-checklist.md` + вердикт PASS от сабагента `@reviewer`.
 Порядок пунктов соблюдать: модель → стор → рендер → ввод.
 
-- [ ] 1.1 Каркас фичи `editor/`: структура папок, публичный `index.ts`,
+- [x] 1.1 Каркас фичи `editor/`: структура папок, публичный `index.ts`,
       страница редактора в `app/` вместо заглушки
 - [ ] 1.2 Модель `MapModel { version, width, height, tiles, objects }`,
       фабрика createEmptyMap + unit-тесты

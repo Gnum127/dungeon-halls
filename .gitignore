@@ -1,0 +1,27 @@
+# Зависимости и сборка
+node_modules/
+dist/
+
+# Python (backend, когда появится)
+venv/
+__pycache__/
+*.pyc
+
+# Данные приложений
+*.local
+backend/data/
+
+# Секреты
+.env
+.env.*
+!.env.example
+
+# IDE / ОС
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Логи
+*.log
+npm-debug.log*

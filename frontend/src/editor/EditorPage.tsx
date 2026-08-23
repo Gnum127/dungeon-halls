@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CanvasView } from './components/CanvasView'
 import { MapFileActions } from './components/MapFileActions'
@@ -11,6 +11,7 @@ import type { TileValue } from './model/types'
 import type { ObjectKindId } from './model/objects'
 import { EditorStore } from './store/EditorStore'
 import type { EditorTool } from './tools/editorTool'
+import { useEditorHotkeys } from './hooks/useEditorHotkeys'
 import styles from './EditorPage.module.css'
 
 const DEFAULT_MAP_WIDTH = 40
@@ -33,8 +34,12 @@ export function EditorPage() {
   const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null)
   const [fileStatus, setFileStatus] = useState<FileActionStatus | null>(null)
 
+  // Последний непустой тайл кисти — куда возвращает клавиша B.
+  const lastBrushTileRef = useRef<TileValue>(defaultBrushTile())
+
   function selectTerrain(tile: TileValue) {
     setSelectedObjectId(null)
+    if (tile !== EMPTY_TILE) lastBrushTileRef.current = tile
     setTool({ type: 'terrain', tile })
   }
 
@@ -47,6 +52,13 @@ export function EditorPage() {
     setSelectedObjectId(null)
     setTool({ type: 'select' })
   }
+
+  useEditorHotkeys({
+    onUndo: () => store.undo(),
+    onRedo: () => store.redo(),
+    onSelectBrush: () => selectTerrain(lastBrushTileRef.current),
+    onSelectEraser: () => selectTerrain(EMPTY_TILE),
+  })
 
   return (
     <div className={styles.root}>

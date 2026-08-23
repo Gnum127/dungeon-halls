@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react'
+import { isEditableTarget } from '../dom/isEditableTarget'
 import type { Command } from '../model/commands'
 import { findObjectById } from '../model/objects'
 import type { MapModel } from '../model/types'
@@ -131,6 +132,8 @@ export function useObjectTools(options: ObjectToolsOptions): {
     if (tool.type !== 'select' || selectedId === null) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Delete' && event.key !== 'Backspace') return
+      // Не перехватываем клавиши у полей ввода (единый guard с хоткеями).
+      if (isEditableTarget(event.target)) return
       event.preventDefault()
       store.dispatch({ kind: 'removeObject', id: selectedId })
       onSelect(null)

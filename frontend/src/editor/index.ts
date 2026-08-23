@@ -8,3 +8,6 @@ export type { MapModel, MapObject, TileGrid, TileValue } from './model/types'
 
 export { EditorStore, HISTORY_LIMIT } from './store/EditorStore'
 export { useEditor } from './hooks/useEditor'
+
+export { commitStroke, isInsideMap } from './tools/brush'
+export type { Cell } from './tools/brush'

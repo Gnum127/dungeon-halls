@@ -27,4 +27,12 @@ describe('drawCellHighlight', () => {
     const strokeRect = calls.find((c) => c.op === 'strokeRect')
     expect(strokeRect?.args).toEqual([-63, -31, 30, 30])
   })
+
+  it('keeps the inset at non-base zoom levels', () => {
+    const { ctx, calls } = makeFakeCtx()
+    drawCellHighlight(ctx, { x: 2, y: 1 }, { ...baseViewport(), cellSize: 16 })
+
+    const strokeRect = calls.find((c) => c.op === 'strokeRect')
+    expect(strokeRect?.args).toEqual([33, 17, 14, 14])
+  })
 })

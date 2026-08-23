@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { applyCommand } from '../model/commands'
 import { createEmptyMap } from '../model/createEmptyMap'
+import { OBJECT_COLORS } from '../model/objects'
 import { TILE_TYPES } from '../model/types'
 import type { MapModel } from '../model/types'
-import { CANVAS_BACKGROUND_COLOR, GRID_LINE_COLOR, TILE_COLORS } from './colors'
+import {
+  CANVAS_BACKGROUND_COLOR,
+  FALLBACK_OBJECT_COLOR,
+  GRID_LINE_COLOR,
+  TILE_COLORS,
+} from './colors'
 import { renderMap } from './renderMap'
 import { makeFakeCtx } from './testFakeCtx'
 import type { Viewport } from './viewport'
@@ -73,5 +79,73 @@ describe('renderMap', () => {
     // Карта 2x2 по 32px: вертикали на x=0,32,64 (+0.5) и ничего дальше 64.
     const verticalXs = calls.filter((c) => c.op === 'moveTo').map((c) => c.args[0])
     expect(verticalXs.every((x) => (x as number) <= 64.5)).toBe(true)
+  })
+
+  it('draws each map object as a circle at its cell center', () => {
+    const { ctx, calls } = makeFakeCtx()
+    const withDoor = applyCommand(createEmptyMap(3, 3), {
+      kind: 'addObject',
+      x: 1,
+      y: 1,
+      kindId: 'door',
+    })
+
+    renderMap(ctx, withDoor, baseViewport())
+
+    const arcs = calls.filter((c) => c.op === 'arc')
+    expect(arcs).toHaveLength(1)
+    expect(arcs[0]?.args[0]).toBe(48)
+    expect(arcs[0]?.args[1]).toBe(48)
+
+    const arcIndex = calls.indexOf(arcs[0]!)
+    const fillAfterArc = calls.slice(arcIndex).find((c) => c.op === 'fill')
+    expect(fillAfterArc?.fillStyle).toBe(OBJECT_COLORS.door)
+  })
+
+  it('draws objects in array order so the later one lands on top', () => {
+    const { ctx, calls } = makeFakeCtx()
+    let model = applyCommand(createEmptyMap(3, 3), {
+      kind: 'addObject',
+      x: 0,
+      y: 0,
+      kindId: 'door',
+    })
+    model = applyCommand(model, { kind: 'addObject', x: 2, y: 2, kindId: 'chest' })
+
+    renderMap(ctx, model, baseViewport())
+
+    const fills = calls.filter((c) => c.op === 'fill')
+    expect(fills).toHaveLength(2)
+    expect(fills[0]?.fillStyle).toBe(OBJECT_COLORS.door)
+    expect(fills[1]?.fillStyle).toBe(OBJECT_COLORS.chest)
+  })
+
+  it('culls objects outside the viewport', () => {
+    const { ctx, calls } = makeFakeCtx()
+    const model = applyCommand(createEmptyMap(20, 20), {
+      kind: 'addObject',
+      x: 15,
+      y: 15,
+      kindId: 'door',
+    })
+
+    renderMap(ctx, model, baseViewport()) // видно 3×3 клетки
+
+    expect(calls.filter((c) => c.op === 'arc')).toHaveLength(0)
+  })
+
+  it('falls back to a neutral color for an unknown object kind', () => {
+    const { ctx, calls } = makeFakeCtx()
+    const model: MapModel = {
+      ...createEmptyMap(3, 3),
+      objects: [{ id: 1, kindId: 'dragon', x: 1, y: 1 }],
+    }
+
+    renderMap(ctx, model, baseViewport())
+
+    const arcIndex = calls.findIndex((c) => c.op === 'arc')
+    expect(arcIndex).toBeGreaterThanOrEqual(0)
+    const fillAfterArc = calls.slice(arcIndex).find((c) => c.op === 'fill')
+    expect(fillAfterArc?.fillStyle).toBe(FALLBACK_OBJECT_COLOR)
   })
 })

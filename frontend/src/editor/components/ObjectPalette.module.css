@@ -1,0 +1,60 @@
+.palette {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.toolButton {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  min-height: 2rem;
+  text-align: left;
+}
+
+.kindList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  min-height: 2rem;
+}
+
+.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.toolButton:focus-visible,
+.swatch:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.dot {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 40%);
+}
+
+.name {
+  font-size: 0.8rem;
+  user-select: none;
+}

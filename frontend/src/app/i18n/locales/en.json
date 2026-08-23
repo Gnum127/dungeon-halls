@@ -19,6 +19,16 @@
       "stone": "Stone",
       "sand": "Sand",
       "wall": "Wall"
+    },
+    "objects": {
+      "label": "Objects",
+      "select": "Select (Del to remove)",
+      "door": "Door",
+      "stairs": "Stairs",
+      "table": "Table",
+      "chair": "Chair",
+      "chest": "Chest",
+      "torch": "Torch"
     }
   }
 }

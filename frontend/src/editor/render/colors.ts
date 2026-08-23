@@ -13,3 +13,5 @@ export const TILE_COLORS: Record<TileTypeName, string> = {
 
 export const GRID_LINE_COLOR = '#00000033'
 export const CANVAS_BACKGROUND_COLOR = '#101018'
+export const FALLBACK_OBJECT_COLOR = '#888888'
+export const OBJECT_OUTLINE_COLOR = '#00000066'

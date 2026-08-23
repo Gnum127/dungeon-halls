@@ -5,22 +5,25 @@ import { useDevicePixelRatio } from '../hooks/useDevicePixelRatio'
 import { useMiddleButtonPan } from '../hooks/useMiddleButtonPan'
 import { useWheelZoom } from '../hooks/useWheelZoom'
 import { useTerrainBrush } from '../hooks/useTerrainBrush'
+import { useObjectTools } from '../hooks/useObjectTools'
 import type { EditorStore } from '../store/EditorStore'
 import type { Command } from '../model/commands'
-import type { TileValue } from '../model/types'
-import { renderMap } from '../render/renderMap'
 import { drawStrokePreview } from '../render/strokePreview'
+import { renderMap } from '../render/renderMap'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
+import type { EditorTool } from '../tools/editorTool'
 import { mergePointerHandlers } from './pointerHandlers'
 import styles from './CanvasView.module.css'
 
 interface CanvasViewProps {
   store: EditorStore
-  brushTile: TileValue
+  tool: EditorTool
+  selectedObjectId: number | null
+  onSelectObject: (id: number | null) => void
 }
 
-export function CanvasView({ store, brushTile }: CanvasViewProps) {
+export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: CanvasViewProps) {
   const model = useEditor(store)
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -68,13 +71,25 @@ export function CanvasView({ store, brushTile }: CanvasViewProps) {
     },
     [store],
   )
+  const brushTile = tool.type === 'terrain' ? tool.tile : -1
   const { pendingCells, handlers: brushHandlers } = useTerrainBrush({
     canvasRef,
-    active: true,
+    active: tool.type === 'terrain',
     model,
     tile: brushTile,
     viewportRef,
     onCommit: handleBrushCommit,
+  })
+
+  const handleSelect = useCallback((id: number | null) => onSelectObject(id), [onSelectObject])
+  const { handlers: objectHandlers } = useObjectTools({
+    canvasRef,
+    viewportRef,
+    store,
+    model,
+    tool,
+    selectedId: selectedObjectId,
+    onSelect: handleSelect,
   })
 
   useEffect(() => {
@@ -102,7 +117,8 @@ export function CanvasView({ store, brushTile }: CanvasViewProps) {
         ref={canvasRef}
         className={styles.canvas}
         data-testid="editor-canvas"
-        {...mergePointerHandlers(panHandlers, brushHandlers)}
+        onContextMenu={(event) => event.preventDefault()}
+        {...mergePointerHandlers(panHandlers, brushHandlers, objectHandlers)}
       />
     </div>
   )

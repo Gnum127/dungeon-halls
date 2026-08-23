@@ -15,13 +15,18 @@ function makeModel(objects: Array<{ id: number; x: number; y: number; kindId: st
 }
 
 describe('topmostObjectAt', () => {
-  it('returns the last object placed in the cell', () => {
+  it('returns the last object in the array when several share a cell', () => {
     const model = makeModel([
       { id: 1, x: 1, y: 1, kindId: DOOR_KIND },
-      { id: 2, x: 2, y: 2, kindId: CHEST_KIND },
+      { id: 2, x: 1, y: 1, kindId: CHEST_KIND },
     ])
 
-    expect(topmostObjectAt(model, 1, 1)?.id).toBe(1)
+    expect(topmostObjectAt(model, 1, 1)?.id).toBe(2)
+  })
+
+  it('finds objects in their own cells', () => {
+    const model = makeModel([{ id: 2, x: 2, y: 2, kindId: CHEST_KIND }])
+
     expect(topmostObjectAt(model, 2, 2)?.id).toBe(2)
   })
 

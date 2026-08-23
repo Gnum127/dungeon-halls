@@ -1,12 +1,12 @@
-import { useCallback, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react'
 import type { Command } from '../model/commands'
 import type { MapModel, TileValue } from '../model/types'
 import type { Viewport } from '../render/viewport'
-import { screenToCell } from '../render/viewport'
 import { commitStroke, isInsideMap } from '../tools/brush'
 import type { Cell } from '../tools/brush'
+import { useCellFromEvent } from './useCellFromEvent'
 
 interface BrushOptions {
   canvasRef: RefObject<HTMLCanvasElement | null>
@@ -40,16 +40,7 @@ export function useTerrainBrush(options: BrushOptions): {
   const pointerIdRef = useRef<number | null>(null)
   const [pendingCells, setPendingCells] = useState<readonly Cell[]>([])
 
-  const cellFromEvent = useCallback(
-    (event: ReactPointerEvent<HTMLCanvasElement>): Cell => {
-      const canvas = canvasRef.current
-      const viewport = viewportRef.current
-      if (!canvas || !viewport) return { x: Number.NaN, y: Number.NaN }
-      const rect = canvas.getBoundingClientRect()
-      return screenToCell(viewport, event.clientX - rect.left, event.clientY - rect.top)
-    },
-    [canvasRef, viewportRef],
-  )
+  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (!active || event.button !== LEFT_BUTTON) return

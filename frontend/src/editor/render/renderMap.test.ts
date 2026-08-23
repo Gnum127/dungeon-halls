@@ -4,7 +4,12 @@ import { createEmptyMap } from '../model/createEmptyMap'
 import { OBJECT_COLORS } from '../model/objects'
 import { TILE_TYPES } from '../model/types'
 import type { MapModel } from '../model/types'
-import { CANVAS_BACKGROUND_COLOR, GRID_LINE_COLOR, TILE_COLORS } from './colors'
+import {
+  CANVAS_BACKGROUND_COLOR,
+  FALLBACK_OBJECT_COLOR,
+  GRID_LINE_COLOR,
+  TILE_COLORS,
+} from './colors'
 import { renderMap } from './renderMap'
 import { makeFakeCtx } from './testFakeCtx'
 import type { Viewport } from './viewport'
@@ -113,5 +118,34 @@ describe('renderMap', () => {
     expect(fills).toHaveLength(2)
     expect(fills[0]?.fillStyle).toBe(OBJECT_COLORS.door)
     expect(fills[1]?.fillStyle).toBe(OBJECT_COLORS.chest)
+  })
+
+  it('culls objects outside the viewport', () => {
+    const { ctx, calls } = makeFakeCtx()
+    const model = applyCommand(createEmptyMap(20, 20), {
+      kind: 'addObject',
+      x: 15,
+      y: 15,
+      kindId: 'door',
+    })
+
+    renderMap(ctx, model, baseViewport()) // видно 3×3 клетки
+
+    expect(calls.filter((c) => c.op === 'arc')).toHaveLength(0)
+  })
+
+  it('falls back to a neutral color for an unknown object kind', () => {
+    const { ctx, calls } = makeFakeCtx()
+    const model: MapModel = {
+      ...createEmptyMap(3, 3),
+      objects: [{ id: 1, kindId: 'dragon', x: 1, y: 1 }],
+    }
+
+    renderMap(ctx, model, baseViewport())
+
+    const arcIndex = calls.findIndex((c) => c.op === 'arc')
+    expect(arcIndex).toBeGreaterThanOrEqual(0)
+    const fillAfterArc = calls.slice(arcIndex).find((c) => c.op === 'fill')
+    expect(fillAfterArc?.fillStyle).toBe(FALLBACK_OBJECT_COLOR)
   })
 })

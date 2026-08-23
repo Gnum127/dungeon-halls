@@ -1,3 +1,4 @@
+import type { ObjectKindId } from '../model/objects'
 import type { TileValue } from '../model/types'
 
 /**
@@ -7,5 +8,5 @@ import type { TileValue } from '../model/types'
  */
 export type EditorTool =
   | { readonly type: 'terrain'; readonly tile: TileValue }
-  | { readonly type: 'object'; readonly kindId: string }
+  | { readonly type: 'object'; readonly kindId: ObjectKindId }
   | { readonly type: 'select' }

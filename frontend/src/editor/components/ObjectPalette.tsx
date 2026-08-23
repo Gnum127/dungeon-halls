@@ -5,7 +5,7 @@ import styles from './ObjectPalette.module.css'
 
 interface ObjectPaletteProps {
   /** kindId активного инструмента-объекта, иначе null. */
-  activeKindId: string | null
+  activeKindId: ObjectKindId | null
   selectActive: boolean
   onSelectKind: (kindId: ObjectKindId) => void
   onSelectSelectTool: () => void

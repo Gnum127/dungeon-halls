@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react'
 import type { Command } from '../model/commands'
+import { findObjectById } from '../model/objects'
 import type { MapModel } from '../model/types'
 import { isInsideMap } from '../tools/brush'
 import type { EditorTool } from '../tools/editorTool'
 import { isCellFree, topmostObjectAt } from '../tools/objects'
 import type { Viewport } from '../render/viewport'
-import { screenToCell } from '../render/viewport'
+import { useCellFromEvent } from './useCellFromEvent'
 
 interface ObjectToolsOptions {
   canvasRef: RefObject<HTMLCanvasElement | null>
@@ -45,16 +46,7 @@ export function useObjectTools(options: ObjectToolsOptions): {
   const { canvasRef, viewportRef, store, model, tool, selectedId, onSelect } = options
   const dragRef = useRef<DragState | null>(null)
 
-  const cellFromEvent = useCallback(
-    (event: ReactPointerEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current
-      const viewport = viewportRef.current
-      if (!canvas || !viewport) return { x: Number.NaN, y: Number.NaN }
-      const rect = canvas.getBoundingClientRect()
-      return screenToCell(viewport, event.clientX - rect.left, event.clientY - rect.top)
-    },
-    [canvasRef, viewportRef],
-  )
+  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
 
   function capturePointer(event: ReactPointerEvent<HTMLCanvasElement>) {
     try {
@@ -128,6 +120,10 @@ export function useObjectTools(options: ObjectToolsOptions): {
     dragRef.current = null
     if (!drag) return
     if (drag.lastX === drag.fromX && drag.lastY === drag.fromY) return
+    // Объект могли удалить (Delete во время drag) или клетку занять —
+    // невалидную команду не отправляем, чтобы не крэшить UI-поток.
+    if (!findObjectById(model.objects, drag.objectId)) return
+    if (!isCellFree(model, drag.lastX, drag.lastY)) return
     store.dispatch({ kind: 'moveObject', id: drag.objectId, x: drag.lastX, y: drag.lastY })
   }
 

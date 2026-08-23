@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { useRef, useState } from 'react'
 import { createEmptyMap } from '../model/createEmptyMap'
 import { EditorStore } from '../store/EditorStore'
-import type { Command } from '../model/commands'
 import type { Viewport } from '../render/viewport'
 import type { EditorTool } from '../tools/editorTool'
 import { useObjectTools } from './useObjectTools'
@@ -81,8 +80,8 @@ describe('useObjectTools', () => {
   })
 
   it('selects on click and drags with a single move command', () => {
-    let store = new EditorStore(createEmptyMap(8, 8))
-    store = applyCommandStore(store, { kind: 'addObject', x: 1, y: 1, kindId: 'chair' })
+    const store = new EditorStore(createEmptyMap(8, 8))
+    store.dispatch({ kind: 'addObject', x: 1, y: 1, kindId: 'chair' })
     const onSelect = vi.fn()
     const { getByTestId } = render(
       <Probe store={store} tool={SELECT_TOOL} selectedId={null} onSelect={onSelect} />,
@@ -93,18 +92,87 @@ describe('useObjectTools', () => {
     leftPointer(canvas, 'pointerdown', { clientX: 48, clientY: 48 })
     expect(onSelect).toHaveBeenCalledWith(1)
 
-    // Перетаскивание в клетку (3,2).
+    // Несколько промежуточных клеток внутри одного жеста…
+    leftPointer(canvas, 'pointermove', { clientX: 80, clientY: 48 })
     leftPointer(canvas, 'pointermove', { clientX: 112, clientY: 80 })
-    leftPointer(canvas, 'pointerup', { buttons: 0, clientX: 112, clientY: 80 })
+    leftPointer(canvas, 'pointermove', { clientX: 144, clientY: 112 })
+    // …и ровно одна команда на отпускание.
+    leftPointer(canvas, 'pointerup', { buttons: 0, clientX: 144, clientY: 112 })
 
     const moved = store.getModel().objects[0]!
-    expect(moved).toMatchObject({ id: 1, x: 3, y: 2 })
-    expect(onSelect.mock.calls.filter(([id]) => id === null)).toHaveLength(0)
+    expect(moved).toMatchObject({ id: 1, x: 4, y: 3 })
+
+    // «Один drag = одна команда в истории»: один undo возвращает исходную клетку,
+    // второй undo — момент до добавления объекта.
+    expect(store.undo()).toBe(true)
+    expect(store.getModel().objects[0]).toMatchObject({ x: 1, y: 1 })
+    store.undo()
+    expect(store.getModel().objects).toHaveLength(0)
+    expect(store.canUndo()).toBe(false)
+  })
+
+  it('dragging back to the origin cell writes no history entry', () => {
+    const store = new EditorStore(createEmptyMap(8, 8))
+    store.dispatch({ kind: 'addObject', x: 1, y: 1, kindId: 'chair' })
+    const modelBeforeDrag = store.getModel()
+
+    const { getByTestId } = render(
+      <Probe store={store} tool={SELECT_TOOL} selectedId={null} onSelect={vi.fn()} />,
+    )
+    const canvas = getByTestId('canvas')
+
+    leftPointer(canvas, 'pointerdown', { clientX: 48, clientY: 48 })
+    leftPointer(canvas, 'pointermove', { clientX: 112, clientY: 80 })
+    leftPointer(canvas, 'pointermove', { clientX: 48, clientY: 48 })
+    leftPointer(canvas, 'pointerup', { buttons: 0, clientX: 48, clientY: 48 })
+
+    expect(store.getModel()).toBe(modelBeforeDrag)
+  })
+
+  it('pointer cancel aborts the drag without any command', () => {
+    const store = new EditorStore(createEmptyMap(8, 8))
+    store.dispatch({ kind: 'addObject', x: 1, y: 1, kindId: 'chair' })
+    const modelBeforeDrag = store.getModel()
+
+    const { getByTestId } = render(
+      <Probe store={store} tool={SELECT_TOOL} selectedId={null} onSelect={vi.fn()} />,
+    )
+    const canvas = getByTestId('canvas')
+
+    leftPointer(canvas, 'pointerdown', { clientX: 48, clientY: 48 })
+    leftPointer(canvas, 'pointermove', { clientX: 112, clientY: 80 })
+    fireEvent(
+      canvas,
+      Object.assign(new Event('pointercancel', { bubbles: true }), {
+        pointerId: 1,
+        buttons: 0,
+      }),
+    )
+
+    expect(store.getModel()).toBe(modelBeforeDrag)
+  })
+
+  it('drag onto an occupied target cell is ignored at hook level', () => {
+    const store = new EditorStore(createEmptyMap(8, 8))
+    store.dispatch({ kind: 'addObject', x: 1, y: 1, kindId: 'chair' })
+    store.dispatch({ kind: 'addObject', x: 3, y: 1, kindId: 'chest' })
+    const modelBeforeDrag = store.getModel()
+
+    const { getByTestId } = render(
+      <Probe store={store} tool={SELECT_TOOL} selectedId={null} onSelect={vi.fn()} />,
+    )
+    const canvas = getByTestId('canvas')
+
+    leftPointer(canvas, 'pointerdown', { clientX: 48, clientY: 48 })
+    leftPointer(canvas, 'pointermove', { clientX: 112, clientY: 48 })
+    leftPointer(canvas, 'pointerup', { buttons: 0, clientX: 112, clientY: 48 })
+
+    expect(store.getModel()).toBe(modelBeforeDrag)
   })
 
   it('clicking an empty cell deselects', () => {
-    let store = new EditorStore(createEmptyMap(8, 8))
-    store = applyCommandStore(store, { kind: 'addObject', x: 1, y: 1, kindId: 'chair' })
+    const store = new EditorStore(createEmptyMap(8, 8))
+    store.dispatch({ kind: 'addObject', x: 1, y: 1, kindId: 'chair' })
     const onSelect = vi.fn()
     const { getByTestId } = render(
       <Probe store={store} tool={SELECT_TOOL} selectedId={1} onSelect={onSelect} />,
@@ -114,10 +182,30 @@ describe('useObjectTools', () => {
     expect(onSelect).toHaveBeenCalledWith(null)
   })
 
+  it('right button never starts object interactions', () => {
+    const store = new EditorStore(createEmptyMap(8, 8))
+    store.dispatch({ kind: 'addObject', x: 1, y: 1, kindId: 'chair' })
+    const onSelect = vi.fn()
+    const { getByTestId } = render(
+      <Probe store={store} tool={SELECT_TOOL} selectedId={null} onSelect={onSelect} />,
+    )
+    const canvas = getByTestId('canvas')
+
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      button: 2,
+      buttons: 2,
+      clientX: 48,
+      clientY: 48,
+    })
+    expect(onSelect).not.toHaveBeenCalled()
+
+    fireEvent(canvas, Object.assign(new Event('contextmenu', { bubbles: true, cancelable: true })))
+  })
+
   it('Delete removes the selected object while the select tool is active', () => {
     const store = new EditorStore(createEmptyMap(8, 8))
     store.dispatch({ kind: 'addObject', x: 1, y: 1, kindId: 'chair' })
-
     function StatefulProbe({ tool }: { tool: EditorTool }) {
       const [selectedId, setSelectedId] = useState<number | null>(null)
       return <Probe store={store} tool={tool} selectedId={selectedId} onSelect={setSelectedId} />
@@ -157,9 +245,4 @@ describe('useObjectTools', () => {
     expect(store.getModel().objects).toHaveLength(0)
     expect(onSelect).not.toHaveBeenCalled()
   })
-
-  function applyCommandStore(target: EditorStore, command: Command): EditorStore {
-    target.dispatch(command)
-    return target
-  }
 })

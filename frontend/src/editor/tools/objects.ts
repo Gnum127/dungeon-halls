@@ -1,3 +1,4 @@
+import { isCellOccupied } from '../model/objects'
 import type { MapModel, MapObject } from '../model/types'
 
 /** Верхний объект в клетке (последний в массиве — рисуется последним). */
@@ -10,5 +11,5 @@ export function topmostObjectAt(model: MapModel, x: number, y: number): MapObjec
 }
 
 export function isCellFree(model: MapModel, x: number, y: number): boolean {
-  return topmostObjectAt(model, x, y) === null
+  return !isCellOccupied(model.objects, x, y)
 }

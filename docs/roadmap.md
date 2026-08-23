@@ -18,9 +18,9 @@
 
 - [x] 1.1 Каркас фичи `editor/`: структура папок, публичный `index.ts`,
       страница редактора в `app/` вместо заглушки
-- [ ] 1.2 Модель `MapModel { version, width, height, tiles, objects }`,
+- [x] 1.2 Модель `MapModel { version, width, height, tiles, objects }`,
       фабрика createEmptyMap + unit-тесты
-- [ ] 1.3 Команды (SetTile и др.) + applyCommand, иммутабельность;
+- [x] 1.3 Команды (SetTile и др.) + applyCommand, иммутабельность;
       тесты включая края поля и повторное применение
 - [ ] 1.4 EditorStore: getModel/subscribe/dispatch, история с HISTORY_LIMIT;
       хук useEditor на useSyncExternalStore; тесты undo/redo, включая
@@ -38,7 +38,8 @@
       размещение, выбор, перемещение (одно перетаскивание = одна команда
       в истории), удаление
 - [ ] 1.9 io.ts: сохранение/загрузка JSON, валидация схемы, миграция по
-      полю version; roundtrip-тесты + тест битого файла
+      полю version; roundtrip-тесты + тест битого файла.
+      Внимание: tiles — Uint8Array, при сериализации конвертировать явно
 - [ ] 1.10 Экспорт PNG с выбором масштаба px/клетку
 - [ ] 1.11 Горячие клавиши: Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z, B кисть, E ластик
 - [ ] 1.12 Полировка MVP: подсветка клетки под курсором, статусбар координат

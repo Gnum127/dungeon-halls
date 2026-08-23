@@ -7,7 +7,9 @@ export function EditorPage() {
   return (
     <div className={styles.root}>
       <div className={styles.workspace}>
-        <p className={styles.emptyState}>{t('editor.canvas.empty')}</p>
+        <p className={styles.emptyState} data-testid="editor-canvas-empty">
+          {t('editor.canvas.empty')}
+        </p>
       </div>
     </div>
   )

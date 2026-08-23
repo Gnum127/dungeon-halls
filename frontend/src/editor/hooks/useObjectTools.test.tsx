@@ -149,6 +149,10 @@ describe('useObjectTools', () => {
       }),
     )
 
+    // Зомби-drag: события после cancel не применяют отменённый перенос.
+    expect(store.getModel()).toBe(modelBeforeDrag)
+    leftPointer(canvas, 'pointermove', { buttons: 0, clientX: 144, clientY: 112 })
+    leftPointer(canvas, 'pointerup', { buttons: 0, clientX: 144, clientY: 112 })
     expect(store.getModel()).toBe(modelBeforeDrag)
   })
 
@@ -199,8 +203,24 @@ describe('useObjectTools', () => {
       clientY: 48,
     })
     expect(onSelect).not.toHaveBeenCalled()
+  })
 
-    fireEvent(canvas, Object.assign(new Event('contextmenu', { bubbles: true, cancelable: true })))
+  it('Backspace removes the selected object too', () => {
+    const store = new EditorStore(createEmptyMap(8, 8))
+    store.dispatch({ kind: 'addObject', x: 1, y: 1, kindId: 'chair' })
+
+    function StatefulProbe({ tool }: { tool: EditorTool }) {
+      const [selectedId, setSelectedId] = useState<number | null>(null)
+      return <Probe store={store} tool={tool} selectedId={selectedId} onSelect={setSelectedId} />
+    }
+
+    const { getByTestId } = render(<StatefulProbe tool={SELECT_TOOL} />)
+    const canvas = getByTestId('canvas')
+    leftPointer(canvas, 'pointerdown', { clientX: 48, clientY: 48 })
+    leftPointer(canvas, 'pointerup', { buttons: 0, clientX: 48, clientY: 48 })
+
+    fireEvent.keyDown(window, { key: 'Backspace' })
+    expect(store.getModel().objects).toHaveLength(0)
   })
 
   it('Delete removes the selected object while the select tool is active', () => {

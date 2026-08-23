@@ -13,6 +13,7 @@ export interface FakeCtx {
   moveTo(...args: unknown[]): void
   lineTo(...args: unknown[]): void
   stroke(): void
+  setTransform(...args: unknown[]): void
 }
 
 /** Фейковый 2D-контекст, записывающий вызовы для ассертов в тестах рендера. */
@@ -51,6 +52,9 @@ export function makeFakeCtx(
     },
     stroke() {
       calls.push({ op: 'stroke', args: [], fillStyle: this.strokeStyle })
+    },
+    setTransform(...args: unknown[]) {
+      calls.push({ op: 'setTransform', args, fillStyle: this.fillStyle })
     },
   }
   return { ctx: ctx as unknown as CanvasRenderingContext2D, calls, raw: ctx }

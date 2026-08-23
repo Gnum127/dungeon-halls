@@ -29,6 +29,16 @@
       "chair": "Chair",
       "chest": "Chest",
       "torch": "Torch"
+    },
+    "files": {
+      "save": "Save",
+      "load": "Load",
+      "exportPng": "Export PNG",
+      "saved": "Map saved",
+      "exported": "PNG downloaded",
+      "loaded": "Map loaded",
+      "invalid": "Failed to open file",
+      "exportFailed": "PNG export failed"
     }
   }
 }

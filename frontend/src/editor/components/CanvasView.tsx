@@ -12,6 +12,7 @@ import { renderMap } from '../render/renderMap'
 import { drawStrokePreview } from '../render/strokePreview'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
+import { mergePointerHandlers } from './pointerHandlers'
 import styles from './CanvasView.module.css'
 
 interface CanvasViewProps {
@@ -101,8 +102,7 @@ export function CanvasView({ store, brushTile }: CanvasViewProps) {
         ref={canvasRef}
         className={styles.canvas}
         data-testid="editor-canvas"
-        {...panHandlers}
-        {...brushHandlers}
+        {...mergePointerHandlers(panHandlers, brushHandlers)}
       />
     </div>
   )

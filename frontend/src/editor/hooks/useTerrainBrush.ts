@@ -53,6 +53,8 @@ export function useTerrainBrush(options: BrushOptions): {
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (!active || event.button !== LEFT_BUTTON) return
+    // Второй указатель во время штриха не перехватывает жест.
+    if (pointerIdRef.current !== null) return
     event.preventDefault()
     try {
       canvasRef.current?.setPointerCapture(event.pointerId)

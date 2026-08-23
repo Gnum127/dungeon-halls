@@ -17,7 +17,7 @@ export interface CaveParams extends BaseGenerationParams {
   readonly type: 'caves'
   /** Доля стен в стартовом шуме [0..1]. */
   readonly fillProbability: number
-  /** Число итераций сглаживания cellular automata. */
+  /** Типичные значения 3–5: меньше — зернистые пещеры, больше — крупные и гладкие. */
   readonly smoothingIterations: number
 }
 

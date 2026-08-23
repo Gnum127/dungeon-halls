@@ -148,5 +148,21 @@ describe('generateDungeon', () => {
     expect(() => generateDungeon(makeParams({ width: 4 }), createRng(1))).toThrow(RangeError)
     expect(() => generateDungeon(makeParams({ height: 301 }), createRng(1))).toThrow(RangeError)
     expect(() => generateDungeon(makeParams({ width: 10.5 }), createRng(1))).toThrow(RangeError)
+    expect(() => generateDungeon(makeParams({ roomAttempts: 10001 }), createRng(1))).toThrow(
+      RangeError,
+    )
+  })
+
+  // Регрессия: на минимальных картах диапазон позиций сжимался до nextInt(0).
+  it.each([
+    [6, 20],
+    [20, 6],
+    [6, 6],
+  ])('works on the minimal dimension %ix%i', (width, height) => {
+    const params = makeParams({ width, height, roomAttempts: 50 })
+    const { tiles } = generateDungeon(params, createRng(21))
+
+    expect(tiles.length).toBe(width * height)
+    expect(floorComponentCoversAll(tiles, width, height)).toBe(true)
   })
 })

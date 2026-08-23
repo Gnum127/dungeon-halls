@@ -65,22 +65,25 @@ describe('MapFileActions', () => {
     fireEvent.click(getByText('Export PNG'))
 
     await waitFor(() => expect(download).toHaveBeenCalledTimes(1))
+    expect(exportPng).toHaveBeenCalledTimes(1)
+    expect(exportPng).toHaveBeenCalledWith(store.getModel())
     const [filename, blob, mime] = download.mock.calls[0] as [string, Blob, string]
     expect(filename).toMatch(/\.png$/)
     expect(blob).toBe(fakeBlob)
     expect(mime).toBe('image/png')
-    expect(onResult).toHaveBeenCalledWith('saved')
+    expect(onResult).toHaveBeenCalledWith('exported')
   })
 
   it('reports exportFailed when PNG encoding rejects', async () => {
     const onResult = vi.fn()
+    const download = vi.fn()
     const exportPng = vi.fn().mockRejectedValue(new Error('no canvas'))
     const { getByText } = render(
       <MapFileActions
         getModel={() => createEmptyMap(2, 2)}
         onLoaded={vi.fn()}
         onResult={onResult}
-        download={vi.fn()}
+        download={download}
         exportPng={exportPng}
       />,
     )
@@ -88,6 +91,8 @@ describe('MapFileActions', () => {
     fireEvent.click(getByText('Export PNG'))
 
     await waitFor(() => expect(onResult).toHaveBeenCalledWith('exportFailed'))
+    // Битый артефакт не скачивается.
+    expect(download).not.toHaveBeenCalled()
   })
 
   it('loads a valid file into the app', async () => {

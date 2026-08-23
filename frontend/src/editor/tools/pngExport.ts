@@ -1,17 +1,27 @@
 import { renderMap } from '../render/renderMap'
-import { BASE_CELL_SIZE } from '../render/viewport'
 import type { MapModel } from '../model/types'
 
-export const EXPORT_CELL_SIZE = BASE_CELL_SIZE * 2
+/** 1 клетка = 64px: печатный масштаб, независимый от экранного зума. */
+export const EXPORT_CELL_SIZE = 64
+
+const MAX_EXPORT_SIDE = 16384
+const MAX_EXPORT_AREA = 134_217_728
 
 /**
- * Рендерит карту в offscreen canvas и отдаёт PNG.
- * 1 клетка = EXPORT_CELL_SIZE px, сетка сохраняется для печати.
+ * Рендерит карту в offscreen canvas и отдаёт PNG через тот же renderMap,
+ * что и на экране. Сетка сохраняется для печати.
  */
 export function exportMapToPng(model: MapModel, cellSize = EXPORT_CELL_SIZE): Promise<Blob> {
+  const width = model.width * cellSize
+  const height = model.height * cellSize
+  // Большие canvas браузеры молча не растеризуют — отказываем заранее с причиной.
+  if (width > MAX_EXPORT_SIDE || height > MAX_EXPORT_SIDE || width * height > MAX_EXPORT_AREA) {
+    return Promise.reject(new Error(`Export size ${width}x${height} exceeds canvas limits`))
+  }
+
   const canvas = document.createElement('canvas')
-  canvas.width = model.width * cellSize
-  canvas.height = model.height * cellSize
+  canvas.width = width
+  canvas.height = height
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
@@ -20,8 +30,8 @@ export function exportMapToPng(model: MapModel, cellSize = EXPORT_CELL_SIZE): Pr
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   renderMap(ctx, model, {
-    width: canvas.width,
-    height: canvas.height,
+    width,
+    height,
     cellSize,
     offsetX: 0,
     offsetY: 0,

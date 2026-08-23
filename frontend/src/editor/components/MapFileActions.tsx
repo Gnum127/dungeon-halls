@@ -6,7 +6,7 @@ import { exportMapToPng } from '../tools/pngExport'
 import type { MapModel } from '../model/types'
 import styles from './MapFileActions.module.css'
 
-export type FileActionStatus = 'saved' | 'loaded' | 'invalid' | 'exportFailed'
+export type FileActionStatus = 'saved' | 'loaded' | 'invalid' | 'exported' | 'exportFailed'
 
 interface MapFileActionsProps {
   getModel: () => MapModel
@@ -60,9 +60,13 @@ export function MapFileActions(props: MapFileActionsProps) {
   }
 
   function handleExportPng() {
-    exportPng(getModel())
-      .then((blob) => download(MAP_PNG_FILENAME, blob, 'image/png'))
-      .then(() => onResult('saved'))
+    // Оборачиваем в Promise.resolve: инъекция может бросить синхронно.
+    Promise.resolve()
+      .then(() => exportPng(getModel()))
+      .then((blob) => {
+        download(MAP_PNG_FILENAME, blob, 'image/png')
+        onResult('exported')
+      })
       .catch(() => onResult('exportFailed'))
   }
 

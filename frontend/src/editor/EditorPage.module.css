@@ -1,7 +1,14 @@
 .root {
+  display: flex;
   height: 100%;
 }
 
+.sidebar {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
 .workspace {
-  height: 100%;
+  flex: 1;
+  min-width: 0;
 }

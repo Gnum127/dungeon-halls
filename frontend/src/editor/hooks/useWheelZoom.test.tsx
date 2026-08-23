@@ -74,4 +74,20 @@ describe('useWheelZoom', () => {
     unmount()
     expect(removeSpy.mock.calls.filter(([type]) => type === 'wheel')).toHaveLength(1)
   })
+
+  it('registers the wheel listener as non-passive to allow preventDefault', () => {
+    // Шпион на прототипе ловит регистрацию до того, как элемент появится.
+    const protoSpy = vi.spyOn(HTMLCanvasElement.prototype, 'addEventListener')
+    try {
+      const { unmount } = render(<Probe onZoom={vi.fn()} />)
+
+      const wheelCall = protoSpy.mock.calls.find(([type]) => type === 'wheel')
+      expect(wheelCall).toBeDefined()
+      expect(wheelCall?.[2]).toMatchObject({ passive: false })
+
+      unmount()
+    } finally {
+      protoSpy.mockRestore()
+    }
+  })
 })

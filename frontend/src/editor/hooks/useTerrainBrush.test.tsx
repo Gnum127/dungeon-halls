@@ -146,4 +146,41 @@ describe('useTerrainBrush', () => {
     expect(onCommit).toHaveBeenCalledTimes(1)
     expect(onCommit.mock.calls[0][0]).toBeNull()
   })
+
+  it('ignores events from a foreign pointer during an active stroke', () => {
+    const onCommit = vi.fn()
+    const { getByTestId } = render(<Probe onCommit={onCommit} />)
+    const canvas = getByTestId('canvas')
+
+    pointer(canvas, 'pointerdown', { pointerId: 1 })
+    pointer(canvas, 'pointermove', { pointerId: 2, clientX: 100, clientY: 40 })
+    expect(getByTestId('canvas').dataset.pending).toBe('1')
+
+    pointer(canvas, 'pointerup', { pointerId: 2, buttons: 0 })
+    expect(onCommit).not.toHaveBeenCalled()
+
+    pointer(canvas, 'pointerup', { pointerId: 1, buttons: 0 })
+    expect(onCommit).toHaveBeenCalledTimes(1)
+    const command = onCommit.mock.calls[0][0] as Command
+    if (command.kind === 'setTiles') {
+      expect(command.updates).toEqual([{ x: 1, y: 2, tile: FLOOR }])
+    }
+  })
+
+  it('deduplicates cells visited twice in one stroke', () => {
+    const onCommit = vi.fn()
+    const { getByTestId } = render(<Probe onCommit={onCommit} />)
+    const canvas = getByTestId('canvas')
+
+    pointer(canvas, 'pointerdown', { clientX: 40, clientY: 80 })
+    pointer(canvas, 'pointermove', { clientX: 72, clientY: 80 })
+    pointer(canvas, 'pointermove', { clientX: 45, clientY: 85 })
+    pointer(canvas, 'pointerup', { buttons: 0 })
+
+    expect(onCommit).toHaveBeenCalledTimes(1)
+    const command = onCommit.mock.calls[0][0] as Command
+    if (command.kind === 'setTiles') {
+      expect(command.updates).toHaveLength(2)
+    }
+  })
 })

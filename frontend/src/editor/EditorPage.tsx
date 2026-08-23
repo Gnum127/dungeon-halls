@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { CanvasView } from './components/CanvasView'
+import { ObjectPalette } from './components/ObjectPalette'
 import { TerrainPalette } from './components/TerrainPalette'
 import { createEmptyMap } from './model/createEmptyMap'
 import { EMPTY_TILE, TILE_TYPES } from './model/types'
 import type { TileValue } from './model/types'
+import type { ObjectKindId } from './model/objects'
 import { EditorStore } from './store/EditorStore'
+import type { EditorTool } from './tools/editorTool'
 import styles from './EditorPage.module.css'
 
 const DEFAULT_MAP_WIDTH = 40
@@ -19,15 +22,48 @@ export function EditorPage() {
   const [store] = useState(
     () => new EditorStore(createEmptyMap(DEFAULT_MAP_WIDTH, DEFAULT_MAP_HEIGHT)),
   )
-  const [brushTile, setBrushTile] = useState<TileValue>(defaultBrushTile)
+  const [tool, setTool] = useState<EditorTool>(() => ({
+    type: 'terrain',
+    tile: defaultBrushTile(),
+  }))
+  const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null)
+
+  function selectTerrain(tile: TileValue) {
+    setSelectedObjectId(null)
+    setTool({ type: 'terrain', tile })
+  }
+
+  function selectObjectKind(kindId: ObjectKindId) {
+    setSelectedObjectId(null)
+    setTool({ type: 'object', kindId })
+  }
+
+  function selectMoveTool() {
+    setSelectedObjectId(null)
+    setTool({ type: 'select' })
+  }
 
   return (
     <div className={styles.root}>
       <aside className={styles.sidebar}>
-        <TerrainPalette selected={brushTile} onSelect={setBrushTile} />
+        <TerrainPalette
+          selected={tool.type === 'terrain' ? tool.tile : -1}
+          onSelect={selectTerrain}
+        />
+        <ObjectPalette
+          activeKindId={tool.type === 'object' ? tool.kindId : null}
+          selectActive={tool.type === 'select'}
+          onSelectKind={selectObjectKind}
+          onSelectSelectTool={selectMoveTool}
+        />
       </aside>
       <div className={styles.workspace}>
-        <CanvasView store={store} brushTile={brushTile} />
+        <CanvasView
+          store={store}
+          tool={tool}
+          selectedObjectId={selectedObjectId}
+          onSelectObject={setSelectedObjectId}
+        />
       </div>
     </div>
   )

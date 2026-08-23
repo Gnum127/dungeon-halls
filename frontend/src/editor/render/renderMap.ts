@@ -1,3 +1,4 @@
+import { OBJECT_COLORS } from '../model/objects'
 import { TILE_TYPES } from '../model/types'
 import type { MapModel } from '../model/types'
 import { CANVAS_BACKGROUND_COLOR, GRID_LINE_COLOR, TILE_COLORS } from './colors'
@@ -49,4 +50,21 @@ export function renderMap(
     ctx.lineTo(Math.min(width, model.width * cellSize - offsetX), y)
   }
   ctx.stroke()
+
+  // Объекты рисуются в порядке массива: верхний — последним.
+  for (const object of model.objects) {
+    const cx = object.x * cellSize - offsetX + cellSize / 2
+    const cy = object.y * cellSize - offsetY + cellSize / 2
+    if (cx < -cellSize || cx > width + cellSize || cy < -cellSize || cy > height + cellSize) {
+      continue
+    }
+    const radius = Math.max(3, cellSize * 0.3)
+    ctx.beginPath()
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+    ctx.fillStyle = OBJECT_COLORS[object.kindId as keyof typeof OBJECT_COLORS] ?? '#888888'
+    ctx.fill()
+    ctx.lineWidth = 1
+    ctx.strokeStyle = '#00000066'
+    ctx.stroke()
+  }
 }

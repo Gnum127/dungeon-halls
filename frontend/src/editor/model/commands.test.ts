@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { applyCommand } from './commands'
 import type { Command } from './commands'
 import { createEmptyMap } from './createEmptyMap'
+import { OBJECT_KINDS } from './objects'
 import { TILE_TYPES } from './types'
-import type { MapModel } from './types'
+import type { MapModel, MapObject } from './types'
 
 function makeMap(): MapModel {
   return createEmptyMap(3, 3)
@@ -11,6 +12,13 @@ function makeMap(): MapModel {
 
 const FLOOR = TILE_TYPES.indexOf('floor')
 const WATER = TILE_TYPES.indexOf('water')
+const DOOR_KIND = OBJECT_KINDS[0]
+const STAIRS_KIND = OBJECT_KINDS[1]
+
+function withObject(model: MapModel, x: number, y: number, id: number): MapModel {
+  const object: MapObject = { id, kindId: DOOR_KIND, x, y }
+  return { ...model, objects: [...model.objects, object] }
+}
 
 describe('applyCommand', () => {
   it('setTile changes only the target cell', () => {
@@ -124,5 +132,74 @@ describe('applyCommand', () => {
     for (const tile of source.tiles) {
       expect(tile).toBe(0)
     }
+  })
+})
+
+describe('object commands', () => {
+  it('addObject appends an object with an incremental id', () => {
+    const first = applyCommand(makeMap(), { kind: 'addObject', x: 0, y: 0, kindId: DOOR_KIND })
+
+    expect(first.objects).toHaveLength(1)
+    expect(first.objects[0]).toMatchObject({ id: 1, x: 0, y: 0, kindId: DOOR_KIND })
+
+    const second = applyCommand(first, {
+      kind: 'addObject',
+      x: 2,
+      y: 2,
+      kindId: STAIRS_KIND,
+    })
+    expect(second.objects).toHaveLength(2)
+    expect(second.objects[1]?.id).toBe(2)
+    expect(first.objects).toHaveLength(1)
+  })
+
+  it('addObject rejects occupied cells, outside cells and unknown kinds', () => {
+    const model = withObject(makeMap(), 1, 1, 5)
+
+    expect(() => applyCommand(model, { kind: 'addObject', x: 1, y: 1, kindId: DOOR_KIND })).toThrow(
+      RangeError,
+    )
+    expect(() => applyCommand(model, { kind: 'addObject', x: 3, y: 0, kindId: DOOR_KIND })).toThrow(
+      RangeError,
+    )
+    expect(() => applyCommand(model, { kind: 'addObject', x: 0, y: 0, kindId: 'dragon' })).toThrow(
+      RangeError,
+    )
+  })
+
+  it('moveObject moves the object and keeps its id and order', () => {
+    const model = withObject(withObject(makeMap(), 0, 0, 1), 2, 2, 2)
+    const next = applyCommand(model, { kind: 'moveObject', id: 1, x: 1, y: 1 })
+
+    expect(next.objects[0]).toMatchObject({ id: 1, x: 1, y: 1 })
+    expect(next.objects[1]).toMatchObject({ id: 2, x: 2, y: 2 })
+  })
+
+  it('moveObject to the same position is a no-op returning the same model', () => {
+    const model = withObject(makeMap(), 1, 1, 1)
+    const next = applyCommand(model, { kind: 'moveObject', id: 1, x: 1, y: 1 })
+
+    expect(next).toBe(model)
+  })
+
+  it('moveObject rejects missing objects and occupied targets', () => {
+    const model = withObject(withObject(makeMap(), 0, 0, 1), 2, 2, 2)
+
+    expect(() => applyCommand(model, { kind: 'moveObject', id: 9, x: 1, y: 1 })).toThrow(RangeError)
+    expect(() => applyCommand(model, { kind: 'moveObject', id: 1, x: 2, y: 2 })).toThrow(RangeError)
+    expect(() => applyCommand(model, { kind: 'moveObject', id: 1, x: -1, y: 0 })).toThrow(
+      RangeError,
+    )
+  })
+
+  it('removeObject drops only the target object immutably', () => {
+    const model = withObject(withObject(makeMap(), 0, 0, 1), 2, 2, 2)
+    const next = applyCommand(model, { kind: 'removeObject', id: 1 })
+
+    expect(next.objects).toHaveLength(1)
+    expect(next.objects[0]?.id).toBe(2)
+    expect(model.objects).toHaveLength(2)
+
+    expect(() => applyCommand(next, { kind: 'removeObject', id: 1 })).toThrow(RangeError)
   })
 })

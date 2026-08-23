@@ -1,10 +1,14 @@
-/** Геометрия просмотра: размер canvas в CSS-пикселях и мировая позиция. */
-export interface Viewport {
-  readonly width: number
-  readonly height: number
+/** Пан и зум без привязки к размеру canvas. */
+export interface PanZoomState {
   readonly cellSize: number
   readonly offsetX: number
   readonly offsetY: number
+}
+
+/** Геометрия просмотра: размер canvas в CSS-пикселях и мировая позиция. */
+export interface Viewport extends PanZoomState {
+  readonly width: number
+  readonly height: number
 }
 
 export const BASE_CELL_SIZE = 32
@@ -21,7 +25,7 @@ export function clampCellSize(size: number): number {
  * вызывающий сам решает, что с ней делать (курсор, кисть и т.д.).
  */
 export function screenToCell(
-  viewport: Viewport,
+  viewport: PanZoomState,
   screenX: number,
   screenY: number,
 ): { x: number; y: number } {
@@ -32,12 +36,12 @@ export function screenToCell(
 }
 
 /** Зум с якорем в экранной точке: точка мира под курсором остаётся на месте. */
-export function zoomAt(
-  viewport: Viewport,
+export function zoomAt<T extends PanZoomState>(
+  viewport: T,
   screenX: number,
   screenY: number,
   nextCellSizeRaw: number,
-): Viewport {
+): T {
   const nextCellSize = clampCellSize(nextCellSizeRaw)
   const scale = nextCellSize / viewport.cellSize
   return {

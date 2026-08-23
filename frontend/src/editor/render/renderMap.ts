@@ -6,6 +6,9 @@ import type { Viewport } from './viewport'
 /**
  * Единственная точка рендера карты: чистая функция от модели и вьюпорта.
  * Спрайтовый режим позже заменит только выбор заливки, не структуру.
+ *
+ * Контракт: вызывающий обязан выставить ctx.setTransform(dpr,…) и передать
+ * viewport в CSS-пикселях; renderMap работает в CSS-координатах.
  */
 export function renderMap(
   ctx: CanvasRenderingContext2D,
@@ -25,7 +28,9 @@ export function renderMap(
   for (let row = firstRow; row <= lastRow; row += 1) {
     for (let col = firstCol; col <= lastCol; col += 1) {
       const tileIndex = model.tiles[row * model.width + col]
-      ctx.fillStyle = TILE_COLORS[TILE_TYPES[tileIndex]]
+      // Fallback на случай битых значений из будущих загруженных файлов.
+      const typeName = TILE_TYPES[tileIndex] ?? 'empty'
+      ctx.fillStyle = TILE_COLORS[typeName]
       ctx.fillRect(col * cellSize - offsetX, row * cellSize - offsetY, cellSize, cellSize)
     }
   }

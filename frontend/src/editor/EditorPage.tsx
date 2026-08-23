@@ -1,5 +1,8 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CanvasView } from './components/CanvasView'
+import { MapFileActions } from './components/MapFileActions'
+import type { FileActionStatus } from './components/MapFileActions'
 import { ObjectPalette } from './components/ObjectPalette'
 import { TerrainPalette } from './components/TerrainPalette'
 import { createEmptyMap } from './model/createEmptyMap'
@@ -19,6 +22,7 @@ function defaultBrushTile(): TileValue {
 }
 
 export function EditorPage() {
+  const { t } = useTranslation()
   const [store] = useState(
     () => new EditorStore(createEmptyMap(DEFAULT_MAP_WIDTH, DEFAULT_MAP_HEIGHT)),
   )
@@ -27,6 +31,7 @@ export function EditorPage() {
     tile: defaultBrushTile(),
   }))
   const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null)
+  const [fileStatus, setFileStatus] = useState<FileActionStatus | null>(null)
 
   function selectTerrain(tile: TileValue) {
     setSelectedObjectId(null)
@@ -46,6 +51,16 @@ export function EditorPage() {
   return (
     <div className={styles.root}>
       <aside className={styles.sidebar}>
+        <MapFileActions
+          getModel={() => store.getModel()}
+          onLoaded={(model) => store.reset(model)}
+          onResult={setFileStatus}
+        />
+        {fileStatus !== null && (
+          <p className={styles.fileStatus} role="status">
+            {t(`editor.files.${fileStatus}`)}
+          </p>
+        )}
         <TerrainPalette
           selected={tool.type === 'terrain' ? tool.tile : -1}
           onSelect={selectTerrain}

@@ -109,6 +109,26 @@ describe('EditorStore', () => {
     expect(store.redo()).toBe(false)
   })
 
+  it('reset replaces the document and clears history', () => {
+    const store = makeStore()
+    const listener = vi.fn()
+    store.subscribe(listener)
+    store.dispatch({ kind: 'setTile', x: 0, y: 0, tile: FLOOR })
+    listener.mockClear()
+
+    const replacement = createEmptyMap(3, 3)
+    replacement.tiles[5] = WATER
+    store.reset(replacement)
+
+    expect(store.getModel()).toBe(replacement)
+    expect(store.canUndo()).toBe(false)
+    expect(store.canRedo()).toBe(false)
+    expect(listener).toHaveBeenCalledTimes(1)
+
+    store.undo()
+    expect(store.getModel()).toBe(replacement)
+  })
+
   it('keeps history depth at HISTORY_LIMIT entries and evicts the oldest states', () => {
     const store = new EditorStore(createEmptyMap(10, 10))
     const snapshots: MapModel[] = [store.getModel()]

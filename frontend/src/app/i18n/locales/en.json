@@ -29,6 +29,13 @@
       "chair": "Chair",
       "chest": "Chest",
       "torch": "Torch"
+    },
+    "files": {
+      "save": "Save",
+      "load": "Load",
+      "saved": "Map saved",
+      "loaded": "Map loaded",
+      "invalid": "Failed to open file"
     }
   }
 }

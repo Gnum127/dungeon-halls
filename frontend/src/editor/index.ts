@@ -11,6 +11,8 @@ export type { ObjectKindId } from './model/objects'
 export { EditorStore, HISTORY_LIMIT } from './store/EditorStore'
 export { useEditor } from './hooks/useEditor'
 
+export { deserializeMap, MapLoadError, serializeMap } from './io'
+
 export { commitStroke, isInsideMap } from './tools/brush'
 export type { Cell } from './tools/brush'
 export type { EditorTool } from './tools/editorTool'

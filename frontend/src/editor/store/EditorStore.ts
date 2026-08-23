@@ -49,6 +49,15 @@ export class EditorStore {
     this.emit()
   }
 
+  /** Полная замена документа (загрузка из файла): история не переносится. */
+  reset = (model: MapModel): void => {
+    if (model === this.current) return
+    this.current = model
+    this.past = []
+    this.future = []
+    this.emit()
+  }
+
   undo = (): boolean => {
     const previous = this.past.pop()
     if (previous === undefined) {

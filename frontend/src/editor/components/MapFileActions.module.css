@@ -1,0 +1,16 @@
+.actions {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem;
+}
+
+.button {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  min-height: 2rem;
+}

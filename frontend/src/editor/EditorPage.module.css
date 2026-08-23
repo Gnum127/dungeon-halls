@@ -8,6 +8,13 @@
   min-height: 0;
 }
 
+.fileStatus {
+  margin: 0;
+  padding: 0 0.5rem 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .workspace {
   flex: 1;
   min-width: 0;

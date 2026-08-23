@@ -34,6 +34,12 @@ export function applyCommand(model: MapModel, command: Command): MapModel {
     assertValidUpdate(update, model)
   }
 
+  // Copy-on-write: запись идентичного значения не считается изменением,
+  // чтобы no-op штрихи кисти не создавали записи в истории.
+  if (!updates.some(({ x, y, tile }) => model.tiles[y * model.width + x] !== tile)) {
+    return model
+  }
+
   const tiles = new Uint8Array(model.tiles)
   for (const { x, y, tile } of updates) {
     tiles[y * model.width + x] = tile

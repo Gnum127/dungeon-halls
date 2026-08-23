@@ -6,10 +6,12 @@ import { useMiddleButtonPan } from '../hooks/useMiddleButtonPan'
 import { useWheelZoom } from '../hooks/useWheelZoom'
 import { useTerrainBrush } from '../hooks/useTerrainBrush'
 import { useObjectTools } from '../hooks/useObjectTools'
+import { useHoverCell } from '../hooks/useHoverCell'
 import type { EditorStore } from '../store/EditorStore'
 import type { Command } from '../model/commands'
-import { drawStrokePreview } from '../render/strokePreview'
 import { renderMap } from '../render/renderMap'
+import { drawStrokePreview } from '../render/strokePreview'
+import { drawCellHighlight } from '../render/cellHighlight'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
 import type { EditorTool } from '../tools/editorTool'
@@ -92,6 +94,13 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
     onSelect: handleSelect,
   })
 
+  const { hoverCell, handlers: hoverHandlers } = useHoverCell({
+    canvasRef,
+    viewportRef,
+    viewport,
+    model,
+  })
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || viewport.width < 1 || viewport.height < 1) return
@@ -109,7 +118,13 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     renderMap(ctx, model, viewport)
     drawStrokePreview(ctx, pendingCells, viewport, brushTile)
-  }, [model, viewport, dpr, pendingCells, brushTile])
+    if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport)
+  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell])
+
+  const pointerHandlers = useMemo(
+    () => mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, hoverHandlers),
+    [panHandlers, brushHandlers, objectHandlers, hoverHandlers],
+  )
 
   return (
     <div ref={wrapRef} className={styles.wrap}>
@@ -118,8 +133,12 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
         className={styles.canvas}
         data-testid="editor-canvas"
         onContextMenu={(event) => event.preventDefault()}
-        {...mergePointerHandlers(panHandlers, brushHandlers, objectHandlers)}
+        {...pointerHandlers}
       />
+      {/* Не live-регион: координаты меняются на каждый шаг курсора. */}
+      <div className={styles.status} data-testid="editor-coords">
+        {hoverCell ? `x: ${hoverCell.x} · y: ${hoverCell.y}` : '—'}
+      </div>
     </div>
   )
 }

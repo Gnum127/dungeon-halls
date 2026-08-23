@@ -13,6 +13,7 @@ export interface FakeCtx {
   moveTo(...args: unknown[]): void
   lineTo(...args: unknown[]): void
   stroke(): void
+  strokeRect(...args: unknown[]): void
   setTransform(...args: unknown[]): void
 }
 
@@ -52,6 +53,9 @@ export function makeFakeCtx(
     },
     stroke() {
       calls.push({ op: 'stroke', args: [], fillStyle: this.strokeStyle })
+    },
+    strokeRect(...args: unknown[]) {
+      calls.push({ op: 'strokeRect', args, fillStyle: this.fillStyle })
     },
     setTransform(...args: unknown[]) {
       calls.push({ op: 'setTransform', args, fillStyle: this.fillStyle })

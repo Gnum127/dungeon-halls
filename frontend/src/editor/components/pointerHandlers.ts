@@ -5,6 +5,7 @@ export interface PointerHandlers {
   onPointerMove?: (event: ReactPointerEvent<HTMLCanvasElement>) => void
   onPointerUp?: (event: ReactPointerEvent<HTMLCanvasElement>) => void
   onPointerCancel?: (event: ReactPointerEvent<HTMLCanvasElement>) => void
+  onPointerLeave?: (event: ReactPointerEvent<HTMLCanvasElement>) => void
 }
 
 /**
@@ -17,5 +18,6 @@ export function mergePointerHandlers(...sets: PointerHandlers[]): Required<Point
     onPointerMove: (event) => sets.forEach((set) => set.onPointerMove?.(event)),
     onPointerUp: (event) => sets.forEach((set) => set.onPointerUp?.(event)),
     onPointerCancel: (event) => sets.forEach((set) => set.onPointerCancel?.(event)),
+    onPointerLeave: (event) => sets.forEach((set) => set.onPointerLeave?.(event)),
   }
 }

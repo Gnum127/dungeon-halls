@@ -13,10 +13,11 @@ interface Room {
 /** Минимальная сторона комнаты; карта должна вмещать её плюс рамку стен. */
 const ROOM_MIN_SIZE = 3
 const ROOM_MAX_SIZE = 8
-const MIN_DIMENSION = ROOM_MIN_SIZE + 2
-const MAX_ROOM_ATTEMPTS = 10000
 /** Комнаты держат клетку стен между собой — коридоры прорезают их отдельно. */
 const ROOM_GAP = 1
+// Комната + зазор с обеих сторон + внешняя рамка: иначе nextInt(0) в размещении.
+const MIN_DIMENSION = ROOM_MIN_SIZE + ROOM_GAP * 2 + 1
+const MAX_ROOM_ATTEMPTS = 10000
 
 function tileIndex(name: string): number {
   const index = TILE_TYPES.indexOf(name as (typeof TILE_TYPES)[number])
@@ -52,14 +53,14 @@ export function layoutRooms(params: DungeonParams, rng: Rng): readonly Room[] {
   }
 
   const rooms: Room[] = []
-  const maxWidth = Math.min(ROOM_MAX_SIZE, params.width - 2)
-  const maxHeight = Math.min(ROOM_MAX_SIZE, params.height - 2)
+  const maxWidth = Math.min(ROOM_MAX_SIZE, params.width - ROOM_GAP * 2 - 1)
+  const maxHeight = Math.min(ROOM_MAX_SIZE, params.height - ROOM_GAP * 2 - 1)
 
   for (let attempt = 0; attempt < params.roomAttempts; attempt += 1) {
     const w = ROOM_MIN_SIZE + rng.nextInt(maxWidth - ROOM_MIN_SIZE + 1)
     const h = ROOM_MIN_SIZE + rng.nextInt(maxHeight - ROOM_MIN_SIZE + 1)
-    const x = ROOM_GAP + rng.nextInt(params.width - w - ROOM_GAP * 2)
-    const y = ROOM_GAP + rng.nextInt(params.height - h - ROOM_GAP * 2)
+    const x = ROOM_GAP + rng.nextInt(params.width - w - ROOM_GAP)
+    const y = ROOM_GAP + rng.nextInt(params.height - h - ROOM_GAP)
 
     const candidate: Room = { x, y, w, h }
     const overlaps = rooms.some((room) => intersects(candidate, room, ROOM_GAP))
@@ -114,7 +115,7 @@ export function generateDungeon(params: DungeonParams, rng: Rng): GenerationResu
   assertDimension(params.width, 'width')
   assertDimension(params.height, 'height')
 
-  const tiles: TileGrid = new Uint8Array(params.width * params.height).fill(WALL) as TileGrid
+  const tiles: TileGrid = new Uint8Array(params.width * params.height).fill(WALL)
   const rooms = layoutRooms(params, rng)
 
   rooms.forEach((room, index) => {

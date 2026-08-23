@@ -61,7 +61,7 @@ RNG → данж → команда замены → пещеры → UI → п�
       своего       публичного API. Обновить формулировки про shared в AGENTS.md И
       docs/frontend-guidelines.md синхронно (порог «≥2 потребителя»
       достигнут)
-- [ ] 2.2 Каркас фичи `generator/`: структура папок, публичный `index.ts`,
+- [x] 2.2 Каркас фичи `generator/`: структура папок, публичный `index.ts`,
       типы `DungeonParams` / `CaveParams` / результат — сетка тайлов
       (`TileGrid` из shared)
 - [ ] 2.3 Детерминированный PRNG mulberry32: нормализация seed к uint32,

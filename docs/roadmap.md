@@ -25,7 +25,7 @@
 - [x] 1.4 EditorStore: getModel/subscribe/dispatch, история с HISTORY_LIMIT;
       хук useEditor на useSyncExternalStore; тесты undo/redo, включая
       сброс redo-ветки после новой команды
-- [ ] 1.5 CanvasView: renderMap(ctx, model, viewport) — единая точка рендера,
+- [x] 1.5 CanvasView: renderMap(ctx, model, viewport) — единая точка рендера,
       задел под будущий спрайтовый режим; сетка (MVP — только квадратная,
       гексы — Этап 3), DPR, зум колесом, пан;
       чистая функция мышь→клетка + unit-тесты (зум ≠ 1, скролл)

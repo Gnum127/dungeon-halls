@@ -22,7 +22,7 @@
       фабрика createEmptyMap + unit-тесты
 - [x] 1.3 Команды (SetTile и др.) + applyCommand, иммутабельность;
       тесты включая края поля и повторное применение
-- [ ] 1.4 EditorStore: getModel/subscribe/dispatch, история с HISTORY_LIMIT;
+- [x] 1.4 EditorStore: getModel/subscribe/dispatch, история с HISTORY_LIMIT;
       хук useEditor на useSyncExternalStore; тесты undo/redo, включая
       сброс redo-ветки после новой команды
 - [ ] 1.5 CanvasView: renderMap(ctx, model, viewport) — единая точка рендера,

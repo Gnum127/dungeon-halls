@@ -33,9 +33,11 @@
     "files": {
       "save": "Save",
       "load": "Load",
+      "exportPng": "Export PNG",
       "saved": "Map saved",
       "loaded": "Map loaded",
-      "invalid": "Failed to open file"
+      "invalid": "Failed to open file",
+      "exportFailed": "PNG export failed"
     }
   }
 }

@@ -46,6 +46,50 @@ describe('MapFileActions', () => {
     expect(onResult).toHaveBeenCalledWith('saved')
   })
 
+  it('export PNG downloads a blob named after the map', async () => {
+    const store = new EditorStore(makeModel())
+    const download = vi.fn()
+    const onResult = vi.fn()
+    const fakeBlob = new Blob(['png'])
+    const exportPng = vi.fn().mockResolvedValue(fakeBlob)
+    const { getByText } = render(
+      <MapFileActions
+        getModel={() => store.getModel()}
+        onLoaded={vi.fn()}
+        onResult={onResult}
+        download={download}
+        exportPng={exportPng}
+      />,
+    )
+
+    fireEvent.click(getByText('Export PNG'))
+
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1))
+    const [filename, blob, mime] = download.mock.calls[0] as [string, Blob, string]
+    expect(filename).toMatch(/\.png$/)
+    expect(blob).toBe(fakeBlob)
+    expect(mime).toBe('image/png')
+    expect(onResult).toHaveBeenCalledWith('saved')
+  })
+
+  it('reports exportFailed when PNG encoding rejects', async () => {
+    const onResult = vi.fn()
+    const exportPng = vi.fn().mockRejectedValue(new Error('no canvas'))
+    const { getByText } = render(
+      <MapFileActions
+        getModel={() => createEmptyMap(2, 2)}
+        onLoaded={vi.fn()}
+        onResult={onResult}
+        download={vi.fn()}
+        exportPng={exportPng}
+      />,
+    )
+
+    fireEvent.click(getByText('Export PNG'))
+
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith('exportFailed'))
+  })
+
   it('loads a valid file into the app', async () => {
     const other = makeModel()
     const onLoaded = vi.fn()

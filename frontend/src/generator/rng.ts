@@ -6,13 +6,19 @@
 export interface Rng {
   /** Равномерное [0, 1). */
   next(): number
-  /** Целое [0, maxExclusive) без modulo bias (rejection sampling). */
+  /**
+   * Целое [0, maxExclusive) без modulo bias (rejection sampling).
+   * Гарантированно завершается; ожидаемо тратится <2 вызова генератора.
+   * Домен: целые [1, 2^32].
+   */
   nextInt(maxExclusive: number): number
 }
 
 /** Перемешивание seed к uint32: близкие сиды дают далёкие последовательности. */
 export function normalizeSeed(seed: number): number {
-  let value = Math.trunc(seed) | 0
+  // |0 усекает дробные и приводит NaN/±Infinity к 0 — коллизия с сидом 0
+  // допустима и задокументирована.
+  let value = seed | 0
   value = Math.imul(value ^ (value >>> 16), 0x45d9f3b)
   value = Math.imul(value ^ (value >>> 16), 0x45d9f3b)
   return (value ^ (value >>> 16)) >>> 0
@@ -32,8 +38,10 @@ export function createRng(seedInput: number): Rng {
   }
 
   const nextInt = (maxExclusive: number): number => {
-    if (!Number.isInteger(maxExclusive) || maxExclusive < 1) {
-      throw new RangeError(`nextInt expects a positive integer, got ${maxExclusive}`)
+    if (!Number.isInteger(maxExclusive) || maxExclusive < 1 || maxExclusive > UINT32_RANGE) {
+      throw new RangeError(
+        `nextInt expects an integer in [1, ${UINT32_RANGE}], got ${maxExclusive}`,
+      )
     }
     // Отбрасываем значения верхней неполной полосы диапазона — иначе
     // младшие числа получали бы повышенную вероятность.

@@ -80,4 +80,11 @@ describe('nextInt()', () => {
     const rng = createRng(1)
     expect(() => rng.nextInt(bad)).toThrow(RangeError)
   })
+
+  it('rejects maxExclusive above the uint32 domain instead of hanging', () => {
+    const rng = createRng(1)
+    expect(() => rng.nextInt(0x100000000 + 1)).toThrow(RangeError)
+    // Верхняя граница домена допустима и завершается.
+    expect(rng.nextInt(0x100000000)).toBeGreaterThanOrEqual(0)
+  })
 })

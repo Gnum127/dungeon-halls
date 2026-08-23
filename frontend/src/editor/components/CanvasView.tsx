@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useEditor } from '../hooks/useEditor'
 import { useCanvasSize } from '../hooks/useCanvasSize'
 import { useDevicePixelRatio } from '../hooks/useDevicePixelRatio'
@@ -6,10 +7,13 @@ import { useMiddleButtonPan } from '../hooks/useMiddleButtonPan'
 import { useWheelZoom } from '../hooks/useWheelZoom'
 import { useTerrainBrush } from '../hooks/useTerrainBrush'
 import { useObjectTools } from '../hooks/useObjectTools'
+import { useCellFromEvent } from '../hooks/useCellFromEvent'
 import type { EditorStore } from '../store/EditorStore'
 import type { Command } from '../model/commands'
-import { drawStrokePreview } from '../render/strokePreview'
+import { isInsideMap } from '../tools/brush'
 import { renderMap } from '../render/renderMap'
+import { drawStrokePreview } from '../render/strokePreview'
+import { drawCellHighlight } from '../render/cellHighlight'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
 import type { EditorTool } from '../tools/editorTool'
@@ -34,6 +38,7 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
     offsetX: 0,
     offsetY: 0,
   })
+  const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null)
 
   const viewport = useMemo(
     () => ({
@@ -49,6 +54,8 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
   useEffect(() => {
     viewportRef.current = viewport
   }, [viewport])
+
+  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
 
   const handleZoom = useCallback((screenX: number, screenY: number, factor: number) => {
     setPanZoom((current) => zoomAt(current, screenX, screenY, current.cellSize * factor))
@@ -92,6 +99,17 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
     onSelect: handleSelect,
   })
 
+  function trackHover(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const cell = cellFromEvent(event)
+    if (!isInsideMap(model, cell.x, cell.y)) {
+      setHoverCell(null)
+      return
+    }
+    setHoverCell((previous) =>
+      previous && previous.x === cell.x && previous.y === cell.y ? previous : cell,
+    )
+  }
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || viewport.width < 1 || viewport.height < 1) return
@@ -109,7 +127,8 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     renderMap(ctx, model, viewport)
     drawStrokePreview(ctx, pendingCells, viewport, brushTile)
-  }, [model, viewport, dpr, pendingCells, brushTile])
+    if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport)
+  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell])
 
   return (
     <div ref={wrapRef} className={styles.wrap}>
@@ -118,8 +137,14 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
         className={styles.canvas}
         data-testid="editor-canvas"
         onContextMenu={(event) => event.preventDefault()}
-        {...mergePointerHandlers(panHandlers, brushHandlers, objectHandlers)}
+        {...mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, {
+          onPointerMove: trackHover,
+          onPointerLeave: () => setHoverCell(null),
+        })}
       />
+      <div className={styles.status} role="status" data-testid="editor-coords">
+        {hoverCell ? `x: ${hoverCell.x} · y: ${hoverCell.y}` : '—'}
+      </div>
     </div>
   )
 }

@@ -4,7 +4,7 @@ import i18n, { changeLanguage, LANGUAGES } from './i18n'
 import type { Language } from './i18n'
 import styles from './App.module.css'
 
-export default function App() {
+export function App() {
   const { t } = useTranslation()
 
   return (

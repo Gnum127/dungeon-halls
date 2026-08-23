@@ -57,15 +57,12 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
   const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
 
   const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null)
-  const hoverClientRef = useRef<{ x: number; y: number } | null>(null)
+  const hoverClientRef = useRef<{ clientX: number; clientY: number } | null>(null)
 
   function applyHover() {
     const point = hoverClientRef.current
     if (!point) return
-    const cell = cellFromEvent({
-      clientX: point.x,
-      clientY: point.y,
-    } as ReactPointerEvent<HTMLCanvasElement>)
+    const cell = cellFromEvent(point)
     if (!isInsideMap(model, cell.x, cell.y)) {
       setHoverCell(null)
       return
@@ -76,7 +73,7 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
   }
 
   function trackHover(event: ReactPointerEvent<HTMLCanvasElement>) {
-    hoverClientRef.current = { x: event.clientX, y: event.clientY }
+    hoverClientRef.current = { clientX: event.clientX, clientY: event.clientY }
     applyHover()
   }
 
@@ -88,7 +85,6 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
   // Пан/зум под неподвижным курсором меняют клетку — пересчитываем.
   useEffect(() => {
     applyHover()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewport, model])
 
   const handleZoom = useCallback((screenX: number, screenY: number, factor: number) => {

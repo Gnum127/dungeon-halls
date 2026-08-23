@@ -59,4 +59,30 @@ describe('CanvasView hover statusbar', () => {
 
     expect(getByTestId('editor-coords')).toHaveTextContent('—')
   })
+
+  it('recomputes coordinates after panning under a still cursor', () => {
+    const store = new EditorStore(createEmptyMap(8, 8))
+    const { getByTestId } = render(
+      <CanvasView
+        store={store}
+        tool={TERRAIN_TOOL}
+        selectedObjectId={null}
+        onSelectObject={vi.fn()}
+      />,
+    )
+    const canvas = getByTestId('editor-canvas')
+
+    // Курсор в клетке (0,0).
+    fireEvent.pointerMove(canvas, { clientX: 10, clientY: 20 })
+    expect(getByTestId('editor-coords')).toHaveTextContent('x: 0 · y: 0')
+
+    // Пан средней кнопкой: смещение +96px. Сам курсор уехал на clientX=4,
+    // где при новом offset клетка — (3,0). Без пересчёта по [viewport]
+    // статусбар остался бы на «x: 0».
+    fireEvent.pointerDown(canvas, { button: 1, buttons: 4, pointerId: 9, clientX: 100 })
+    fireEvent.pointerMove(canvas, { button: 1, buttons: 4, pointerId: 9, clientX: 4 })
+    fireEvent.pointerUp(canvas, { button: 1, buttons: 0, pointerId: 9 })
+
+    expect(getByTestId('editor-coords')).toHaveTextContent('x: 3 · y: 0')
+  })
 })

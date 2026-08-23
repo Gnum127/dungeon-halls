@@ -38,7 +38,6 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
     offsetX: 0,
     offsetY: 0,
   })
-  const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null)
 
   const viewport = useMemo(
     () => ({
@@ -56,6 +55,41 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
   }, [viewport])
 
   const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
+
+  const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null)
+  const hoverClientRef = useRef<{ x: number; y: number } | null>(null)
+
+  function applyHover() {
+    const point = hoverClientRef.current
+    if (!point) return
+    const cell = cellFromEvent({
+      clientX: point.x,
+      clientY: point.y,
+    } as ReactPointerEvent<HTMLCanvasElement>)
+    if (!isInsideMap(model, cell.x, cell.y)) {
+      setHoverCell(null)
+      return
+    }
+    setHoverCell((previous) =>
+      previous && previous.x === cell.x && previous.y === cell.y ? previous : cell,
+    )
+  }
+
+  function trackHover(event: ReactPointerEvent<HTMLCanvasElement>) {
+    hoverClientRef.current = { x: event.clientX, y: event.clientY }
+    applyHover()
+  }
+
+  function clearHover() {
+    hoverClientRef.current = null
+    setHoverCell(null)
+  }
+
+  // Пан/зум под неподвижным курсором меняют клетку — пересчитываем.
+  useEffect(() => {
+    applyHover()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewport, model])
 
   const handleZoom = useCallback((screenX: number, screenY: number, factor: number) => {
     setPanZoom((current) => zoomAt(current, screenX, screenY, current.cellSize * factor))
@@ -99,17 +133,6 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
     onSelect: handleSelect,
   })
 
-  function trackHover(event: ReactPointerEvent<HTMLCanvasElement>) {
-    const cell = cellFromEvent(event)
-    if (!isInsideMap(model, cell.x, cell.y)) {
-      setHoverCell(null)
-      return
-    }
-    setHoverCell((previous) =>
-      previous && previous.x === cell.x && previous.y === cell.y ? previous : cell,
-    )
-  }
-
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || viewport.width < 1 || viewport.height < 1) return
@@ -139,10 +162,11 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
         onContextMenu={(event) => event.preventDefault()}
         {...mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, {
           onPointerMove: trackHover,
-          onPointerLeave: () => setHoverCell(null),
+          onPointerLeave: clearHover,
         })}
       />
-      <div className={styles.status} role="status" data-testid="editor-coords">
+      {/* Не live-регион: координаты меняются на каждый шаг курсора. */}
+      <div className={styles.status} data-testid="editor-coords">
         {hoverCell ? `x: ${hoverCell.x} · y: ${hoverCell.y}` : '—'}
       </div>
     </div>

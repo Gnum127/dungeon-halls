@@ -6,10 +6,5 @@
       "ru": "Русский",
       "en": "English"
     }
-  },
-  "editor": {
-    "canvas": {
-      "empty": "The map canvas will appear here"
-    }
   }
 }

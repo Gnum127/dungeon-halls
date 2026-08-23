@@ -1,0 +1,69 @@
+import { useRef } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { RefObject } from 'react'
+
+interface PanState {
+  pointerId: number
+  lastX: number
+  lastY: number
+}
+
+const MIDDLE_BUTTON_BIT = 4
+
+/** Пан средней кнопкой мыши с pointer capture. */
+export function useMiddleButtonPan(
+  canvasRef: RefObject<HTMLCanvasElement | null>,
+  onPan: (deltaX: number, deltaY: number) => void,
+): {
+  handlers: {
+    onPointerDown: (event: ReactPointerEvent<HTMLCanvasElement>) => void
+    onPointerMove: (event: ReactPointerEvent<HTMLCanvasElement>) => void
+    onPointerUp: (event: ReactPointerEvent<HTMLCanvasElement>) => void
+    onPointerCancel: (event: ReactPointerEvent<HTMLCanvasElement>) => void
+  }
+} {
+  const stateRef = useRef<PanState | null>(null)
+
+  function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (event.button !== 1) return
+    event.preventDefault()
+    try {
+      canvasRef.current?.setPointerCapture(event.pointerId)
+    } catch {
+      // Pointer уже неактивен: пан корректно завершится проверкой buttons.
+    }
+    stateRef.current = {
+      pointerId: event.pointerId,
+      lastX: event.clientX,
+      lastY: event.clientY,
+    }
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const state = stateRef.current
+    if (!state || state.pointerId !== event.pointerId) return
+    // Кнопку отпустили вне окна — завершаем пан, чтобы вьюпорт не «залипал».
+    if ((event.buttons & MIDDLE_BUTTON_BIT) === 0) {
+      stateRef.current = null
+      return
+    }
+    onPan(event.clientX - state.lastX, event.clientY - state.lastY)
+    state.lastX = event.clientX
+    state.lastY = event.clientY
+  }
+
+  function onPointerEnd(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (stateRef.current?.pointerId === event.pointerId) {
+      stateRef.current = null
+    }
+  }
+
+  return {
+    handlers: {
+      onPointerDown,
+      onPointerMove,
+      onPointerUp: onPointerEnd,
+      onPointerCancel: onPointerEnd,
+    },
+  }
+}

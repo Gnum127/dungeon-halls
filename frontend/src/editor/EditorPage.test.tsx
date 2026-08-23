@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react'
 import { EditorPage } from './EditorPage'
 
 describe('EditorPage', () => {
-  it('renders an empty canvas state', () => {
+  it('renders the map canvas', () => {
     render(<EditorPage />)
-    expect(screen.getByTestId('editor-canvas-empty')).toBeInTheDocument()
+    expect(screen.getByTestId('editor-canvas')).toBeInTheDocument()
   })
 })

@@ -4,11 +4,4 @@
 
 .workspace {
   height: 100%;
-  display: grid;
-  place-items: center;
-}
-
-.emptyState {
-  color: var(--text-muted);
-  user-select: none;
 }

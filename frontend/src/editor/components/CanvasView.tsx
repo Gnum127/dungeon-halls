@@ -59,7 +59,7 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
   const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null)
   const hoverClientRef = useRef<{ clientX: number; clientY: number } | null>(null)
 
-  function applyHover() {
+  const applyHover = useCallback(() => {
     const point = hoverClientRef.current
     if (!point) return
     const cell = cellFromEvent(point)
@@ -70,22 +70,25 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
     setHoverCell((previous) =>
       previous && previous.x === cell.x && previous.y === cell.y ? previous : cell,
     )
-  }
+  }, [cellFromEvent, model])
 
-  function trackHover(event: ReactPointerEvent<HTMLCanvasElement>) {
-    hoverClientRef.current = { clientX: event.clientX, clientY: event.clientY }
-    applyHover()
-  }
+  const trackHover = useCallback(
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      hoverClientRef.current = { clientX: event.clientX, clientY: event.clientY }
+      applyHover()
+    },
+    [applyHover],
+  )
 
-  function clearHover() {
+  const clearHover = useCallback(() => {
     hoverClientRef.current = null
     setHoverCell(null)
-  }
+  }, [])
 
   // Пан/зум под неподвижным курсором меняют клетку — пересчитываем.
   useEffect(() => {
     applyHover()
-  }, [viewport, model])
+  }, [viewport, model, applyHover])
 
   const handleZoom = useCallback((screenX: number, screenY: number, factor: number) => {
     setPanZoom((current) => zoomAt(current, screenX, screenY, current.cellSize * factor))
@@ -149,6 +152,15 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
     if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport)
   }, [model, viewport, dpr, pendingCells, brushTile, hoverCell])
 
+  const pointerHandlers = useMemo(
+    () =>
+      mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, {
+        onPointerMove: trackHover,
+        onPointerLeave: clearHover,
+      }),
+    [panHandlers, brushHandlers, objectHandlers, trackHover, clearHover],
+  )
+
   return (
     <div ref={wrapRef} className={styles.wrap}>
       <canvas
@@ -156,10 +168,7 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
         className={styles.canvas}
         data-testid="editor-canvas"
         onContextMenu={(event) => event.preventDefault()}
-        {...mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, {
-          onPointerMove: trackHover,
-          onPointerLeave: clearHover,
-        })}
+        {...pointerHandlers}
       />
       {/* Не live-регион: координаты меняются на каждый шаг курсора. */}
       <div className={styles.status} data-testid="editor-coords">

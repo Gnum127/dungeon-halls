@@ -1,0 +1,39 @@
+.palette {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text);
+  min-height: 2rem;
+}
+
+.swatch:hover {
+  border-color: var(--text-muted);
+}
+
+.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.swatch:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.name {
+  text-shadow: 0 1px 2px rgb(0 0 0 / 80%);
+  font-size: 0.8rem;
+  user-select: none;
+}

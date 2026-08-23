@@ -5,7 +5,7 @@ import type { Command } from '../model/commands'
 import type { MapModel, TileValue } from '../model/types'
 import type { Viewport } from '../render/viewport'
 import { screenToCell } from '../render/viewport'
-import { commitStroke } from '../tools/brush'
+import { commitStroke, isInsideMap } from '../tools/brush'
 import type { Cell } from '../tools/brush'
 
 interface BrushOptions {
@@ -36,6 +36,7 @@ export function useTerrainBrush(options: BrushOptions): {
 } {
   const { canvasRef, active, model, tile, viewportRef, onCommit } = options
   const strokeCellsRef = useRef<Cell[]>([])
+  const strokeKeysRef = useRef<Set<number>>(new Set())
   const pointerIdRef = useRef<number | null>(null)
   const [pendingCells, setPendingCells] = useState<readonly Cell[]>([])
 
@@ -52,6 +53,8 @@ export function useTerrainBrush(options: BrushOptions): {
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (!active || event.button !== LEFT_BUTTON) return
+    // Второй указатель во время штриха не перехватывает жест.
+    if (pointerIdRef.current !== null) return
     event.preventDefault()
     try {
       canvasRef.current?.setPointerCapture(event.pointerId)
@@ -59,9 +62,11 @@ export function useTerrainBrush(options: BrushOptions): {
       // Pointer уже неактивен; штрих завершится по pointerup/cancel.
     }
     pointerIdRef.current = event.pointerId
+    strokeKeysRef.current = new Set()
     const cell = cellFromEvent(event)
-    strokeCellsRef.current = [cell]
-    setPendingCells([cell])
+    strokeCellsRef.current = []
+    setPendingCells([])
+    addCell(cell)
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -71,7 +76,15 @@ export function useTerrainBrush(options: BrushOptions): {
       finishStroke()
       return
     }
-    const cell = cellFromEvent(event)
+    addCell(cellFromEvent(event))
+  }
+
+  /** Дедуп и фильтрация при записи: превью честное и не разбухает. */
+  function addCell(cell: Cell) {
+    if (!isInsideMap(model, cell.x, cell.y)) return
+    const key = cell.y * model.width + cell.x
+    if (strokeKeysRef.current.has(key)) return
+    strokeKeysRef.current.add(key)
     strokeCellsRef.current.push(cell)
     setPendingCells([...strokeCellsRef.current])
   }
@@ -90,6 +103,7 @@ export function useTerrainBrush(options: BrushOptions): {
     pointerIdRef.current = null
     const cells = strokeCellsRef.current
     strokeCellsRef.current = []
+    strokeKeysRef.current = new Set()
     setPendingCells([])
     onCommit(commitStroke(model, cells, tile))
   }
@@ -97,6 +111,7 @@ export function useTerrainBrush(options: BrushOptions): {
   function discardStroke() {
     pointerIdRef.current = null
     strokeCellsRef.current = []
+    strokeKeysRef.current = new Set()
     setPendingCells([])
   }
 

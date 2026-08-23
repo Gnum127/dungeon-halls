@@ -6,5 +6,19 @@
       "ru": "Русский",
       "en": "English"
     }
+  },
+  "editor": {
+    "palette": {
+      "label": "Terrain types"
+    },
+    "tiles": {
+      "empty": "Eraser",
+      "floor": "Floor",
+      "grass": "Grass",
+      "water": "Water",
+      "stone": "Stone",
+      "sand": "Sand",
+      "wall": "Wall"
+    }
   }
 }

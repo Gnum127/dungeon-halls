@@ -8,6 +8,8 @@
     }
   },
   "editor": {
-    "placeholder": "The map editor will appear here"
+    "canvas": {
+      "empty": "The map canvas will appear here"
+    }
   }
 }

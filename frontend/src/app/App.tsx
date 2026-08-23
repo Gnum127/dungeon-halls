@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { EditorPage } from '@/editor'
 import i18n, { changeLanguage, LANGUAGES } from './i18n'
 import type { Language } from './i18n'
 import styles from './App.module.css'
@@ -23,8 +24,8 @@ export default function App() {
           ))}
         </select>
       </header>
-      <main className={styles.workspace}>
-        <p className={styles.placeholder}>{t('editor.placeholder')}</p>
+      <main className={styles.main}>
+        <EditorPage />
       </main>
     </div>
   )

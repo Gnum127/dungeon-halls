@@ -29,12 +29,7 @@
   cursor: pointer;
 }
 
-.workspace {
+.main {
   flex: 1;
-  display: grid;
-  place-items: center;
-}
-
-.placeholder {
-  color: var(--text-muted);
+  min-height: 0;
 }

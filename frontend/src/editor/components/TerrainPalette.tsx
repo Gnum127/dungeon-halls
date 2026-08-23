@@ -18,7 +18,9 @@ export function TerrainPalette({ selected, onSelect }: TerrainPaletteProps) {
         <button
           key={typeName}
           type="button"
-          className={`${styles.swatch} ${tile === selected ? styles.selected : ''}`}
+          className={[styles.swatch, tile === selected ? styles.selected : '']
+            .filter(Boolean)
+            .join(' ')}
           // Цвет свотча приходит из константы палитры рендера — это
           // data-driven значение, а не оформительский inline-стиль.
           style={{ backgroundColor: TILE_COLORS[typeName] }}

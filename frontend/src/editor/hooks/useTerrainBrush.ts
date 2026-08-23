@@ -101,6 +101,7 @@ export function useTerrainBrush(options: BrushOptions): {
     pointerIdRef.current = null
     const cells = strokeCellsRef.current
     strokeCellsRef.current = []
+    strokeKeysRef.current = new Set()
     setPendingCells([])
     onCommit(commitStroke(model, cells, tile))
   }

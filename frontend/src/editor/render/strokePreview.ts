@@ -19,15 +19,19 @@ export function drawStrokePreview(
   const typeName = TILE_TYPES[tile]
   if (!typeName || cells.length === 0) return
 
+  const previousAlpha = ctx.globalAlpha
   ctx.globalAlpha = PREVIEW_ALPHA
-  ctx.fillStyle = TILE_COLORS[typeName]
-  for (const cell of cells) {
-    ctx.fillRect(
-      cell.x * viewport.cellSize - viewport.offsetX,
-      cell.y * viewport.cellSize - viewport.offsetY,
-      viewport.cellSize,
-      viewport.cellSize,
-    )
+  try {
+    ctx.fillStyle = TILE_COLORS[typeName]
+    for (const cell of cells) {
+      ctx.fillRect(
+        cell.x * viewport.cellSize - viewport.offsetX,
+        cell.y * viewport.cellSize - viewport.offsetY,
+        viewport.cellSize,
+        viewport.cellSize,
+      )
+    }
+  } finally {
+    ctx.globalAlpha = previousAlpha
   }
-  ctx.globalAlpha = 1
 }

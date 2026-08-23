@@ -28,6 +28,10 @@
   outline-offset: -1px;
 }
 
+.swatch:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
 .name {
   text-shadow: 0 1px 2px rgb(0 0 0 / 80%);
   font-size: 0.8rem;

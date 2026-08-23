@@ -7,10 +7,9 @@ import { useWheelZoom } from '../hooks/useWheelZoom'
 import { useTerrainBrush } from '../hooks/useTerrainBrush'
 import type { EditorStore } from '../store/EditorStore'
 import type { Command } from '../model/commands'
-import { TILE_TYPES } from '../model/types'
 import type { TileValue } from '../model/types'
-import { TILE_COLORS } from '../render/colors'
 import { renderMap } from '../render/renderMap'
+import { drawStrokePreview } from '../render/strokePreview'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
 import styles from './CanvasView.module.css'
@@ -93,22 +92,7 @@ export function CanvasView({ store, brushTile }: CanvasViewProps) {
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     renderMap(ctx, model, viewport)
-
-    // Превью незавершённого штриха поверх базового рендера.
-    const typeName = TILE_TYPES[brushTile]
-    if (pendingCells.length > 0 && typeName) {
-      ctx.globalAlpha = 0.6
-      ctx.fillStyle = TILE_COLORS[typeName]
-      for (const cell of pendingCells) {
-        ctx.fillRect(
-          cell.x * viewport.cellSize - viewport.offsetX,
-          cell.y * viewport.cellSize - viewport.offsetY,
-          viewport.cellSize,
-          viewport.cellSize,
-        )
-      }
-      ctx.globalAlpha = 1
-    }
+    drawStrokePreview(ctx, pendingCells, viewport, brushTile)
   }, [model, viewport, dpr, pendingCells, brushTile])
 
   return (

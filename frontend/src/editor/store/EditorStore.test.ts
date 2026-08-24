@@ -6,6 +6,7 @@ import { EditorStore, HISTORY_LIMIT } from './EditorStore'
 
 const FLOOR = TILE_TYPES.indexOf('floor')
 const WATER = TILE_TYPES.indexOf('water')
+const DOOR_KIND = 'door'
 
 function makeStore(): EditorStore {
   return new EditorStore(createEmptyMap(3, 3))
@@ -107,6 +108,23 @@ describe('EditorStore', () => {
     expect(store.canRedo()).toBe(false)
     expect(store.undo()).toBe(false)
     expect(store.redo()).toBe(false)
+  })
+
+  it('replaceMap is one history entry: undo restores objects and dimensions', () => {
+    const store = makeStore()
+    store.dispatch({ kind: 'addObject', x: 0, y: 0, kindId: DOOR_KIND })
+    store.dispatch({ kind: 'addObject', x: 2, y: 2, kindId: DOOR_KIND })
+    const before = store.getModel()
+
+    store.dispatch({ kind: 'replaceMap', width: 2, height: 2, tiles: [FLOOR, FLOOR, FLOOR, FLOOR] })
+
+    expect(store.getModel().objects).toEqual([])
+    expect(store.getModel().width).toBe(2)
+
+    expect(store.undo()).toBe(true)
+    expect(store.getModel()).toBe(before)
+    expect(store.getModel().objects).toHaveLength(2)
+    expect(store.canRedo()).toBe(true)
   })
 
   it('reset replaces the document and clears history', () => {

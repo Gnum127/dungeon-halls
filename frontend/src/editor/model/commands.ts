@@ -1,6 +1,6 @@
 import { findObjectById, isCellOccupied, isKnownKind, nextObjectId } from './objects'
-import { TILE_TYPES } from './types'
-import type { MapModel, TileValue } from './types'
+import { MAX_MAP_DIMENSION, TILE_TYPES } from './types'
+import type { MapModel, TileGrid, TileValue } from './types'
 
 export interface TileUpdate {
   readonly x: number
@@ -14,6 +14,12 @@ export type Command =
   | { readonly kind: 'addObject'; readonly x: number; readonly y: number; readonly kindId: string }
   | { readonly kind: 'moveObject'; readonly id: number; readonly x: number; readonly y: number }
   | { readonly kind: 'removeObject'; readonly id: number }
+  | {
+      readonly kind: 'replaceMap'
+      readonly width: number
+      readonly height: number
+      readonly tiles: TileGrid | readonly TileValue[]
+    }
 
 function assertValidUpdate(update: TileUpdate, model: MapModel): void {
   const { x, y, tile } = update
@@ -95,6 +101,57 @@ function removeObject(model: MapModel, id: number): MapModel {
   return { ...model, objects: model.objects.filter((candidate) => candidate.id !== id) }
 }
 
+function tilesEqual(a: TileGrid, b: TileGrid): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false
+  }
+  return true
+}
+
+/**
+ * Полная замена документа (результат генерации): одна запись истории —
+ * undo возвращает прежнюю карту вместе с объектами. Объекты при замене
+ * очищаются атомарно: их координаты не переживают смену размеров/сеток.
+ */
+function replaceMap(
+  model: MapModel,
+  width: number,
+  height: number,
+  tiles: TileGrid | readonly TileValue[],
+): MapModel {
+  if (!Number.isInteger(width) || width < 1 || width > MAX_MAP_DIMENSION) {
+    throw new RangeError(`width must be an integer in [1, ${MAX_MAP_DIMENSION}], got ${width}`)
+  }
+  if (!Number.isInteger(height) || height < 1 || height > MAX_MAP_DIMENSION) {
+    throw new RangeError(`height must be an integer in [1, ${MAX_MAP_DIMENSION}], got ${height}`)
+  }
+  // Принимаем и обычный массив, и Uint8Array от генератора.
+  if (tiles == null || typeof tiles.length !== 'number' || tiles.length !== width * height) {
+    throw new RangeError(`tiles must contain exactly ${width * height} values`)
+  }
+  for (const tile of tiles) {
+    if (!Number.isInteger(tile) || tile < 0 || tile >= TILE_TYPES.length) {
+      throw new RangeError(
+        `Tile value must be an integer in [0, ${TILE_TYPES.length}), got ${tile}`,
+      )
+    }
+  }
+
+  const nextTiles = Uint8Array.from(tiles)
+  const identical =
+    model.width === width &&
+    model.height === height &&
+    model.objects.length === 0 &&
+    tilesEqual(model.tiles, nextTiles)
+
+  // No-op только при полностью идентичном документе: если сетка совпала,
+  // но есть объекты — замена нужна, чтобы их атомарно убрать.
+  if (identical) return model
+
+  return { ...model, width, height, tiles: nextTiles, objects: [] }
+}
+
 export function applyCommand(model: MapModel, command: Command): MapModel {
   switch (command.kind) {
     case 'setTile':
@@ -107,5 +164,7 @@ export function applyCommand(model: MapModel, command: Command): MapModel {
       return moveObject(model, command.id, command.x, command.y)
     case 'removeObject':
       return removeObject(model, command.id)
+    case 'replaceMap':
+      return replaceMap(model, command.width, command.height, command.tiles)
   }
 }

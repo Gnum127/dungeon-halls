@@ -123,4 +123,26 @@ describe('GeneratorPanel', () => {
       expect(field.tagName).toBe('INPUT')
     }
   })
+
+  // Пункт 2.9: «Ещё раз» повторяет прошлый успешный вызов даже когда
+  // текущая форма уже невалидна.
+  it('regenerate repeats the last successful params regardless of current form', () => {
+    const onGenerate = vi.fn()
+    render(<GeneratorPanel onGenerate={onGenerate} />)
+
+    expect(screen.queryByRole('button', { name: 'Regenerate same seed' })).toBeNull()
+
+    clickGenerate()
+    const firstCall = onGenerate.mock.calls[0]![0]
+
+    // Портим форму: сид невалиден, обычная Generate заблокирована.
+    typeInto('Seed', 'abc')
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled()
+
+    const again = screen.getByRole('button', { name: 'Regenerate same seed' })
+    fireEvent.click(again)
+
+    expect(onGenerate).toHaveBeenCalledTimes(2)
+    expect(onGenerate.mock.calls[1]![0]).toEqual(firstCall)
+  })
 })

@@ -1,7 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { GenerationParams } from '@/generator'
-import { GeneratorPanel, parseForm } from './GeneratorPanel'
+import { DEFAULT_GENERATOR_FORM, parseGeneratorForm } from './generatorForm'
+import type { GeneratorFormState } from './generatorForm'
+import { GeneratorPanel } from './GeneratorPanel'
 
 function typeInto(label: string, value: string) {
   // Язык зафиксирован в setup.ts как en.
@@ -12,17 +14,9 @@ function clickGenerate() {
   fireEvent.click(screen.getByRole('button', { name: 'Generate' }))
 }
 
-describe('parseForm', () => {
+describe('parseGeneratorForm', () => {
   it('returns dungeon params for valid defaults', () => {
-    const params = parseForm({
-      genType: 'dungeon',
-      seed: '42',
-      width: '40',
-      height: '30',
-      roomAttempts: '150',
-      fillProbability: '0.45',
-      smoothingIterations: '4',
-    })
+    const params = parseGeneratorForm(DEFAULT_GENERATOR_FORM)
 
     expect(params).toEqual({
       type: 'dungeon',
@@ -34,34 +28,24 @@ describe('parseForm', () => {
   })
 
   it('returns null on non-numeric seed or out-of-range size', () => {
-    const base = {
-      genType: 'dungeon' as const,
-      seed: '42',
-      width: '40',
-      height: '30',
-      roomAttempts: '150',
-      fillProbability: '0.45',
-      smoothingIterations: '4',
-    }
+    const base = { ...DEFAULT_GENERATOR_FORM }
 
-    expect(parseForm({ ...base, seed: 'abc' })).toBeNull()
-    expect(parseForm({ ...base, width: '5' })).toBeNull()
-    expect(parseForm({ ...base, width: '301' })).toBeNull()
-    expect(parseForm({ ...base, roomAttempts: '0' })).toBeNull()
+    expect(parseGeneratorForm({ ...base, seed: 'abc' })).toBeNull()
+    expect(parseGeneratorForm({ ...base, width: '5' })).toBeNull()
+    expect(parseGeneratorForm({ ...base, width: '301' })).toBeNull()
+    expect(parseGeneratorForm({ ...base, roomAttempts: '0' })).toBeNull()
   })
 
   it('validates cave-specific fields only in caves mode', () => {
-    const base = {
-      genType: 'caves' as const,
-      seed: '42',
-      width: '40',
-      height: '30',
+    const caves: GeneratorFormState = {
+      ...DEFAULT_GENERATOR_FORM,
+      genType: 'caves',
       roomAttempts: 'garbage', // в режиме пещер не читается
       fillProbability: '0.6',
       smoothingIterations: '3',
     }
 
-    const params = parseForm(base)
+    const params = parseGeneratorForm(caves)
     expect(params).toEqual({
       type: 'caves',
       seed: 42,
@@ -71,8 +55,8 @@ describe('parseForm', () => {
       smoothingIterations: 3,
     })
 
-    expect(parseForm({ ...base, fillProbability: '1.2' })).toBeNull()
-    expect(parseForm({ ...base, smoothingIterations: '-1' })).toBeNull()
+    expect(parseGeneratorForm({ ...caves, fillProbability: '1.2' })).toBeNull()
+    expect(parseGeneratorForm({ ...caves, smoothingIterations: '-1' })).toBeNull()
   })
 })
 

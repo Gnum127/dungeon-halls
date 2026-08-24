@@ -125,7 +125,7 @@ RNG → данж → команда замены → пещеры → UI → п�
       предикате no-op, поле опционально с дефолтом 'square' (генераторы
       отдают квадрат). Тесты: roundtrip v1/v2, миграция файла без gridType,
       смена только gridType меняет документ
-- [ ] 3.2 Hex-математика `src/shared/hex.ts`: параметризованная
+- [x] 3.2 Hex-математика `src/shared/hex.ts`: параметризованная
       ориентация (матрица f²/b из Red Blob Games), pixelToCell (axial +
       cube-round), cellCenter, cellCorners; конверсии offset↔axial
       (odd-r для pointy, odd-q для flat — зафиксировать); property-тест

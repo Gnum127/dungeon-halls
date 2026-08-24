@@ -1,7 +1,6 @@
 import { findObjectById, isCellOccupied, isKnownKind, nextObjectId } from './objects'
 import { MAX_MAP_DIMENSION, TILE_TYPES } from './types'
 import type { GridType, MapModel, TileGrid, TileValue } from './types'
-
 export interface TileUpdate {
   readonly x: number
   readonly y: number

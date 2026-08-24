@@ -1,3 +1,4 @@
+import { isGridType } from '@/shared/tiles'
 import { isKnownKind } from './model/objects'
 import { MAP_VERSION, MAX_MAP_DIMENSION, TILE_TYPES } from './model/types'
 import type { MapModel, MapObject, TileValue } from './model/types'
@@ -15,7 +16,7 @@ interface RawMapFile {
 }
 
 function validateGridType(value: unknown): 'square' | 'hex-flat' | 'hex-pointy' {
-  if (value !== 'square' && value !== 'hex-flat' && value !== 'hex-pointy') {
+  if (!isGridType(value)) {
     throw new MapLoadError(`Unknown gridType: ${String(value)}`)
   }
   return value
@@ -44,18 +45,14 @@ function assertIntInRange(
  * напрямую он в JSON не сериализуется.
  */
 export function serializeMap(model: MapModel): string {
-  return JSON.stringify(
-    {
-      version: model.version,
-      gridType: model.gridType,
-      width: model.width,
-      height: model.height,
-      tiles: Array.from(model.tiles),
-      objects: model.objects.map((object) => ({ ...object })),
-    },
-    null,
-    2,
-  )
+  return JSON.stringify({
+    version: model.version,
+    gridType: model.gridType,
+    width: model.width,
+    height: model.height,
+    tiles: Array.from(model.tiles),
+    objects: model.objects.map((object) => ({ ...object })),
+  })
 }
 
 /**

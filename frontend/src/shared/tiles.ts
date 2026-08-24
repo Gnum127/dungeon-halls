@@ -5,6 +5,10 @@ export type GridType = 'square' | 'hex-flat' | 'hex-pointy'
 
 export const GRID_TYPES: readonly GridType[] = ['square', 'hex-flat', 'hex-pointy']
 
+export function isGridType(value: unknown): value is GridType {
+  return typeof value === 'string' && (GRID_TYPES as readonly string[]).includes(value)
+}
+
 /**
  * Пустая клетка. Значение тайла — индекс в TILE_TYPES, поэтому порядок
  * элементов палитры менять нельзя: он неявно хранится в сохранённых картах.

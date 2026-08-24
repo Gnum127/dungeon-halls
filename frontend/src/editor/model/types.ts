@@ -1,6 +1,7 @@
 import type { TileGrid } from '@/shared/tiles'
 
 export { EMPTY_TILE, MAX_MAP_DIMENSION, TILE_TYPES } from '@/shared/tiles'
+export { GRID_TYPES, isGridType } from '@/shared/tiles'
 export type { GridType, TileGrid, TileTypeName, TileValue } from '@/shared/tiles'
 
 export const MAP_VERSION = 2

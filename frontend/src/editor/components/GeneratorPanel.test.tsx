@@ -59,9 +59,13 @@ describe('parseGeneratorForm', () => {
     expect(parseGeneratorForm({ ...caves, smoothingIterations: '-1' })).toBeNull()
 
     // Регрессия: пустое поле и hex/exponent-формы раньше превращались в 0.
+    // '1e-1' и '0x1' попадают в [0..1] — отсекаются самим парсером, а не
+    // проверкой диапазона.
     expect(parseGeneratorForm({ ...caves, fillProbability: '' })).toBeNull()
     expect(parseGeneratorForm({ ...caves, fillProbability: '0x10' })).toBeNull()
+    expect(parseGeneratorForm({ ...caves, fillProbability: '0x1' })).toBeNull()
     expect(parseGeneratorForm({ ...caves, fillProbability: '1e2' })).toBeNull()
+    expect(parseGeneratorForm({ ...caves, fillProbability: '1e-1' })).toBeNull()
   })
 })
 

@@ -1,5 +1,6 @@
-import { MAX_MAP_DIMENSION, TILE_TYPES } from '@/shared/tiles'
+import { MAX_MAP_DIMENSION } from '@/shared/tiles'
 import type { TileGrid } from '@/shared/tiles'
+import { FLOOR, WALL } from './tiles'
 import type { Rng } from './rng'
 import type { DungeonParams, GenerationResult } from './types'
 
@@ -18,15 +19,6 @@ const ROOM_GAP = 1
 // Комната + зазор с обеих сторон + внешняя рамка: иначе nextInt(0) в размещении.
 const MIN_DIMENSION = ROOM_MIN_SIZE + ROOM_GAP * 2 + 1
 const MAX_ROOM_ATTEMPTS = 10000
-
-function tileIndex(name: string): number {
-  const index = TILE_TYPES.indexOf(name as (typeof TILE_TYPES)[number])
-  if (index < 0) throw new Error(`Unknown tile: ${name}`)
-  return index
-}
-
-const FLOOR = tileIndex('floor')
-const WALL = tileIndex('wall')
 
 function assertDimension(value: number, name: string): void {
   if (!Number.isInteger(value) || value < MIN_DIMENSION || value > MAX_MAP_DIMENSION) {

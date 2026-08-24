@@ -1,16 +1,11 @@
-import { TILE_TYPES } from '@/shared/tiles'
+import { MAX_MAP_DIMENSION } from '@/shared/tiles'
 import type { TileGrid } from '@/shared/tiles'
+import { FLOOR, WALL } from './tiles'
 import type { Rng } from './rng'
 import type { CaveParams, GenerationResult } from './types'
 
-function tileIndex(name: string): number {
-  const index = TILE_TYPES.indexOf(name as (typeof TILE_TYPES)[number])
-  if (index < 0) throw new Error(`Unknown tile: ${name}`)
-  return index
-}
-
-const FLOOR = tileIndex('floor')
-const WALL = tileIndex('wall')
+/** Рамка стен + хотя бы одна клетка пола внутри. */
+const MIN_CAVE_DIMENSION = 3
 
 /**
  * Классическое правило пещер: клетка становится стеной, если среди 8 соседей
@@ -43,6 +38,16 @@ function stepSmooth(current: Uint8Array, width: number, height: number): Uint8Ar
  */
 export function generateCaves(params: CaveParams, rng: Rng): GenerationResult {
   const { width, height } = params
+  for (const [name, value] of [
+    ['width', width],
+    ['height', height],
+  ] as const) {
+    if (!Number.isInteger(value) || value < MIN_CAVE_DIMENSION || value > MAX_MAP_DIMENSION) {
+      throw new RangeError(
+        `${name} must be an integer in [${MIN_CAVE_DIMENSION}, ${MAX_MAP_DIMENSION}], got ${value}`,
+      )
+    }
+  }
   if (!(params.fillProbability >= 0 && params.fillProbability <= 1)) {
     throw new RangeError(
       `fillProbability must be a number in [0, 1], got ${params.fillProbability}`,

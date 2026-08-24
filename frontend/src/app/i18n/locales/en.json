@@ -39,6 +39,19 @@
       "loaded": "Map loaded",
       "invalid": "Failed to open file",
       "exportFailed": "PNG export failed"
+    },
+    "generator": {
+      "title": "Map generator",
+      "type": "Generation type",
+      "dungeon": "Dungeon",
+      "caves": "Caves",
+      "seed": "Seed",
+      "width": "Width",
+      "height": "Height",
+      "roomAttempts": "Room attempts",
+      "fillProbability": "Cave density",
+      "iterations": "Smoothing iterations",
+      "generate": "Generate"
     }
   }
 }

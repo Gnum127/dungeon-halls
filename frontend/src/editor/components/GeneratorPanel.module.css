@@ -1,0 +1,79 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.typeToggle {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.typeButton {
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  min-height: 2rem;
+}
+
+.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.typeButton:focus-visible,
+.generate:focus-visible,
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.row .field {
+  flex: 1;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.input {
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 1.8rem;
+}
+
+.generate {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+  min-height: 2rem;
+}
+
+.generate:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

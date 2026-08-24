@@ -1,8 +1,11 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { GenerationParams } from '@/generator'
+import { createRng, generateCaves, generateDungeon } from '@/generator'
 import { CanvasView } from './components/CanvasView'
 import { MapFileActions } from './components/MapFileActions'
 import type { FileActionStatus } from './components/MapFileActions'
+import { GeneratorPanel } from './components/GeneratorPanel'
 import { ObjectPalette } from './components/ObjectPalette'
 import { TerrainPalette } from './components/TerrainPalette'
 import { createEmptyMap } from './model/createEmptyMap'
@@ -53,6 +56,21 @@ export function EditorPage() {
     setTool({ type: 'select' })
   }
 
+  function handleGenerate(params: GenerationParams) {
+    // Выделение сбрасываем: id объектов не переживают replaceMap,
+    // иначе Delete по несуществующему объекту бросит RangeError.
+    setSelectedObjectId(null)
+    const rng = createRng(params.seed)
+    const result =
+      params.type === 'dungeon' ? generateDungeon(params, rng) : generateCaves(params, rng)
+    store.dispatch({
+      kind: 'replaceMap',
+      width: result.width,
+      height: result.height,
+      tiles: result.tiles,
+    })
+  }
+
   useEditorHotkeys({
     onUndo: () => store.undo(),
     onRedo: () => store.redo(),
@@ -63,6 +81,7 @@ export function EditorPage() {
   return (
     <div className={styles.root}>
       <aside className={styles.sidebar}>
+        <GeneratorPanel onGenerate={handleGenerate} />
         <MapFileActions
           getModel={() => store.getModel()}
           onLoaded={(model) => store.reset(model)}

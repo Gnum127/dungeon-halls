@@ -6,6 +6,9 @@ import type { CaveParams, GenerationResult } from './types'
 
 /** Рамка стен + хотя бы одна клетка пола внутри. */
 const MIN_CAVE_DIMENSION = 3
+const MAX_SMOOTHING_ITERATIONS = 20
+/** Стена, если среди 8 соседей стен не меньше этой доли порога. */
+export const WALL_NEIGHBOR_THRESHOLD = 5
 
 /**
  * Классическое правило пещер: клетка становится стеной, если среди 8 соседей
@@ -26,7 +29,7 @@ function stepSmooth(current: Uint8Array, width: number, height: number): Uint8Ar
           if (outside || current[ny * width + nx] === WALL) walls += 1
         }
       }
-      next[y * width + x] = walls >= 5 ? WALL : FLOOR
+      next[y * width + x] = walls >= WALL_NEIGHBOR_THRESHOLD ? WALL : FLOOR
     }
   }
   return next
@@ -56,10 +59,10 @@ export function generateCaves(params: CaveParams, rng: Rng): GenerationResult {
   if (
     !Number.isInteger(params.smoothingIterations) ||
     params.smoothingIterations < 0 ||
-    params.smoothingIterations > 20
+    params.smoothingIterations > MAX_SMOOTHING_ITERATIONS
   ) {
     throw new RangeError(
-      `smoothingIterations must be an integer in [0, 20], got ${params.smoothingIterations}`,
+      `smoothingIterations must be an integer in [0, ${MAX_SMOOTHING_ITERATIONS}], got ${params.smoothingIterations}`,
     )
   }
 

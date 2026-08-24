@@ -89,6 +89,34 @@ describe('generateCaves', () => {
     expect(() => generateCaves(makeParams({ smoothingIterations: 2.5 }), createRng(1))).toThrow(
       RangeError,
     )
+    expect(() => generateCaves(makeParams({ fillProbability: Number.NaN }), createRng(1))).toThrow(
+      RangeError,
+    )
+  })
+
+  // Регрессия: до фикса невалидные размеры давали пустой результат
+  // или невнятную ошибку движка вместо RangeError.
+  it('rejects invalid dimensions for both axes', () => {
+    const cases: Array<{ width?: number; height?: number }> = [
+      { width: Number.NaN },
+      { width: 0 },
+      { width: 2 },
+      { width: 10.5 },
+      { width: 301 },
+      { height: Number.NaN },
+      { height: 0 },
+      { height: 2 },
+      { height: 10.5 },
+      { height: 301 },
+    ]
+
+    for (const override of cases) {
+      expect(() => generateCaves(makeParams(override), createRng(1))).toThrow(RangeError)
+    }
+  })
+
+  it('accepts the minimal cave dimension', () => {
+    expect(() => generateCaves(makeParams({ width: 3, height: 3 }), createRng(1))).not.toThrow()
   })
 
   it('zero iterations keeps the raw noise except the border', () => {

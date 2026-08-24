@@ -77,3 +77,14 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+.again {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  min-height: 1.8rem;
+  font-size: 0.8rem;
+}

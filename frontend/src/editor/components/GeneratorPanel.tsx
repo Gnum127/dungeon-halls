@@ -45,6 +45,8 @@ export function GeneratorPanel({ onGenerate }: GeneratorPanelProps) {
   const { t } = useTranslation()
   const uid = useId()
   const [form, setForm] = useState<GeneratorFormState>(DEFAULT_GENERATOR_FORM)
+  // Последние успешные параметры для кнопки «Ещё раз» (тот же seed = та же карта).
+  const [lastParams, setLastParams] = useState<GenerationParams | null>(null)
 
   function bindField(key: keyof GeneratorFormState) {
     return (event: ReactChangeEvent<HTMLInputElement>) =>
@@ -58,7 +60,10 @@ export function GeneratorPanel({ onGenerate }: GeneratorPanelProps) {
   const params = parseGeneratorForm(form)
 
   function generate() {
-    if (params) onGenerate(params)
+    if (params) {
+      setLastParams(params)
+      onGenerate(params)
+    }
   }
 
   return (
@@ -139,6 +144,11 @@ export function GeneratorPanel({ onGenerate }: GeneratorPanelProps) {
       <button type="button" className={styles.generate} disabled={!params} onClick={generate}>
         {t('editor.generator.generate')}
       </button>
+      {lastParams !== null && (
+        <button type="button" className={styles.again} onClick={() => onGenerate(lastParams)}>
+          {t('editor.generator.again')}
+        </button>
+      )}
     </section>
   )
 }

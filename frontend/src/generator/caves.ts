@@ -7,8 +7,8 @@ import type { CaveParams, GenerationResult } from './types'
 /** Рамка стен + хотя бы одна клетка пола внутри. */
 const MIN_CAVE_DIMENSION = 3
 const MAX_SMOOTHING_ITERATIONS = 20
-/** Стена, если среди 8 соседей стен не меньше этой доли порога. */
-export const WALL_NEIGHBOR_THRESHOLD = 5
+/** Стена, если среди 8 соседей стен не меньше этого числа. */
+const WALL_NEIGHBOR_THRESHOLD = 5
 
 /**
  * Классическое правило пещер: клетка становится стеной, если среди 8 соседей

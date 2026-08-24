@@ -30,7 +30,7 @@ describe('serializeMap / deserializeMap roundtrip', () => {
     const json = serializeMap(model)
 
     const parsed = JSON.parse(json) as Record<string, unknown>
-    expect(parsed.version).toBe(1)
+    expect(parsed.version).toBe(2)
     expect(Array.isArray(parsed.tiles)).toBe(true)
 
     const restored = deserializeMap(json)
@@ -61,6 +61,24 @@ describe('deserializeMap validation', () => {
     const raw = JSON.parse(serializeMap(makeRichModel())) as Record<string, unknown>
     raw.version = 99
     expect(() => deserializeMap(JSON.stringify(raw))).toThrow(/Unsupported map version/)
+  })
+
+  it('migrates version 1 by adding square gridType', () => {
+    const raw = JSON.parse(serializeMap(makeRichModel())) as Record<string, unknown>
+    raw.version = 1
+    delete raw.gridType
+
+    const restored = deserializeMap(JSON.stringify(raw))
+
+    expect(restored.version).toBe(2)
+    expect(restored.gridType).toBe('square')
+    expect([...restored.tiles]).toEqual([...makeRichModel().tiles])
+  })
+
+  it('rejects unknown gridType values', () => {
+    const raw = JSON.parse(serializeMap(makeRichModel())) as Record<string, unknown>
+    raw.gridType = 'hex-weird'
+    expect(() => deserializeMap(JSON.stringify(raw))).toThrow(/Unknown gridType/)
   })
 
   it.each([0, -3, 2.5, MAX_MAP_DIMENSION + 1])('rejects invalid width %s', (width) => {

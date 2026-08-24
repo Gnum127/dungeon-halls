@@ -1,6 +1,6 @@
 import { findObjectById, isCellOccupied, isKnownKind, nextObjectId } from './objects'
 import { MAX_MAP_DIMENSION, TILE_TYPES } from './types'
-import type { MapModel, TileGrid, TileValue } from './types'
+import type { GridType, MapModel, TileGrid, TileValue } from './types'
 
 export interface TileUpdate {
   readonly x: number
@@ -19,7 +19,9 @@ export type Command =
       readonly width: number
       readonly height: number
       readonly tiles: TileGrid | readonly TileValue[]
+      readonly gridType?: GridType
     }
+  | { readonly kind: 'setGridType'; readonly gridType: GridType }
 
 function assertValidUpdate(update: TileUpdate, model: MapModel): void {
   const { x, y, tile } = update
@@ -119,6 +121,7 @@ function replaceMap(
   width: number,
   height: number,
   tiles: TileGrid | readonly TileValue[],
+  gridType: GridType,
 ): MapModel {
   if (!Number.isInteger(width) || width < 1 || width > MAX_MAP_DIMENSION) {
     throw new RangeError(`width must be an integer in [1, ${MAX_MAP_DIMENSION}], got ${width}`)
@@ -142,6 +145,7 @@ function replaceMap(
   const identical =
     model.width === width &&
     model.height === height &&
+    model.gridType === gridType &&
     model.objects.length === 0 &&
     tilesEqual(model.tiles, nextTiles)
 
@@ -149,7 +153,13 @@ function replaceMap(
   // но есть объекты — замена нужна, чтобы их атомарно убрать.
   if (identical) return model
 
-  return { ...model, width, height, tiles: nextTiles, objects: [] }
+  return { ...model, gridType, width, height, tiles: nextTiles, objects: [] }
+}
+
+/** Смена типа сетки как метаданных: тайлы и объекты сохраняются. */
+function setGridType(model: MapModel, gridType: GridType): MapModel {
+  if (model.gridType === gridType) return model
+  return { ...model, gridType }
 }
 
 export function applyCommand(model: MapModel, command: Command): MapModel {
@@ -165,6 +175,14 @@ export function applyCommand(model: MapModel, command: Command): MapModel {
     case 'removeObject':
       return removeObject(model, command.id)
     case 'replaceMap':
-      return replaceMap(model, command.width, command.height, command.tiles)
+      return replaceMap(
+        model,
+        command.width,
+        command.height,
+        command.tiles,
+        command.gridType ?? 'square',
+      )
+    case 'setGridType':
+      return setGridType(model, command.gridType)
   }
 }

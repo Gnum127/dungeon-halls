@@ -1,5 +1,10 @@
 export const MAX_MAP_DIMENSION = 300
 
+/** Тип сетки карты; определяет геометрию клеток и hit-test. */
+export type GridType = 'square' | 'hex-flat' | 'hex-pointy'
+
+export const GRID_TYPES: readonly GridType[] = ['square', 'hex-flat', 'hex-pointy']
+
 /**
  * Пустая клетка. Значение тайла — индекс в TILE_TYPES, поэтому порядок
  * элементов палитры менять нельзя: он неявно хранится в сохранённых картах.

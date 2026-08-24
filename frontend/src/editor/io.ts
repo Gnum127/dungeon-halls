@@ -7,10 +7,18 @@ export class MapLoadError extends Error {}
 
 interface RawMapFile {
   version?: unknown
+  gridType?: unknown
   width?: unknown
   height?: unknown
   tiles?: unknown
   objects?: unknown
+}
+
+function validateGridType(value: unknown): 'square' | 'hex-flat' | 'hex-pointy' {
+  if (value !== 'square' && value !== 'hex-flat' && value !== 'hex-pointy') {
+    throw new MapLoadError(`Unknown gridType: ${String(value)}`)
+  }
+  return value
 }
 
 function assertIntInRange(
@@ -36,13 +44,18 @@ function assertIntInRange(
  * напрямую он в JSON не сериализуется.
  */
 export function serializeMap(model: MapModel): string {
-  return JSON.stringify({
-    version: model.version,
-    width: model.width,
-    height: model.height,
-    tiles: Array.from(model.tiles),
-    objects: model.objects.map((object) => ({ ...object })),
-  })
+  return JSON.stringify(
+    {
+      version: model.version,
+      gridType: model.gridType,
+      width: model.width,
+      height: model.height,
+      tiles: Array.from(model.tiles),
+      objects: model.objects.map((object) => ({ ...object })),
+    },
+    null,
+    2,
+  )
 }
 
 /**
@@ -59,11 +72,14 @@ export function deserializeMap(json: string): MapModel {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     throw new MapLoadError('Map file must contain a JSON object')
   }
-  if (raw.version !== MAP_VERSION) {
+  if (raw.version !== 1 && raw.version !== 2) {
     throw new MapLoadError(
-      `Unsupported map version: ${String(raw.version)}, expected ${MAP_VERSION}`,
+      `Unsupported map version: ${String(raw.version)}, supported: 1–${MAP_VERSION}`,
     )
   }
+
+  // Миграция v1 → v2: добавляется gridType, старые карты — квадратные.
+  const gridType = raw.version === 1 ? 'square' : validateGridType(raw.gridType)
 
   assertIntInRange(raw.width, 'width', 1, MAX_MAP_DIMENSION + 1)
   assertIntInRange(raw.height, 'height', 1, MAX_MAP_DIMENSION + 1)
@@ -104,6 +120,7 @@ export function deserializeMap(json: string): MapModel {
 
   return {
     version: MAP_VERSION,
+    gridType,
     width,
     height,
     tiles: Uint8Array.from(raw.tiles as TileValue[]),

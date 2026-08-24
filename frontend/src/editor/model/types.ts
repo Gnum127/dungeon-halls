@@ -1,9 +1,9 @@
 import type { TileGrid } from '@/shared/tiles'
 
 export { EMPTY_TILE, MAX_MAP_DIMENSION, TILE_TYPES } from '@/shared/tiles'
-export type { TileGrid, TileTypeName, TileValue } from '@/shared/tiles'
+export type { GridType, TileGrid, TileTypeName, TileValue } from '@/shared/tiles'
 
-export const MAP_VERSION = 1
+export const MAP_VERSION = 2
 
 /** Объект карты занимает одну клетку; каталог видов появляется в пункте 1.8. */
 export interface MapObject {
@@ -15,6 +15,8 @@ export interface MapObject {
 
 export interface MapModel {
   readonly version: typeof MAP_VERSION
+  /** Тип сетки; влияет на геометрию клеток и рендер. */
+  readonly gridType: 'square' | 'hex-flat' | 'hex-pointy'
   readonly width: number
   readonly height: number
   readonly tiles: TileGrid

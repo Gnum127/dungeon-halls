@@ -1,3 +1,4 @@
+export { generateCaves } from './caves'
 export { generateDungeon, layoutRooms } from './dungeon'
 export { createRng, normalizeSeed } from './rng'
 export type { Rng } from './rng'

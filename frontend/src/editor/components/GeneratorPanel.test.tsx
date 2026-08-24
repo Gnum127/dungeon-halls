@@ -57,6 +57,11 @@ describe('parseGeneratorForm', () => {
 
     expect(parseGeneratorForm({ ...caves, fillProbability: '1.2' })).toBeNull()
     expect(parseGeneratorForm({ ...caves, smoothingIterations: '-1' })).toBeNull()
+
+    // Регрессия: пустое поле и hex/exponent-формы раньше превращались в 0.
+    expect(parseGeneratorForm({ ...caves, fillProbability: '' })).toBeNull()
+    expect(parseGeneratorForm({ ...caves, fillProbability: '0x10' })).toBeNull()
+    expect(parseGeneratorForm({ ...caves, fillProbability: '1e2' })).toBeNull()
   })
 })
 

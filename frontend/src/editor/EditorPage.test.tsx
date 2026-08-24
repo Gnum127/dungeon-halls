@@ -23,20 +23,43 @@ describe('EditorPage', () => {
   })
 
   // Guard isEditableTarget: ввод сида не должен триггерить хоткей B.
+  // Сценарий различает наличие guard'а: выбран Eraser, а lastBrushTileRef
+  // указывает на Floor — без guard'а нажатие B вернуло бы Floor.
   it('typing in the seed field does not trigger the brush hotkey', () => {
     render(<EditorPage />)
 
+    fireEvent.click(screen.getByRole('button', { name: 'Eraser' }))
+    const eraserButton = screen.getByRole('button', { name: 'Eraser' })
+    expect(eraserButton).toHaveAttribute('aria-pressed', 'true')
+
     const seedInput = screen.getByLabelText('Seed')
-    // До нажатия: Floor ещё не выбран (дефолтный инструмент — Floor).
-    const floorButton = screen.getByRole('button', { name: 'Floor' })
-    expect(floorButton).toHaveAttribute('aria-pressed', 'true')
-
-    // Переключаемся на другой тайл, затем жмём «B» с фокусом в поле сида.
-    fireEvent.click(screen.getByRole('button', { name: 'Grass' }))
-    expect(floorButton).toHaveAttribute('aria-pressed', 'false')
-
     fireEvent.keyDown(seedInput, { code: 'KeyB', key: 'b' })
-    expect(floorButton).toHaveAttribute('aria-pressed', 'false')
+
+    // Guard сработал: инструмент остался ластиком, а не вернулся на Floor.
+    expect(eraserButton).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  // Регрессия roadmap 2.7: stale id после генерации → removeObject бросал
+  // RangeError внутри keydown. Теперь выделение сбрасывается при генерации.
+  it('generate clears stale object selection: Delete does not throw', () => {
+    render(<EditorPage />)
+    const canvas = screen.getByTestId('editor-canvas')
+
+    // Ставим дверь (инструмент Door уже активен в палитре объектов).
+    fireEvent.click(screen.getByRole('button', { name: 'Door' }))
+    fireEvent.pointerDown(canvas, { button: 0, buttons: 1, pointerId: 1, clientX: 48, clientY: 48 })
+    fireEvent.pointerUp(canvas, { pointerId: 1, buttons: 0 })
+
+    // Выделяем её инструментом выбора.
+    fireEvent.click(screen.getByRole('button', { name: 'Select (Del to remove)' }))
+    fireEvent.pointerDown(canvas, { button: 0, buttons: 1, pointerId: 2, clientX: 48, clientY: 48 })
+    fireEvent.pointerUp(canvas, { pointerId: 2, buttons: 0 })
+
+    // Генерируем пещеры: объекты очищены, выделение сброшено.
+    fireEvent.click(screen.getByRole('button', { name: 'Caves' }))
+    clickGenerate()
+
+    expect(() => fireEvent.keyDown(window, { key: 'Delete' })).not.toThrow()
   })
 
   function clickGenerate() {

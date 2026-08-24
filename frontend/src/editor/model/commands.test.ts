@@ -3,7 +3,7 @@ import { applyCommand } from './commands'
 import type { Command } from './commands'
 import { createEmptyMap } from './createEmptyMap'
 import { OBJECT_KINDS } from './objects'
-import { TILE_TYPES } from './types'
+import { MAX_MAP_DIMENSION, TILE_TYPES } from './types'
 import type { MapModel, MapObject } from './types'
 
 function makeMap(): MapModel {
@@ -201,5 +201,95 @@ describe('object commands', () => {
     expect(model.objects).toHaveLength(2)
 
     expect(() => applyCommand(next, { kind: 'removeObject', id: 1 })).toThrow(RangeError)
+  })
+})
+
+describe('replaceMap', () => {
+  it('replaces dimensions, tiles and clears objects atomically', () => {
+    const source = withObject(withObject(makeMap(), 0, 0, 1), 2, 2, 2)
+    const next = applyCommand(source, {
+      kind: 'replaceMap',
+      width: 2,
+      height: 3,
+      tiles: [FLOOR, FLOOR, 0, 0, WATER, WATER],
+    })
+
+    expect(next.width).toBe(2)
+    expect(next.height).toBe(3)
+    expect(next.objects).toEqual([])
+    expect([...next.tiles]).toEqual([FLOOR, FLOOR, 0, 0, WATER, WATER])
+
+    // Источник не тронут.
+    expect(source.width).toBe(3)
+    expect(source.objects).toHaveLength(2)
+  })
+
+  it('accepts Uint8Array as tiles payload', () => {
+    const next = applyCommand(makeMap(), {
+      kind: 'replaceMap',
+      width: 2,
+      height: 2,
+      tiles: Uint8Array.from([WATER, 0, 0, WATER]),
+    })
+
+    expect(next.width).toBe(2)
+    expect(next.tiles[0]).toBe(WATER)
+  })
+
+  it('is a no-op when the resulting document is identical', () => {
+    const source = makeMap()
+    const next = applyCommand(source, {
+      kind: 'replaceMap',
+      width: 3,
+      height: 3,
+      tiles: new Array<number>(9).fill(0),
+    })
+
+    expect(next).toBe(source)
+  })
+
+  it('replaces even when the grid matches but objects exist', () => {
+    const source = withObject(makeMap(), 1, 1, 1)
+    const next = applyCommand(source, {
+      kind: 'replaceMap',
+      width: 3,
+      height: 3,
+      tiles: [...source.tiles],
+    })
+
+    expect(next).not.toBe(source)
+    expect([...next.tiles]).toEqual([...source.tiles])
+    expect(next.objects).toEqual([])
+  })
+
+  it('rejects invalid dimensions before any mutation', () => {
+    const source = makeMap()
+
+    for (const width of [0, -1, 2.5, Number.NaN, MAX_MAP_DIMENSION + 1]) {
+      expect(() =>
+        applyCommand(source, { kind: 'replaceMap', width, height: 3, tiles: [] }),
+      ).toThrow(RangeError)
+    }
+    for (const height of [0, -1, 2.5, Number.NaN, MAX_MAP_DIMENSION + 1]) {
+      expect(() =>
+        applyCommand(source, { kind: 'replaceMap', width: 3, height, tiles: [] }),
+      ).toThrow(RangeError)
+    }
+  })
+
+  it('rejects wrong tiles length and out-of-range values', () => {
+    const source = makeMap()
+
+    expect(() =>
+      applyCommand(source, { kind: 'replaceMap', width: 3, height: 3, tiles: [0] }),
+    ).toThrow(/exactly 9/)
+    expect(() =>
+      applyCommand(source, {
+        kind: 'replaceMap',
+        width: 3,
+        height: 3,
+        tiles: [0, 0, 0, 0, 0, 0, 0, 0, TILE_TYPES.length],
+      }),
+    ).toThrow(RangeError)
   })
 })

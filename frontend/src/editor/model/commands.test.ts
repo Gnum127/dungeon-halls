@@ -204,6 +204,25 @@ describe('object commands', () => {
   })
 })
 
+describe('setGridType', () => {
+  it('changes only the gridType keeping tiles and objects', () => {
+    const source = withObject(makeMap(), 1, 1, 1)
+    const next = applyCommand(source, { kind: 'setGridType', gridType: 'hex-pointy' })
+
+    expect(next).not.toBe(source)
+    expect(next.gridType).toBe('hex-pointy')
+    expect([...next.tiles]).toEqual([...source.tiles])
+    expect(next.objects).toEqual(source.objects)
+  })
+
+  it('is a no-op when the gridType is unchanged', () => {
+    const source = applyCommand(makeMap(), { kind: 'setGridType', gridType: 'hex-flat' })
+    const next = applyCommand(source, { kind: 'setGridType', gridType: 'hex-flat' })
+
+    expect(next).toBe(source)
+  })
+})
+
 describe('replaceMap', () => {
   it('replaces dimensions, tiles and clears objects atomically', () => {
     const source = withObject(withObject(makeMap(), 0, 0, 1), 2, 2, 2)
@@ -291,5 +310,58 @@ describe('replaceMap', () => {
         tiles: [0, 0, 0, 0, 0, 0, 0, 0, TILE_TYPES.length],
       }),
     ).toThrow(RangeError)
+  })
+
+  it('defaults gridType to square when omitted', () => {
+    const next = applyCommand(makeMap(), {
+      kind: 'replaceMap',
+      width: 2,
+      height: 2,
+      tiles: [FLOOR, FLOOR, FLOOR, FLOOR],
+    })
+
+    expect(next.gridType).toBe('square')
+  })
+
+  it('accepts explicit gridType in the payload', () => {
+    const next = applyCommand(makeMap(), {
+      kind: 'replaceMap',
+      width: 2,
+      height: 2,
+      tiles: [FLOOR, FLOOR, FLOOR, FLOOR],
+      gridType: 'hex-flat',
+    })
+
+    expect(next.gridType).toBe('hex-flat')
+  })
+
+  it('gridType participates in the no-op predicate', () => {
+    // Та же сетка, но другой gridType → замена выполняется.
+    const next = applyCommand(makeMap(), {
+      kind: 'replaceMap',
+      width: 3,
+      height: 3,
+      tiles: new Array<number>(9).fill(0),
+      gridType: 'hex-pointy',
+    })
+
+    expect(next.gridType).toBe('hex-pointy')
+
+    // Полностью идентичный документ (включая gridType) → no-op.
+    const source = applyCommand(makeMap(), {
+      kind: 'replaceMap',
+      width: 2,
+      height: 2,
+      tiles: new Array<number>(4).fill(FLOOR),
+      gridType: 'hex-flat',
+    })
+    const sameAgain = applyCommand(source, {
+      kind: 'replaceMap',
+      width: 2,
+      height: 2,
+      tiles: [1, 1, 1, 1],
+      gridType: 'hex-flat',
+    })
+    expect(sameAgain).toBe(source)
   })
 })

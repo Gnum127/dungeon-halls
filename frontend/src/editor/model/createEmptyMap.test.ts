@@ -21,6 +21,18 @@ describe('createEmptyMap', () => {
     expect(map.objects).toEqual([])
   })
 
+  it('accepts a custom gridType', () => {
+    const map = createEmptyMap(2, 2, 'hex-flat')
+
+    expect(map.gridType).toBe('hex-flat')
+  })
+
+  it('defaults gridType to square', () => {
+    const map = createEmptyMap(2, 2)
+
+    expect(map.gridType).toBe('square')
+  })
+
   it('creates a fresh tiles buffer on every call', () => {
     const first = createEmptyMap(2, 2)
     const second = createEmptyMap(2, 2)

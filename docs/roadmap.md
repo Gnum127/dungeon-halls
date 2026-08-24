@@ -117,7 +117,7 @@ RNG → данж → команда замены → пещеры → UI → п�
 - **cellSize для гекса** = радиус описанной окружности; границы канвы и
   PNG-экспорта считаются через geometry-bounds функцию, а не `w*cellSize`.
 
-- [ ] 3.1 Модель и миграция: `gridType: 'square' | 'hex-flat' | 'hex-pointy'`
+- [x] 3.1 Модель и миграция: `gridType: 'square' | 'hex-flat' | 'hex-pointy'`
       в MapModel и `createEmptyMap(width, height, gridType='square')`;
       `MAP_VERSION` 1→2; io принимает version ∈ {1,2} (v1 → gridType
       'square'), >2 и невалидный gridType → ошибка загрузки (MapLoadError —

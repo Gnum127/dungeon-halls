@@ -1,5 +1,5 @@
 import { EMPTY_TILE, MAP_VERSION, MAX_MAP_DIMENSION } from './types'
-import type { MapModel } from './types'
+import type { GridType, MapModel } from './types'
 
 function assertDimension(value: number): void {
   if (!Number.isInteger(value) || value < 1 || value > MAX_MAP_DIMENSION) {
@@ -9,12 +9,17 @@ function assertDimension(value: number): void {
   }
 }
 
-export function createEmptyMap(width: number, height: number): MapModel {
+export function createEmptyMap(
+  width: number,
+  height: number,
+  gridType: GridType = 'square',
+): MapModel {
   assertDimension(width)
   assertDimension(height)
 
   return {
     version: MAP_VERSION,
+    gridType,
     width,
     height,
     tiles: new Uint8Array(width * height).fill(EMPTY_TILE),

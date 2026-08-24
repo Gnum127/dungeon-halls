@@ -51,7 +51,8 @@
       "roomAttempts": "Room attempts",
       "fillProbability": "Cave density",
       "iterations": "Smoothing iterations",
-      "generate": "Generate"
+      "generate": "Generate",
+      "again": "Regenerate same seed"
     }
   }
 }

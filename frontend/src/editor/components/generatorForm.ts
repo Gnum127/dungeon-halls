@@ -26,7 +26,10 @@ function parseIntStrict(value: string): number | null {
   return Number(value)
 }
 
+// Пустое поле и hex/exponent-формы не считаем числом — иначе «очистил
+// плотность» молча превращалось бы в валидный 0.
 function parseFloatStrict(value: string): number | null {
+  if (value.trim() === '' || !/^-?\d+(\.\d+)?$/.test(value.trim())) return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
 }

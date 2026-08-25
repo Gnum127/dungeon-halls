@@ -198,7 +198,7 @@ RNG → данж → команда замены → пещеры → UI → п�
       потребители (палитра объектов, renderMap, тесты) переведены, публичное
       поведение не меняется. Unit/RTL-тесты зелёные без правок смысловых
       ассертов — иначе рефакторинг сломал контракт
-- [ ] 4.2 Типы и манифест спрайтов: `SpriteManifest { version, tiles:
+- [x] 4.2 Типы и манифест спрайтов: `SpriteManifest { version, tiles:
       Record<TileTypeName, path>, objects: Record<kindId, path> }` (записи
       опциональны — нет записи = fallback на цвет); validateManifest:
       битый JSON / неизвестные ключи тайлов или kindId / неподдерживаемая

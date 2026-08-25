@@ -206,7 +206,7 @@ RNG → данж → команда замены → пещеры → UI → п�
       режим), отсутствие записи ошибкой НЕ является. Манифест лежит рядом с
       ассетами (`public/sprites/manifest.json`), путь к нему — константа.
       Тесты валидации на чистых данных (без сети)
-- [ ] 4.3 Загрузчик и кэш: loadManifest(path) → Promise<SpriteManifest | null>
+- [x] 4.3 Загрузчик и кэш: loadManifest(path) → Promise<SpriteManifest | null>
       (fetch по константе пути; null при 404/невалидном JSON) и
       loadSprites(manifest) → Promise<SpriteCache>;
       отсутствие файла манифеста (404) — нормальный путь: пустой атлас,

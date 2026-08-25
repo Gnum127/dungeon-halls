@@ -8,6 +8,12 @@
     }
   },
   "editor": {
+    "tools": {
+      "walls": "Walls",
+      "wall": "Wall",
+      "wallEraser": "Wall eraser",
+      "squareOnly": "Walls support square grids only"
+    },
     "renderMode": {
       "label": "Graphics",
       "colors": "Color tiles",

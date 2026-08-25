@@ -10,3 +10,5 @@ export type EditorTool =
   | { readonly type: 'terrain'; readonly tile: TileValue }
   | { readonly type: 'object'; readonly kindId: ObjectKindId }
   | { readonly type: 'select' }
+  | { readonly type: 'wall' }
+  | { readonly type: 'wall-eraser' }

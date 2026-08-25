@@ -48,14 +48,17 @@ describe('EditorPage', () => {
 
   // Пункт 3.5: смена типа сетки уровня документа дизейблит генератор
   // (генераторы отдают только square), обратная смена возвращает кнопку.
+  // Подсказок-«note» две (генератор и стены) — проверяем по текстам.
   it('switching the document grid type disables and re-enables generation', () => {
     render(<EditorPage />)
     const gridSelect = screen.getByLabelText('Grid type')
     expect(screen.getByRole('button', { name: 'Generate' })).toBeEnabled()
+    expect(screen.queryByText(/Walls support square grids only/)).toBeNull()
 
     fireEvent.change(gridSelect, { target: { value: 'hex-pointy' } })
     expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled()
-    expect(screen.getByRole('note')).toBeInTheDocument()
+    expect(screen.getByText(/generator supports square grids/)).toBeInTheDocument()
+    expect(screen.getByText(/Walls support square grids only/)).toBeInTheDocument()
 
     fireEvent.change(gridSelect, { target: { value: 'square' } })
     expect(screen.getByRole('button', { name: 'Generate' })).toBeEnabled()

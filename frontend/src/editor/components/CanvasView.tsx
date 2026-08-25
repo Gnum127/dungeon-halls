@@ -15,6 +15,7 @@ import { drawStrokePreview } from '../render/strokePreview'
 import { drawCellHighlight } from '../render/cellHighlight'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
+import { useWallBrush } from '../hooks/useWallBrush'
 import type { EditorTool } from '../tools/editorTool'
 import { mergePointerHandlers } from './pointerHandlers'
 import { formatCoords } from './formatCoords'
@@ -87,6 +88,15 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject, spri
     onCommit: handleBrushCommit,
   })
 
+  const { handlers: wallHandlers } = useWallBrush({
+    canvasRef,
+    active: tool.type === 'wall' || tool.type === 'wall-eraser',
+    model,
+    present: tool.type === 'wall',
+    viewportRef,
+    onCommit: handleBrushCommit,
+  })
+
   const handleSelect = useCallback((id: number | null) => onSelectObject(id), [onSelectObject])
   const { handlers: objectHandlers } = useObjectTools({
     canvasRef,
@@ -126,8 +136,8 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject, spri
   }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites])
 
   const pointerHandlers = useMemo(
-    () => mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, hoverHandlers),
-    [panHandlers, brushHandlers, objectHandlers, hoverHandlers],
+    () => mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, hoverHandlers, wallHandlers),
+    [panHandlers, brushHandlers, objectHandlers, hoverHandlers, wallHandlers],
   )
 
   return (

@@ -20,6 +20,7 @@ function makeOptions() {
     onRedo: vi.fn(),
     onSelectBrush: vi.fn(),
     onSelectEraser: vi.fn(),
+    onSelectWalls: vi.fn(),
   }
 }
 
@@ -50,7 +51,7 @@ describe('useEditorHotkeys', () => {
     expect(h.onRedo).toHaveBeenCalledTimes(2)
   })
 
-  it('B selects brush, E selects eraser (layout-independent via e.code)', () => {
+  it('B selects brush, E selects eraser, W selects walls (layout-independent via e.code)', () => {
     const h = makeOptions()
     render(<Probe options={h} />)
 
@@ -59,6 +60,9 @@ describe('useEditorHotkeys', () => {
 
     press(window, { code: 'KeyE', key: 'у' })
     expect(h.onSelectEraser).toHaveBeenCalledTimes(1)
+
+    press(window, { code: 'KeyW', key: 'ц' })
+    expect(h.onSelectWalls).toHaveBeenCalledTimes(1)
   })
 
   it('ignores hotkeys while focus is in an editable element', () => {

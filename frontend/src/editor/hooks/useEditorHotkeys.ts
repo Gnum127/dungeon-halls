@@ -6,6 +6,7 @@ export interface HotkeysOptions {
   onRedo: () => void
   onSelectBrush: () => void
   onSelectEraser: () => void
+  onSelectWalls: () => void
 }
 
 /**
@@ -45,6 +46,9 @@ export function useEditorHotkeys(options: HotkeysOptions): void {
         } else if (event.code === 'KeyE') {
           event.preventDefault()
           handlers.onSelectEraser()
+        } else if (event.code === 'KeyW') {
+          event.preventDefault()
+          handlers.onSelectWalls()
         }
       }
     }

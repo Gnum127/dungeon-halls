@@ -10,6 +10,7 @@ import { GeneratorPanel } from './components/GeneratorPanel'
 import { ObjectPalette } from './components/ObjectPalette'
 import { RenderModePicker } from './components/RenderModePicker'
 import { TerrainPalette } from './components/TerrainPalette'
+import { WallTools } from './components/WallTools'
 import { useEditor } from './hooks/useEditor'
 import { useSpriteAtlas } from './hooks/useSpriteAtlas'
 import { createEmptyMap } from './model/createEmptyMap'
@@ -68,6 +69,11 @@ export function EditorPage() {
     setTool({ type: 'select' })
   }
 
+  function selectWallTool(mode: 'wall' | 'wall-eraser') {
+    setSelectedObjectId(null)
+    setTool({ type: mode })
+  }
+
   function changeRenderMode(mode: RenderMode) {
     setRenderMode(mode)
     saveRenderMode(mode)
@@ -93,6 +99,10 @@ export function EditorPage() {
     onRedo: () => store.redo(),
     onSelectBrush: () => selectTerrain(lastBrushTileRef.current),
     onSelectEraser: () => selectTerrain(EMPTY_TILE),
+    onSelectWalls: () => {
+      // Хоткей не должен обходить UI-гард: рёбра определены только на square.
+      if (model.gridType === 'square') selectWallTool('wall')
+    },
   })
 
   return (
@@ -115,6 +125,12 @@ export function EditorPage() {
             {t(`editor.files.${fileStatus}`)}
           </p>
         )}
+        <WallTools
+          activeMode={tool.type === 'wall' || tool.type === 'wall-eraser' ? tool.type : null}
+          disabled={model.gridType !== 'square'}
+          onSelectWall={() => selectWallTool('wall')}
+          onSelectEraser={() => selectWallTool('wall-eraser')}
+        />
         <TerrainPalette
           selected={tool.type === 'terrain' ? tool.tile : -1}
           onSelect={selectTerrain}

@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  SPRITE_MANIFEST_PATH,
-  SPRITE_MANIFEST_VERSION,
-  validateManifest,
-} from './manifest'
+import { SPRITE_MANIFEST_PATH, SPRITE_MANIFEST_VERSION, validateManifest } from './manifest'
 
 const VALID = {
   version: 1,
@@ -41,23 +37,15 @@ describe('validateManifest', () => {
   })
 
   it('rejects unknown tile or object keys', () => {
-    expect(
-      validateManifest({ ...VALID, tiles: { lava: 'tiles/lava.png' } }),
-    ).toBeNull()
-    expect(
-      validateManifest({ ...VALID, objects: { dragon: 'objects/dragon.png' } }),
-    ).toBeNull()
+    expect(validateManifest({ ...VALID, tiles: { lava: 'tiles/lava.png' } })).toBeNull()
+    expect(validateManifest({ ...VALID, objects: { dragon: 'objects/dragon.png' } })).toBeNull()
   })
 
   it('rejects missing sections and bad paths', () => {
     expect(validateManifest({ version: 1, objects: {} })).toBeNull()
     expect(validateManifest({ version: 1, tiles: {} })).toBeNull()
-    expect(
-      validateManifest({ ...VALID, tiles: { floor: '' } }),
-    ).toBeNull()
-    expect(
-      validateManifest({ ...VALID, objects: { door: 42 } }),
-    ).toBeNull()
+    expect(validateManifest({ ...VALID, tiles: { floor: '' } })).toBeNull()
+    expect(validateManifest({ ...VALID, objects: { door: 42 } })).toBeNull()
   })
 
   it('exposes the manifest path and schema version constants', () => {

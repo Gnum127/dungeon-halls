@@ -20,10 +20,7 @@ describe('RenderModePicker', () => {
       'aria-pressed',
       'false',
     )
-    expect(screen.getByRole('button', { name: 'Sprites' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
+    expect(screen.getByRole('button', { name: 'Sprites' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('reports the clicked mode', () => {

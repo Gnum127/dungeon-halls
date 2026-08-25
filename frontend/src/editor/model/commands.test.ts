@@ -430,16 +430,19 @@ describe('doors', () => {
   }
 
   it('requires an existing wall', () => {
-    expect(() => applyCommand(makeMap(), { kind: 'addDoor', edge: { x: 2, y: 2, side: 'N' } })).toThrow(
-      /existing wall/,
-    )
+    expect(() =>
+      applyCommand(makeMap(), { kind: 'addDoor', edge: { x: 2, y: 2, side: 'N' } }),
+    ).toThrow(/existing wall/)
   })
 
   it('allows only one door per edge', () => {
-    const withDoor = applyCommand(mapWithWall(), { kind: 'addDoor', edge: { x: 1, y: 0, side: 'W' } })
-    expect(() => applyCommand(withDoor, { kind: 'addDoor', edge: { x: 1, y: 0, side: 'W' } })).toThrow(
-      /already has a door/,
-    )
+    const withDoor = applyCommand(mapWithWall(), {
+      kind: 'addDoor',
+      edge: { x: 1, y: 0, side: 'W' },
+    })
+    expect(() =>
+      applyCommand(withDoor, { kind: 'addDoor', edge: { x: 1, y: 0, side: 'W' } }),
+    ).toThrow(/already has a door/)
   })
 
   it('toggles open state and no-ops on identical state', () => {

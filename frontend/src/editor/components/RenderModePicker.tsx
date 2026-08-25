@@ -40,7 +40,11 @@ export function RenderModePicker({ mode, atlasStatus, onChange }: RenderModePick
       </div>
       {mode === 'sprites' && atlasStatus !== 'ready' && (
         <p className={styles.hint} role="note">
-          {t(atlasStatus === 'loading' ? 'editor.renderMode.loading' : 'editor.renderMode.unavailable')}
+          {t(
+            atlasStatus === 'loading'
+              ? 'editor.renderMode.loading'
+              : 'editor.renderMode.unavailable',
+          )}
         </p>
       )}
     </div>

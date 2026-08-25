@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  edgeKey,
-  hasWall,
-  isCanonical,
-  isEdgeInBounds,
-  normalizeEdge,
-} from './walls'
+import { edgeKey, hasWall, isCanonical, isEdgeInBounds, normalizeEdge } from './walls'
 import type { WallEdge } from './walls'
 
 describe('normalizeEdge', () => {

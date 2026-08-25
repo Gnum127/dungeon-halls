@@ -29,21 +29,20 @@ describe('light commands', () => {
     expect(model.lights[1]).toMatchObject({ id: 2 })
   })
 
-  it.each([
-    { radius: 0 },
-    { radius: 31 },
-    { radius: 2.5 },
-  ])('rejects invalid radius %j', ({ radius }) => {
-    expect(() =>
-      applyCommand(makeMap(), {
-        kind: 'addLight',
-        x: 1,
-        y: 1,
-        radius,
-        color: '#ffd682',
-      }),
-    ).toThrow(/radius/)
-  })
+  it.each([{ radius: 0 }, { radius: 31 }, { radius: 2.5 }])(
+    'rejects invalid radius %j',
+    ({ radius }) => {
+      expect(() =>
+        applyCommand(makeMap(), {
+          kind: 'addLight',
+          x: 1,
+          y: 1,
+          radius,
+          color: '#ffd682',
+        }),
+      ).toThrow(/radius/)
+    },
+  )
 
   it.each(['red', '#ffdd8', '#ffdd88ff', ''])('rejects invalid color %s', (color) => {
     expect(() =>

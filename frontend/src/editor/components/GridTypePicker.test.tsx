@@ -43,9 +43,7 @@ describe('GridTypePicker', () => {
   // Пункт 5.4: при стенах/дверях смена сетки запрещена (рёбра square-сетки).
   it('disables the select with a hint while walls or doors exist', () => {
     const onChange = vi.fn()
-    const { rerender } = render(
-      <GridTypePicker gridType="square" disabled onChange={onChange} />,
-    )
+    const { rerender } = render(<GridTypePicker gridType="square" disabled onChange={onChange} />)
 
     const select = screen.getByLabelText('Grid type') as HTMLSelectElement
     expect(select).toBeDisabled()

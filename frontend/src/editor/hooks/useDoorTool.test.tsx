@@ -17,13 +17,7 @@ function walledModel(): MapModel {
   })
 }
 
-function Harness({
-  model,
-  onCommit,
-}: {
-  model: MapModel
-  onCommit: (command: unknown) => void
-}) {
+function Harness({ model, onCommit }: { model: MapModel; onCommit: (command: unknown) => void }) {
   const canvasRef = createRef<HTMLCanvasElement>()
   const viewport: Viewport = {
     width: 96,
@@ -46,7 +40,9 @@ function Harness({
   return (
     <>
       <canvas ref={canvasRef} data-testid="canvas" {...handlers} />
-      <span data-testid="hover">{hoverEdge ? `${hoverEdge.x},${hoverEdge.y},${hoverEdge.side}` : ''}</span>
+      <span data-testid="hover">
+        {hoverEdge ? `${hoverEdge.x},${hoverEdge.y},${hoverEdge.side}` : ''}
+      </span>
     </>
   )
 }
@@ -55,17 +51,18 @@ function setup(model: MapModel) {
   const onCommit = vi.fn()
   render(<Harness model={model} onCommit={onCommit} />)
   const canvas = screen.getByTestId('canvas')
-  canvas.getBoundingClientRect = () => ({
-    x: 0,
-    y: 0,
-    top: 0,
-    left: 0,
-    bottom: 96,
-    right: 96,
-    width: 96,
-    height: 96,
-    toJSON: () => ({}),
-  }) as DOMRect
+  canvas.getBoundingClientRect = () =>
+    ({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      bottom: 96,
+      right: 96,
+      width: 96,
+      height: 96,
+      toJSON: () => ({}),
+    }) as DOMRect
   return { onCommit }
 }
 

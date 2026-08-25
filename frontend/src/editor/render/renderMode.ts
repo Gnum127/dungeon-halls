@@ -18,10 +18,7 @@ export function loadRenderMode(storage: Storage | null = safeStorage()): RenderM
   }
 }
 
-export function saveRenderMode(
-  mode: RenderMode,
-  storage: Storage | null = safeStorage(),
-): void {
+export function saveRenderMode(mode: RenderMode, storage: Storage | null = safeStorage()): void {
   try {
     storage?.setItem(RENDER_MODE_STORAGE_KEY, mode)
   } catch {

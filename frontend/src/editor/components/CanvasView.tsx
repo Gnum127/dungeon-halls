@@ -179,7 +179,15 @@ export function CanvasView({
         doorHandlers,
         lightHandlers,
       ),
-    [panHandlers, brushHandlers, objectHandlers, hoverHandlers, wallHandlers, doorHandlers, lightHandlers],
+    [
+      panHandlers,
+      brushHandlers,
+      objectHandlers,
+      hoverHandlers,
+      wallHandlers,
+      doorHandlers,
+      lightHandlers,
+    ],
   )
 
   return (

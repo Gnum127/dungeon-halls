@@ -27,12 +27,7 @@ export function LightPanel({
 
   return (
     <div className={styles.field}>
-      <button
-        type="button"
-        className={styles.toggle}
-        aria-pressed={active}
-        onClick={onToggle}
-      >
+      <button type="button" className={styles.toggle} aria-pressed={active} onClick={onToggle}>
         {t('editor.light.label')}
       </button>
       {active && (

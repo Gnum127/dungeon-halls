@@ -18,11 +18,7 @@ export function isWallSide(value: unknown): value is WallSide {
  * Периметр (E последней колонки, S последнего ряда) хранится как есть —
  * канонизация только в сторону существующей клетки.
  */
-export function normalizeEdge(
-  edge: WallEdge,
-  width: number,
-  height: number,
-): WallEdge {
+export function normalizeEdge(edge: WallEdge, width: number, height: number): WallEdge {
   if (edge.side === 'E' && edge.x + 1 < width) {
     return { x: edge.x + 1, y: edge.y, side: 'W' }
   }

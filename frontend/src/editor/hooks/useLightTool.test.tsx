@@ -47,17 +47,18 @@ function setup(model: MapModel, viewport?: Partial<Viewport>, radius = 3) {
   const onCommit = vi.fn()
   render(<Harness model={model} viewport={viewport} radius={radius} onCommit={onCommit} />)
   const canvas = screen.getByTestId('canvas')
-  canvas.getBoundingClientRect = () => ({
-    x: 0,
-    y: 0,
-    top: 0,
-    left: 0,
-    bottom: 96,
-    right: 96,
-    width: 96,
-    height: 96,
-    toJSON: () => ({}),
-  }) as DOMRect
+  canvas.getBoundingClientRect = () =>
+    ({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      bottom: 96,
+      right: 96,
+      width: 96,
+      height: 96,
+      toJSON: () => ({}),
+    }) as DOMRect
   return { canvas, onCommit }
 }
 

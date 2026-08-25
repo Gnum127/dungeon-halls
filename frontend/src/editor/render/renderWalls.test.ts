@@ -31,9 +31,7 @@ describe('renderMap walls and doors', () => {
     renderMap(ctx, model, viewport())
 
     // Ровно один stroke стеновым цветом — рёбра собираются в один path.
-    const wallStrokes = calls.filter(
-      (c) => c.op === 'stroke' && c.fillStyle === WALL_LINE_COLOR,
-    )
+    const wallStrokes = calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_LINE_COLOR)
     expect(wallStrokes).toHaveLength(1)
     // Два ребра → два moveTo внутри этого пути с точными координатами.
     const wallStrokeIdx = calls.indexOf(wallStrokes[0]!)
@@ -83,7 +81,9 @@ describe('renderMap walls and doors', () => {
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, walledModel(), viewport(), { tiles: {}, objects: {} })
 
-    expect(calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_LINE_COLOR)).toHaveLength(1)
+    expect(calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_LINE_COLOR)).toHaveLength(
+      1,
+    )
     expect(calls.some((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR)).toBe(true)
   })
 

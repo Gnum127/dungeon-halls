@@ -166,11 +166,7 @@ export function renderMap(
 }
 
 /** Свечение (полупрозрачный круг) + маркер источника; поверх остального. */
-function drawLights(
-  ctx: CanvasRenderingContext2D,
-  model: MapModel,
-  viewport: Viewport,
-): void {
+function drawLights(ctx: CanvasRenderingContext2D, model: MapModel, viewport: Viewport): void {
   if (model.lights.length === 0) return
   const { cellSize, offsetX, offsetY } = viewport
   const marker = Math.max(3, Math.round(cellSize * 0.12))
@@ -232,11 +228,7 @@ interface Rect {
  * Прямоугольники двери в мировых координатах. Закрытая — полотно по центру
  * ребра (60% длины); открытая — два коротких сегмента у концов (просвет).
  */
-function doorRects(
-  edge: WallEdge,
-  open: boolean,
-  cellSize: number,
-): Array<Rect> {
+function doorRects(edge: WallEdge, open: boolean, cellSize: number): Array<Rect> {
   const horizontal = edge.side === 'N' || edge.side === 'S'
   const thickness = Math.max(4, Math.round(cellSize * 0.18))
   if (horizontal) {
@@ -248,9 +240,7 @@ function doorRects(
         { x: x + cellSize * 0.8, y, w: cellSize * 0.2, h: thickness },
       ]
     }
-    return [
-      { x: x + cellSize * 0.2, y, w: cellSize * 0.6, h: thickness },
-    ]
+    return [{ x: x + cellSize * 0.2, y, w: cellSize * 0.6, h: thickness }]
   }
   const x = edge.x * cellSize + (edge.side === 'W' ? -thickness / 2 : cellSize - thickness / 2)
   const y = edge.y * cellSize

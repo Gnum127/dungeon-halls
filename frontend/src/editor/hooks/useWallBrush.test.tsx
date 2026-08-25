@@ -39,9 +39,7 @@ function Harness({
     onCommit: onCommit as never,
   })
 
-  return (
-    <canvas ref={canvasRef} data-testid="canvas" {...handlers} />
-  )
+  return <canvas ref={canvasRef} data-testid="canvas" {...handlers} />
 }
 
 function rect() {
@@ -158,9 +156,7 @@ describe('useWallBrush', () => {
     })
     rerender(<Harness model={small} present onCommit={onCommit} />)
 
-    expect(() =>
-      fireEvent.pointerUp(canvas, { pointerId: 1, buttons: 0 }),
-    ).not.toThrow()
+    expect(() => fireEvent.pointerUp(canvas, { pointerId: 1, buttons: 0 })).not.toThrow()
 
     if (onCommit.mock.calls.length > 0) {
       const command = onCommit.mock.calls[0][0] as {

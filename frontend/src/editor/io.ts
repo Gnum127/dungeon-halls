@@ -4,12 +4,7 @@ import { isValidLightColor, isValidLightRadius } from './model/lights'
 import type { MapLight } from './model/lights'
 import { MAP_VERSION, MAX_MAP_DIMENSION, TILE_TYPES } from './model/types'
 import type { MapModel, MapObject, TileValue } from './model/types'
-import {
-  edgeKey,
-  hasWall,
-  isCanonical,
-  isWallSide,
-} from './model/walls'
+import { edgeKey, hasWall, isCanonical, isWallSide } from './model/walls'
 import type { Door, WallEdge } from './model/walls'
 
 /** Ошибка разбора файла карты: сообщение понятно пользователю без стека. */
@@ -188,11 +183,7 @@ export function deserializeMap(json: string): MapModel {
       if (typeof open !== 'boolean') {
         throw new MapLoadError('Door open must be a boolean')
       }
-      if (
-        typeof edge !== 'object' ||
-        edge === null ||
-        Array.isArray(edge)
-      ) {
+      if (typeof edge !== 'object' || edge === null || Array.isArray(edge)) {
         throw new MapLoadError('Door edge must be a JSON object')
       }
       const { x, y, side } = edge as Record<string, unknown>
@@ -234,7 +225,9 @@ export function deserializeMap(json: string): MapModel {
         assertIntInRange(x, 'light x', 0, width)
         assertIntInRange(y, 'light y', 0, height)
         if (!isValidLightRadius(radius)) {
-          throw new MapLoadError(`Light radius must be an integer in [1, 30], got ${String(radius)}`)
+          throw new MapLoadError(
+            `Light radius must be an integer in [1, 30], got ${String(radius)}`,
+          )
         }
         if (!isValidLightColor(color)) {
           throw new MapLoadError(`Light color must be hex, got ${String(color)}`)

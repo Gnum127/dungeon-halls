@@ -50,10 +50,7 @@ describe('LightPanel', () => {
 
   it('hides properties while inactive', () => {
     setup(false)
-    expect(screen.getByRole('button', { name: 'Light' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    )
+    expect(screen.getByRole('button', { name: 'Light' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryByLabelText('Radius (cells)')).toBeNull()
     expect(screen.queryByRole('group', { name: 'Light color' })).toBeNull()
   })

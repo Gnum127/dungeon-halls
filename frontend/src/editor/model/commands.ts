@@ -208,13 +208,7 @@ function setGridType(model: MapModel, gridType: GridType): MapModel {
   return { ...model, gridType }
 }
 
-function addLight(
-  model: MapModel,
-  x: number,
-  y: number,
-  radius: number,
-  color: string,
-): MapModel {
+function addLight(model: MapModel, x: number, y: number, radius: number, color: string): MapModel {
   assertInside(model, x, y)
   if (!isValidLightRadius(radius)) {
     throw new RangeError(`Light radius must be an integer in [1, 30], got ${String(radius)}`)

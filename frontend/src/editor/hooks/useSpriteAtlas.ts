@@ -23,9 +23,7 @@ export function useSpriteAtlas(): SpriteAtlasState {
       .then((manifest) => (manifest ? loadSprites(manifest) : null))
       .then((atlas) => {
         if (!cancelled) {
-          setState(
-            atlas ? { atlas, status: 'ready' } : { atlas: null, status: 'unavailable' },
-          )
+          setState(atlas ? { atlas, status: 'ready' } : { atlas: null, status: 'unavailable' })
         }
       })
       .catch(() => {

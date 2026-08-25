@@ -1,9 +1,5 @@
 import type { Command, WallUpdate } from '../model/commands'
-import {
-  edgeKey,
-  isEdgeInBounds,
-  normalizeEdge,
-} from '../model/walls'
+import { edgeKey, isEdgeInBounds, normalizeEdge } from '../model/walls'
 import type { WallEdge } from '../model/walls'
 import type { Viewport } from '../render/viewport'
 

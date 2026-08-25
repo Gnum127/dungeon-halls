@@ -1,11 +1,7 @@
 import { useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Command } from '../model/commands'
-import {
-  doorAtEdge,
-  hasWall,
-  normalizeEdge,
-} from '../model/walls'
+import { doorAtEdge, hasWall, normalizeEdge } from '../model/walls'
 import type { MapModel } from '../model/types'
 import type { WallEdge } from '../model/walls'
 import type { Viewport } from '../render/viewport'

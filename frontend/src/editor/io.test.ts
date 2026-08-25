@@ -255,28 +255,37 @@ describe('walls and doors serialization (v3)', () => {
     expectMapLoadError(withPayload([{ x: 0, y: 1, side: 'E' }], []))
     expectMapLoadError(withPayload([wall, wall], []))
     // Стены на гексах запрещены.
-    const hexRaw = JSON.parse(
-      serializeMap(createEmptyMap(4, 4, 'hex-pointy')),
-    ) as Record<string, unknown>
+    const hexRaw = JSON.parse(serializeMap(createEmptyMap(4, 4, 'hex-pointy'))) as Record<
+      string,
+      unknown
+    >
     hexRaw.walls = [perimeter]
     hexRaw.doors = []
     expectMapLoadError(JSON.stringify(hexRaw))
 
     // Битые записи дверей: не-boolean open, ребро без стены, дубликаты.
     expectMapLoadError(withPayload([wall], [{ id: 1, edge: wall, open: 'yes' }]))
-    expectMapLoadError(withPayload([wall], [{ id: 1, edge: { x: 2, y: 2, side: 'N' }, open: false }]))
+    expectMapLoadError(
+      withPayload([wall], [{ id: 1, edge: { x: 2, y: 2, side: 'N' }, open: false }]),
+    )
     expectMapLoadError(withPayload([], [{ id: 1, edge: wall, open: false }]))
     expectMapLoadError(
-      withPayload([wall], [
-        { id: 1, edge: wall, open: false },
-        { id: 1, edge: wall, open: true },
-      ]),
+      withPayload(
+        [wall],
+        [
+          { id: 1, edge: wall, open: false },
+          { id: 1, edge: wall, open: true },
+        ],
+      ),
     )
     expectMapLoadError(
-      withPayload([wall], [
-        { id: 1, edge: wall, open: false },
-        { id: 2, edge: wall, open: false },
-      ]),
+      withPayload(
+        [wall],
+        [
+          { id: 1, edge: wall, open: false },
+          { id: 2, edge: wall, open: false },
+        ],
+      ),
     )
   })
 })

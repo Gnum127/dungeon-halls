@@ -37,10 +37,7 @@ describe('ObjectPalette', () => {
 
     expect(screen.getByTitle('Chest')).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTitle('Door')).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByText('Select (Del to remove)')).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    )
+    expect(screen.getByText('Select (Del to remove)')).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('reports the clicked kind id and select tool activation', () => {

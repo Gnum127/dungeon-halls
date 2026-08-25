@@ -18,6 +18,7 @@ import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
 import { useWallBrush } from '../hooks/useWallBrush'
 import { useDoorTool } from '../hooks/useDoorTool'
+import { useLightTool } from '../hooks/useLightTool'
 import type { EditorTool } from '../tools/editorTool'
 import { mergePointerHandlers } from './pointerHandlers'
 import { formatCoords } from './formatCoords'
@@ -30,9 +31,20 @@ interface CanvasViewProps {
   onSelectObject: (id: number | null) => void
   /** Атлас спрайтов; undefined = цветной режим (fallback на плитки). */
   sprites?: SpriteRenderContext
+  /** Свойства инструмента света. */
+  lightRadius: number
+  lightColor: string
 }
 
-export function CanvasView({ store, tool, selectedObjectId, onSelectObject, sprites }: CanvasViewProps) {
+export function CanvasView({
+  store,
+  tool,
+  selectedObjectId,
+  onSelectObject,
+  sprites,
+  lightRadius,
+  lightColor,
+}: CanvasViewProps) {
   const model = useEditor(store)
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -107,6 +119,16 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject, spri
     onCommit: handleBrushCommit,
   })
 
+  const { handlers: lightHandlers } = useLightTool({
+    canvasRef,
+    active: tool.type === 'light',
+    model,
+    radius: lightRadius,
+    color: lightColor,
+    viewportRef,
+    onCommit: handleBrushCommit,
+  })
+
   const handleSelect = useCallback((id: number | null) => onSelectObject(id), [onSelectObject])
   const { handlers: objectHandlers } = useObjectTools({
     canvasRef,
@@ -148,8 +170,16 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject, spri
 
   const pointerHandlers = useMemo(
     () =>
-      mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, hoverHandlers, wallHandlers, doorHandlers),
-    [panHandlers, brushHandlers, objectHandlers, hoverHandlers, wallHandlers, doorHandlers],
+      mergePointerHandlers(
+        panHandlers,
+        brushHandlers,
+        objectHandlers,
+        hoverHandlers,
+        wallHandlers,
+        doorHandlers,
+        lightHandlers,
+      ),
+    [panHandlers, brushHandlers, objectHandlers, hoverHandlers, wallHandlers, doorHandlers, lightHandlers],
   )
 
   return (

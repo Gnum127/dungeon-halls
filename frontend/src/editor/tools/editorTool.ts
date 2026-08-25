@@ -13,3 +13,4 @@ export type EditorTool =
   | { readonly type: 'wall' }
   | { readonly type: 'wall-eraser' }
   | { readonly type: 'door' }
+  | { readonly type: 'light' }

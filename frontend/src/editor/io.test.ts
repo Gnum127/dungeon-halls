@@ -188,6 +188,44 @@ describe('walls and doors serialization (v3)', () => {
     expect(restored.doors[0]?.open).toBe(true)
   })
 
+  it('roundtrips lights and rejects broken light payloads', () => {
+    let model = applyCommand(createEmptyMap(4, 4), {
+      kind: 'addLight',
+      x: 2,
+      y: 2,
+      radius: 12,
+      color: '#88aaff',
+    })
+    model = applyCommand(model, { kind: 'addLight', x: 0, y: 0, radius: 1, color: '#ffd682' })
+
+    const restored = deserializeMap(serializeMap(model))
+    expect(restored.lights).toEqual(model.lights)
+
+    const withLights = (lights: unknown): string => {
+      const raw = JSON.parse(serializeMap(createEmptyMap(4, 4))) as Record<string, unknown>
+      raw.lights = lights
+      return JSON.stringify(raw)
+    }
+    expectMapLoadError(withLights([null]))
+    expectMapLoadError(withLights({}))
+    expectMapLoadError(withLights([{ id: 1, x: 9, y: 0, radius: 3, color: '#ffd682' }]))
+    expectMapLoadError(withLights([{ id: 1, x: 0.5, y: 0, radius: 3, color: '#ffd682' }]))
+    expectMapLoadError(withLights([{ id: 1, x: 0, y: 0, radius: 0, color: '#ffd682' }]))
+    expectMapLoadError(withLights([{ id: 1, x: 0, y: 0, radius: 31, color: '#ffd682' }]))
+    expectMapLoadError(withLights([{ id: 1, x: 0, y: 0, radius: '3', color: '#ffd682' }]))
+    expectMapLoadError(withLights([{ id: 1, x: 0, y: 0, radius: 3, color: 'orange' }]))
+    expectMapLoadError(
+      withLights([
+        { id: 1, x: 0, y: 0, radius: 3, color: '#ffd682' },
+        { id: 1, x: 1, y: 1, radius: 3, color: '#ffd682' },
+      ]),
+    )
+    // Ранние v3-файлы без секции lights читаются как пустые.
+    const noSection = JSON.parse(serializeMap(createEmptyMap(4, 4))) as Record<string, unknown>
+    delete noSection.lights
+    expect(deserializeMap(JSON.stringify(noSection)).lights).toEqual([])
+  })
+
   it('rejects broken walls and doors', () => {
     const withPayload = (walls: unknown[], doors: unknown[]): string => {
       const raw = JSON.parse(serializeMap(createEmptyMap(4, 4))) as Record<string, unknown>

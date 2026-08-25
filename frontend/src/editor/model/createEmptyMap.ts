@@ -26,5 +26,6 @@ export function createEmptyMap(
     objects: [],
     walls: [],
     doors: [],
+    lights: [],
   }
 }

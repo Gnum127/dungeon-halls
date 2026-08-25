@@ -22,6 +22,7 @@ function makeOptions() {
     onSelectEraser: vi.fn(),
     onSelectWalls: vi.fn(),
     onSelectDoors: vi.fn(),
+    onSelectLights: vi.fn(),
   }
 }
 
@@ -67,6 +68,9 @@ describe('useEditorHotkeys', () => {
 
     press(window, { code: 'KeyD', key: 'в' })
     expect(h.onSelectDoors).toHaveBeenCalledTimes(1)
+
+    press(window, { code: 'KeyL', key: 'д' })
+    expect(h.onSelectLights).toHaveBeenCalledTimes(1)
   })
 
   it('ignores hotkeys while focus is in an editable element', () => {

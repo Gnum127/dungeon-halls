@@ -1,5 +1,7 @@
 import { isGridType } from '@/shared/tiles'
 import { isKnownKind } from './model/objects'
+import { isValidLightColor, isValidLightRadius } from './model/lights'
+import type { MapLight } from './model/lights'
 import { MAP_VERSION, MAX_MAP_DIMENSION, TILE_TYPES } from './model/types'
 import type { MapModel, MapObject, TileValue } from './model/types'
 import {
@@ -22,6 +24,7 @@ interface RawMapFile {
   objects?: unknown
   walls?: unknown
   doors?: unknown
+  lights?: unknown
 }
 
 function validateGridType(value: unknown): 'square' | 'hex-flat' | 'hex-pointy' {
@@ -67,6 +70,7 @@ export function serializeMap(model: MapModel): string {
       edge: { ...door.edge },
       open: door.open,
     })),
+    lights: model.lights.map((light) => ({ ...light })),
   })
 }
 
@@ -130,9 +134,10 @@ export function deserializeMap(json: string): MapModel {
     objects.push({ id, kindId, x, y })
   }
 
-  // walls/doors появились в v3; старые версии мигрируют пустыми коллекциями.
+  // walls/doors/lights появились в v3; старые версии мигрируют пустыми коллекциями.
   let walls: WallEdge[] = []
   let doors: Door[] = []
+  let lights: MapLight[] = []
   if (raw.version === 3) {
     // Стены-рёбра определены только для квадратной сетки (MVP этапа 5);
     // команды такую модель создать не позволяют — файл тоже отклоняем.
@@ -211,6 +216,32 @@ export function deserializeMap(json: string): MapModel {
       seenDoorEdges.add(doorKey)
       doors.push({ id, edge: doorEdge, open })
     }
+
+    // lights: необязательная секция v3 (ранние v3-файлы писались без неё).
+    if (raw.lights !== undefined) {
+      if (!Array.isArray(raw.lights)) {
+        throw new MapLoadError('lights must be an array')
+      }
+      const seenLightIds = new Set<number>()
+      for (const candidate of raw.lights) {
+        if (typeof candidate !== 'object' || candidate === null) {
+          throw new MapLoadError('Every light must be a JSON object')
+        }
+        const { id, x, y, radius, color } = candidate as Record<string, unknown>
+        assertIntInRange(id, 'light id', 1, Number.MAX_SAFE_INTEGER)
+        if (seenLightIds.has(id)) throw new MapLoadError(`Duplicate light id: ${id}`)
+        seenLightIds.add(id)
+        assertIntInRange(x, 'light x', 0, width)
+        assertIntInRange(y, 'light y', 0, height)
+        if (!isValidLightRadius(radius)) {
+          throw new MapLoadError(`Light radius must be an integer in [1, 30], got ${String(radius)}`)
+        }
+        if (!isValidLightColor(color)) {
+          throw new MapLoadError(`Light color must be hex, got ${String(color)}`)
+        }
+        lights.push({ id, x, y, radius, color })
+      }
+    }
   }
 
   return {
@@ -222,5 +253,6 @@ export function deserializeMap(json: string): MapModel {
     objects,
     walls,
     doors,
+    lights,
   }
 }

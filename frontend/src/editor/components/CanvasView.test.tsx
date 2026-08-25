@@ -16,6 +16,8 @@ describe('CanvasView hover statusbar', () => {
         tool={TERRAIN_TOOL}
         selectedObjectId={null}
         onSelectObject={vi.fn()}
+        lightRadius={3}
+        lightColor="#ffd682"
       />,
     )
 
@@ -33,6 +35,8 @@ describe('CanvasView hover statusbar', () => {
         tool={TERRAIN_TOOL}
         selectedObjectId={null}
         onSelectObject={vi.fn()}
+        lightRadius={3}
+        lightColor="#ffd682"
       />,
     )
     const canvas = getByTestId('editor-canvas')
@@ -51,6 +55,8 @@ describe('CanvasView hover statusbar', () => {
         tool={TERRAIN_TOOL}
         selectedObjectId={null}
         onSelectObject={vi.fn()}
+        lightRadius={3}
+        lightColor="#ffd682"
       />,
     )
 
@@ -68,6 +74,8 @@ describe('CanvasView hover statusbar', () => {
         tool={TERRAIN_TOOL}
         selectedObjectId={null}
         onSelectObject={vi.fn()}
+        lightRadius={3}
+        lightColor="#ffd682"
       />,
     )
     const canvas = getByTestId('editor-canvas')

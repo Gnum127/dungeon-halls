@@ -4,6 +4,7 @@ import type { GenerationParams } from '@/generator'
 import { createRng, generateCaves, generateDungeon } from '@/generator'
 import { CanvasView } from './components/CanvasView'
 import { GridTypePicker } from './components/GridTypePicker'
+import { LightPanel } from './components/LightPanel'
 import { MapFileActions } from './components/MapFileActions'
 import type { FileActionStatus } from './components/MapFileActions'
 import { GeneratorPanel } from './components/GeneratorPanel'
@@ -49,6 +50,9 @@ export function EditorPage() {
   // Режим отображения и атлас — настройка просмотра, не данные карты.
   const { atlas, status: atlasStatus } = useSpriteAtlas()
   const [renderMode, setRenderMode] = useState<RenderMode>(loadRenderMode)
+  // Свойства инструмента света (действуют на следующее размещение).
+  const [lightRadius, setLightRadius] = useState(3)
+  const [lightColor, setLightColor] = useState('#ffd682')
 
   // Последний непустой тайл кисти — куда возвращает клавиша B.
   const lastBrushTileRef = useRef<TileValue>(defaultBrushTile())
@@ -106,6 +110,10 @@ export function EditorPage() {
     onSelectDoors: () => {
       if (model.gridType === 'square') selectWallTool('door')
     },
+    onSelectLights: () => {
+      setSelectedObjectId(null)
+      setTool({ type: 'light' })
+    },
   })
 
   return (
@@ -140,6 +148,19 @@ export function EditorPage() {
           onSelectEraser={() => selectWallTool('wall-eraser')}
           onSelectDoor={() => selectWallTool('door')}
         />
+        <LightPanel
+          active={tool.type === 'light'}
+          radius={lightRadius}
+          color={lightColor}
+          onToggle={() => {
+            setSelectedObjectId(null)
+            setTool((current) => (current.type === 'light' ? { type: 'select' } : { type: 'light' }))
+          }}
+          onRadiusChange={(radius) => {
+            if (radius >= 1 && radius <= 30) setLightRadius(radius)
+          }}
+          onColorChange={setLightColor}
+        />
         <TerrainPalette
           selected={tool.type === 'terrain' ? tool.tile : -1}
           onSelect={selectTerrain}
@@ -158,6 +179,8 @@ export function EditorPage() {
           selectedObjectId={selectedObjectId}
           onSelectObject={setSelectedObjectId}
           sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
+          lightRadius={lightRadius}
+          lightColor={lightColor}
         />
       </div>
     </div>

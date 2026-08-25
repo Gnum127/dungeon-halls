@@ -1,4 +1,5 @@
 import { findObjectById, isCellOccupied, isKnownKind, nextObjectId } from './objects'
+import { findLightById, isValidLightColor, isValidLightRadius, nextLightId } from './lights'
 import {
   doorAtEdge,
   edgeKey,
@@ -41,6 +42,14 @@ export type Command =
   | { readonly kind: 'addDoor'; readonly edge: WallEdge }
   | { readonly kind: 'removeDoor'; readonly id: number }
   | { readonly kind: 'setDoorOpen'; readonly id: number; readonly open: boolean }
+  | {
+      readonly kind: 'addLight'
+      readonly x: number
+      readonly y: number
+      readonly radius: number
+      readonly color: string
+    }
+  | { readonly kind: 'removeLight'; readonly id: number }
 
 function assertValidUpdate(update: TileUpdate, model: MapModel): void {
   const { x, y, tile } = update
@@ -168,6 +177,7 @@ function replaceMap(
     model.objects.length === 0 &&
     model.walls.length === 0 &&
     model.doors.length === 0 &&
+    model.lights.length === 0 &&
     tilesEqual(model.tiles, nextTiles)
 
   // No-op только при полностью идентичном документе: если сетка совпала,
@@ -183,16 +193,45 @@ function replaceMap(
     objects: [],
     walls: [],
     doors: [],
+    lights: [],
   }
 }
 
 /** Смена типа сетки как метаданных: тайлы и объекты сохраняются. */
 function setGridType(model: MapModel, gridType: GridType): MapModel {
-  // Стены-рёбра квадратной сетки не имеют смысла на гексах: пока есть
-  // стены/двери, смена сетки запрещена (UI дизейблит выбор с подсказкой).
-  if (model.walls.length > 0 || model.doors.length > 0) return model
+  // Рёбра квадратной сетки не имеют смысла на гексах: пока есть
+  // стены/двери/свет, смена сетки запрещена (UI дизейблит выбор).
+  if (model.walls.length > 0 || model.doors.length > 0 || model.lights.length > 0) {
+    return model
+  }
   if (model.gridType === gridType) return model
   return { ...model, gridType }
+}
+
+function addLight(
+  model: MapModel,
+  x: number,
+  y: number,
+  radius: number,
+  color: string,
+): MapModel {
+  assertInside(model, x, y)
+  if (!isValidLightRadius(radius)) {
+    throw new RangeError(`Light radius must be an integer in [1, 30], got ${String(radius)}`)
+  }
+  if (!isValidLightColor(color)) {
+    throw new RangeError(`Light color must be a hex string like #ffdd88, got ${String(color)}`)
+  }
+  const light = { id: nextLightId(model.lights), x, y, radius, color }
+  return { ...model, lights: [...model.lights, light] }
+}
+
+function removeLight(model: MapModel, id: number): MapModel {
+  const light = findLightById(model.lights, id)
+  if (!light) {
+    throw new RangeError(`Light ${id} not found`)
+  }
+  return { ...model, lights: model.lights.filter((candidate) => candidate.id !== id) }
 }
 
 function assertValidEdge(edge: WallEdge, width: number, height: number): void {
@@ -309,5 +348,9 @@ export function applyCommand(model: MapModel, command: Command): MapModel {
       return removeDoor(model, command.id)
     case 'setDoorOpen':
       return setDoorOpen(model, command.id, command.open)
+    case 'addLight':
+      return addLight(model, command.x, command.y, command.radius, command.color)
+    case 'removeLight':
+      return removeLight(model, command.id)
   }
 }

@@ -1,5 +1,6 @@
 import type { TileGrid } from '@/shared/tiles'
 import type { Door, WallEdge } from './walls'
+import type { MapLight } from './lights'
 
 export { EMPTY_TILE, MAX_MAP_DIMENSION, TILE_TYPES } from '@/shared/tiles'
 export { GRID_TYPES, isGridType } from '@/shared/tiles'
@@ -26,4 +27,6 @@ export interface MapModel {
   /** Стены-рёбра и двери на них — только для square (MVP этапа 5). */
   readonly walls: readonly WallEdge[]
   readonly doors: readonly Door[]
+  /** Источники света для VTT-экспорта; физика считается платформой. */
+  readonly lights: readonly MapLight[]
 }

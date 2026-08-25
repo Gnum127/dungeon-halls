@@ -9,6 +9,8 @@ import {
   DOOR_FILL_COLOR,
   FALLBACK_OBJECT_COLOR,
   GRID_LINE_COLOR,
+  LIGHT_GLOW_COLOR,
+  LIGHT_MARKER_COLOR,
   OBJECT_OUTLINE_COLOR,
   TILE_COLORS,
   WALL_LINE_COLOR,
@@ -159,6 +161,31 @@ export function renderMap(
   if (model.gridType === 'square') {
     drawWalls(ctx, model, cellSize, offsetX, offsetY)
     drawDoors(ctx, model, cellSize, offsetX, offsetY)
+  }
+  drawLights(ctx, model, viewport)
+}
+
+/** Свечение (полупрозрачный круг) + маркер источника; поверх остального. */
+function drawLights(
+  ctx: CanvasRenderingContext2D,
+  model: MapModel,
+  viewport: Viewport,
+): void {
+  if (model.lights.length === 0) return
+  const { cellSize, offsetX, offsetY } = viewport
+  const marker = Math.max(3, Math.round(cellSize * 0.12))
+  for (const light of model.lights) {
+    const center = cellCenterAt(light.x, light.y, model.gridType, cellSize)
+    const cx = center.x - offsetX
+    const cy = center.y - offsetY
+    ctx.fillStyle = LIGHT_GLOW_COLOR
+    ctx.beginPath()
+    ctx.arc(cx, cy, light.radius * cellSize, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = LIGHT_MARKER_COLOR
+    ctx.beginPath()
+    ctx.arc(cx, cy, marker, 0, Math.PI * 2)
+    ctx.fill()
   }
 }
 

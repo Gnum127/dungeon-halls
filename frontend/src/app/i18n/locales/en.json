@@ -15,6 +15,11 @@
       "door": "Door",
       "squareOnly": "Walls support square grids only"
     },
+    "light": {
+      "label": "Light",
+      "radius": "Radius (cells)",
+      "color": "Light color"
+    },
     "renderMode": {
       "label": "Graphics",
       "colors": "Color tiles",

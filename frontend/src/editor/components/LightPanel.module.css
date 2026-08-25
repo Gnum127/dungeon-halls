@@ -1,0 +1,59 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0.5rem 0.5rem 0;
+}
+
+.toggle {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.toggle[aria-pressed='true'] {
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.props {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.row input {
+  width: 64px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.swatches {
+  display: flex;
+  gap: 6px;
+}
+
+.swatch {
+  width: 24px;
+  height: 24px;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.swatch[aria-pressed='true'] {
+  border-color: var(--accent);
+}

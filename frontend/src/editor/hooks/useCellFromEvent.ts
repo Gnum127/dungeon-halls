@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react'
+import type { GridType } from '@/shared/tiles'
 import type { Viewport } from '../render/viewport'
 import { screenToCell } from '../render/viewport'
 
@@ -14,6 +15,7 @@ export type ClientPoint = Pick<ReactPointerEvent<HTMLCanvasElement>, 'clientX' |
 export function useCellFromEvent(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   viewportRef: RefObject<Viewport>,
+  gridType: GridType,
 ): (point: ClientPoint) => { x: number; y: number } {
   return useCallback(
     (point: ClientPoint) => {
@@ -21,8 +23,8 @@ export function useCellFromEvent(
       const viewport = viewportRef.current
       if (!canvas || !viewport) return { x: Number.NaN, y: Number.NaN }
       const rect = canvas.getBoundingClientRect()
-      return screenToCell(viewport, point.clientX - rect.left, point.clientY - rect.top)
+      return screenToCell(viewport, point.clientX - rect.left, point.clientY - rect.top, gridType)
     },
-    [canvasRef, viewportRef],
+    [canvasRef, viewportRef, gridType],
   )
 }

@@ -40,7 +40,7 @@ export function useTerrainBrush(options: BrushOptions): {
   const pointerIdRef = useRef<number | null>(null)
   const [pendingCells, setPendingCells] = useState<readonly Cell[]>([])
 
-  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
+  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef, model.gridType)
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (!active || event.button !== LEFT_BUTTON) return

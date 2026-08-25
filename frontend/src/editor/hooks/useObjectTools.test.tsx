@@ -1,6 +1,7 @@
 import { fireEvent, render } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { useRef, useState } from 'react'
+import { cellCenterAt } from '../render/gridGeometry'
 import { createEmptyMap } from '../model/createEmptyMap'
 import { EditorStore } from '../store/EditorStore'
 import type { Viewport } from '../render/viewport'
@@ -42,6 +43,10 @@ function Probe({ store, tool, selectedId, onSelect }: ProbeProps) {
 const TERRAIN_TOOL: EditorTool = { type: 'terrain', tile: 1 }
 const SELECT_TOOL: EditorTool = { type: 'select' }
 const DOOR_TOOL: EditorTool = { type: 'object', kindId: 'door' }
+
+function hexCenter(col: number, row: number): { x: number; y: number } {
+  return cellCenterAt(col, row, 'hex-pointy', 32)
+}
 
 function leftPointer(
   target: Element,
@@ -281,5 +286,43 @@ describe('useObjectTools', () => {
     leftPointer(getByTestId('canvas'), 'pointerdown')
     expect(store.getModel().objects).toHaveLength(0)
     expect(onSelect).not.toHaveBeenCalled()
+  })
+})
+
+describe('useObjectTools (hex grid)', () => {
+  it('places an object into the hex under the click', () => {
+    const store = new EditorStore(createEmptyMap(8, 8, 'hex-pointy'))
+    const { getByTestId } = render(
+      <Probe store={store} tool={DOOR_TOOL} selectedId={null} onSelect={vi.fn()} />,
+    )
+    const canvas = getByTestId('canvas')
+
+    // Клик в центр гекса (3,4) — не в центр «квадратной» клетки.
+    const center = hexCenter(3, 4)
+    leftPointer(canvas, 'pointerdown', { clientX: center.x, clientY: center.y })
+
+    const objects = store.getModel().objects
+    expect(objects).toHaveLength(1)
+    expect(objects[0]).toMatchObject({ x: 3, y: 4, kindId: 'door' })
+  })
+
+  it('drags an object to another hex with a single move command', () => {
+    const store = new EditorStore(createEmptyMap(8, 8, 'hex-pointy'))
+    store.dispatch({ kind: 'addObject', x: 2, y: 2, kindId: 'chair' })
+    const { getByTestId } = render(
+      <Probe store={store} tool={SELECT_TOOL} selectedId={null} onSelect={vi.fn()} />,
+    )
+    const canvas = getByTestId('canvas')
+
+    const from = hexCenter(2, 2)
+    const to = hexCenter(3, 3)
+    leftPointer(canvas, 'pointerdown', { clientX: from.x, clientY: from.y })
+    leftPointer(canvas, 'pointermove', { clientX: to.x, clientY: to.y })
+    leftPointer(canvas, 'pointerup', { buttons: 0 })
+
+    const moved = store.getModel().objects[0]!
+    expect(moved).toMatchObject({ x: 3, y: 3 })
+    expect(store.undo()).toBe(true)
+    expect(store.getModel().objects[0]).toMatchObject({ x: 2, y: 2 })
   })
 })

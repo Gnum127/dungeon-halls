@@ -69,7 +69,7 @@ export function EditorPage() {
     setTool({ type: 'select' })
   }
 
-  function selectWallTool(mode: 'wall' | 'wall-eraser') {
+  function selectWallTool(mode: 'wall' | 'wall-eraser' | 'door') {
     setSelectedObjectId(null)
     setTool({ type: mode })
   }
@@ -103,6 +103,9 @@ export function EditorPage() {
       // Хоткей не должен обходить UI-гард: рёбра определены только на square.
       if (model.gridType === 'square') selectWallTool('wall')
     },
+    onSelectDoors: () => {
+      if (model.gridType === 'square') selectWallTool('door')
+    },
   })
 
   return (
@@ -126,10 +129,15 @@ export function EditorPage() {
           </p>
         )}
         <WallTools
-          activeMode={tool.type === 'wall' || tool.type === 'wall-eraser' ? tool.type : null}
+          activeMode={
+            tool.type === 'wall' || tool.type === 'wall-eraser' || tool.type === 'door'
+              ? tool.type
+              : null
+          }
           disabled={model.gridType !== 'square'}
           onSelectWall={() => selectWallTool('wall')}
           onSelectEraser={() => selectWallTool('wall-eraser')}
+          onSelectDoor={() => selectWallTool('door')}
         />
         <TerrainPalette
           selected={tool.type === 'terrain' ? tool.tile : -1}

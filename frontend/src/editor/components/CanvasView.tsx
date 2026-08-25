@@ -13,9 +13,11 @@ import { renderMap } from '../render/renderMap'
 import type { SpriteRenderContext } from '../render/sprites/loader'
 import { drawStrokePreview } from '../render/strokePreview'
 import { drawCellHighlight } from '../render/cellHighlight'
+import { drawEdgeHighlight } from '../render/edgeHighlight'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
 import { useWallBrush } from '../hooks/useWallBrush'
+import { useDoorTool } from '../hooks/useDoorTool'
 import type { EditorTool } from '../tools/editorTool'
 import { mergePointerHandlers } from './pointerHandlers'
 import { formatCoords } from './formatCoords'
@@ -97,6 +99,14 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject, spri
     onCommit: handleBrushCommit,
   })
 
+  const { hoverEdge, handlers: doorHandlers } = useDoorTool({
+    canvasRef,
+    active: tool.type === 'door',
+    model,
+    viewportRef,
+    onCommit: handleBrushCommit,
+  })
+
   const handleSelect = useCallback((id: number | null) => onSelectObject(id), [onSelectObject])
   const { handlers: objectHandlers } = useObjectTools({
     canvasRef,
@@ -133,11 +143,13 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject, spri
     renderMap(ctx, model, viewport, sprites)
     drawStrokePreview(ctx, pendingCells, viewport, brushTile, model.gridType)
     if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport, model.gridType)
-  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites])
+    if (hoverEdge && tool.type === 'door') drawEdgeHighlight(ctx, hoverEdge, viewport)
+  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites, hoverEdge, tool.type])
 
   const pointerHandlers = useMemo(
-    () => mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, hoverHandlers, wallHandlers),
-    [panHandlers, brushHandlers, objectHandlers, hoverHandlers, wallHandlers],
+    () =>
+      mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, hoverHandlers, wallHandlers, doorHandlers),
+    [panHandlers, brushHandlers, objectHandlers, hoverHandlers, wallHandlers, doorHandlers],
   )
 
   return (

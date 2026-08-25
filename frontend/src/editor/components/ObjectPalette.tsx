@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ObjectKindId } from '../model/objects'
-import { OBJECT_COLORS, OBJECT_KINDS } from '../model/objects'
+import { OBJECT_KIND_ENTRIES } from '../model/objects'
 import styles from './ObjectPalette.module.css'
 
 interface ObjectPaletteProps {
@@ -32,23 +32,23 @@ export function ObjectPalette({
         {t('editor.objects.select')}
       </button>
       <div role="group" aria-label={t('editor.objects.label')} className={styles.kindList}>
-        {OBJECT_KINDS.map((kindId) => (
+        {OBJECT_KIND_ENTRIES.map((kind) => (
           <button
-            key={kindId}
+            key={kind.id}
             type="button"
-            className={[styles.swatch, kindId === activeKindId ? styles.selected : '']
+            className={[styles.swatch, kind.id === activeKindId ? styles.selected : '']
               .filter(Boolean)
               .join(' ')}
-            aria-pressed={kindId === activeKindId}
-            title={t(`editor.objects.${kindId}`)}
-            onClick={() => onSelectKind(kindId)}
+            aria-pressed={kind.id === activeKindId}
+            title={t(kind.labelKey)}
+            onClick={() => onSelectKind(kind.id)}
           >
             <span
-              // Цвет вида объекта — data-driven значение из константы каталога.
-              style={{ backgroundColor: OBJECT_COLORS[kindId] }}
+              // Цвет вида объекта — data-driven значение из реестра каталога.
+              style={{ backgroundColor: kind.color }}
               className={styles.dot}
             />
-            <span className={styles.name}>{t(`editor.objects.${kindId}`)}</span>
+            <span className={styles.name}>{t(kind.labelKey)}</span>
           </button>
         ))}
       </div>

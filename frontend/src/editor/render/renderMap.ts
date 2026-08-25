@@ -2,6 +2,7 @@ import { isKnownKind, OBJECT_COLORS } from '../model/objects'
 import { TILE_TYPES } from '../model/types'
 import type { MapModel } from '../model/types'
 import { cellCorners } from '@/shared/hex'
+import type { SpriteRenderContext } from './sprites/loader'
 import {
   CANVAS_BACKGROUND_COLOR,
   FALLBACK_OBJECT_COLOR,
@@ -14,7 +15,8 @@ import type { Viewport } from './viewport'
 
 /**
  * Единственная точка рендера карты: чистая функция от модели и вьюпорта.
- * Спрайтовый режим позже заменит только выбор заливки, не структуру.
+ * Спрайтовый режим включается опциональным атласом готовых картинок;
+ * отсутствующий атлас или спрайт = fallback на цветную плитку.
  *
  * Контракт: вызывающий обязан выставить ctx.setTransform(dpr,…) и передать
  * viewport в CSS-пикселях; renderMap работает в CSS-координатах.
@@ -23,11 +25,16 @@ export function renderMap(
   ctx: CanvasRenderingContext2D,
   model: MapModel,
   viewport: Viewport,
+  sprites?: SpriteRenderContext,
 ): void {
   const { width, height, cellSize, offsetX, offsetY } = viewport
 
   ctx.fillStyle = CANVAS_BACKGROUND_COLOR
   ctx.fillRect(0, 0, width, height)
+
+  // Пиксель-арт при зуме остаётся чётким; предыдущее значение возвращаем.
+  const smoothingBefore = ctx.imageSmoothingEnabled
+  if (sprites) ctx.imageSmoothingEnabled = false
 
   const orientation = hexOrientationOf(model.gridType)
   if (orientation === null) {
@@ -40,6 +47,18 @@ export function renderMap(
         const tileIndex = model.tiles[row * model.width + col]
         // Fallback на случай битых значений из будущих загруженных файлов.
         const typeName = TILE_TYPES[tileIndex] ?? 'empty'
+        const sprite = sprites?.tiles[typeName]
+        if (sprite) {
+          // Квадрат: спрайт точно в клетку, clip не нужен (бюджет производительности).
+          ctx.drawImage(
+            sprite,
+            col * cellSize - offsetX,
+            row * cellSize - offsetY,
+            cellSize,
+            cellSize,
+          )
+          continue
+        }
         ctx.fillStyle = TILE_COLORS[typeName]
         ctx.fillRect(col * cellSize - offsetX, row * cellSize - offsetY, cellSize, cellSize)
       }
@@ -68,9 +87,25 @@ export function renderMap(
         const tileIndex = model.tiles[row * model.width + col]
         const typeName = TILE_TYPES[tileIndex] ?? 'empty'
         const center = cellCenterAt(col, row, model.gridType, cellSize)
-        ctx.fillStyle = TILE_COLORS[typeName]
         ctx.beginPath()
         traceCellPolygon(ctx, center.x - offsetX, center.y - offsetY, corners)
+        const sprite = sprites?.tiles[typeName]
+        if (sprite) {
+          // Гекс: спрайт растягивается на bbox полигона и clip по нему —
+          // края клетки не остаются пустыми.
+          ctx.save()
+          ctx.clip()
+          ctx.drawImage(
+            sprite,
+            center.x - offsetX - cellSize,
+            center.y - offsetY - cellSize,
+            cellSize * 2,
+            cellSize * 2,
+          )
+          ctx.restore()
+          continue
+        }
+        ctx.fillStyle = TILE_COLORS[typeName]
         ctx.fill()
       }
     }
@@ -95,6 +130,14 @@ export function renderMap(
     if (cx < -cellSize || cx > width + cellSize || cy < -cellSize || cy > height + cellSize) {
       continue
     }
+    const sprite =
+      sprites && isKnownKind(object.kindId) ? sprites.objects[object.kindId] : undefined
+    if (sprite) {
+      // Размер бокса клетки той же сетки, что у полигона тайла.
+      const size = orientation === null ? cellSize : cellSize * 2
+      ctx.drawImage(sprite, cx - size / 2, cy - size / 2, size, size)
+      continue
+    }
     const radius = Math.max(3, cellSize * 0.3)
     ctx.beginPath()
     ctx.arc(cx, cy, radius, 0, Math.PI * 2)
@@ -106,4 +149,6 @@ export function renderMap(
     ctx.strokeStyle = OBJECT_OUTLINE_COLOR
     ctx.stroke()
   }
+
+  if (sprites) ctx.imageSmoothingEnabled = smoothingBefore
 }

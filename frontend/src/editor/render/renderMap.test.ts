@@ -310,3 +310,172 @@ describe('renderMap (hex)', () => {
     },
   )
 })
+
+describe('renderMap (sprites)', () => {
+  const SIZE = 32
+  const floorSprite = { width: 16 } as unknown as HTMLImageElement
+  const atlas = { tiles: { floor: floorSprite }, objects: {} }
+
+  function hexViewport(gridType: 'hex-pointy' | 'hex-flat', cols: number, rows: number): Viewport {
+    const bounds = mapPixelBounds(cols, rows, gridType, SIZE)
+    return { width: bounds.width, height: bounds.height, cellSize: SIZE, offsetX: 0, offsetY: 0 }
+  }
+
+  function makeHexModel(gridType: 'hex-pointy' | 'hex-flat'): MapModel {
+    return applyCommand(createEmptyMap(3, 3, gridType), {
+      kind: 'setTile',
+      x: 1,
+      y: 1,
+      tile: FLOOR,
+    })
+  }
+
+  it('square: draws a sprite exactly into its cell without clip', () => {
+    const { ctx, calls, raw } = makeFakeCtx()
+    renderMap(ctx, makeModel(), baseViewport(), atlas)
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    expect(draws[0]?.args).toEqual([floorSprite, 32, 32, 32, 32])
+    // Квадратная ветка обходится без save/clip — бюджет производительности.
+    expect(calls.some((c) => c.op === 'save')).toBe(false)
+    expect(calls.some((c) => c.op === 'clip')).toBe(false)
+    // Сглаживание выключено на время рендера и возвращено после.
+    expect(raw.imageSmoothingEnabled).toBe(true)
+  })
+
+  it('square: falls back to color fill when the tile has no sprite', () => {
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModel(), baseViewport(), { tiles: {}, objects: {} })
+
+    // Ни одного drawImage: у 'empty' и 'floor' нет записей в атласе.
+    expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
+    const floorFill = calls.find(
+      (c) => c.op === 'fillRect' && c.args[0] === 32 && c.args[1] === 32,
+    )
+    expect(floorFill?.fillStyle).toBe(TILE_COLORS.floor)
+  })
+
+  it.each(['hex-pointy', 'hex-flat'] as const)(
+    '%s: clips the polygon and stretches the sprite over the cell bbox',
+    (gridType) => {
+      const { ctx, calls } = makeFakeCtx()
+      renderMap(ctx, makeHexModel(gridType), hexViewport(gridType, 3, 3), atlas)
+
+      const center = cellCenterAt(1, 1, gridType, SIZE)
+      const drawIndex = calls.findIndex((c) => c.op === 'drawImage')
+      expect(drawIndex).toBeGreaterThanOrEqual(0)
+      expect(calls[drawIndex]?.args).toEqual([
+        floorSprite,
+        center.x - SIZE,
+        center.y - SIZE,
+        SIZE * 2,
+        SIZE * 2,
+      ])
+      // Порядок на клетку со спрайтом: beginPath → trace → save → clip → draw → restore.
+      expect(calls[drawIndex - 1]?.op).toBe('clip')
+      expect(calls[drawIndex - 2]?.op).toBe('save')
+      expect(calls[drawIndex + 1]?.op).toBe('restore')
+      // Clip ровно один на весь кадр — только клетка со спрайтом.
+      expect(calls.filter((c) => c.op === 'clip')).toHaveLength(1)
+      // Путь перед clip — полигон клетки: moveTo + 5 lineTo + closePath,
+      // стартующий в первой вершине гекса относительно центра.
+      const saveIndex = drawIndex - 2
+      let start = saveIndex
+      while (start > 0 && calls[start]?.op !== 'beginPath') start -= 1
+      const pathOps = calls.slice(start + 1, saveIndex)
+      const corners = cellCorners(gridType === 'hex-pointy' ? 'pointy' : 'flat', SIZE)
+      expect(pathOps[0]?.op).toBe('moveTo')
+      expect(pathOps[0]?.args).toEqual([
+        center.x + corners[0][0],
+        center.y + corners[0][1],
+      ])
+      expect(pathOps.filter((c) => c.op === 'lineTo')).toHaveLength(5)
+      expect(pathOps.at(-1)?.op).toBe('closePath')
+    },
+  )
+
+  it.each(['hex-pointy', 'hex-flat'] as const)(
+    '%s: fills hexes without sprites with palette color',
+    (gridType) => {
+      const { ctx, calls } = makeFakeCtx()
+      renderMap(ctx, makeHexModel(gridType), hexViewport(gridType, 3, 3), {
+        tiles: {},
+        objects: {},
+      })
+
+      // 9 клеток цветом, ни одного drawImage/save.
+      expect(calls.filter((c) => c.op === 'fill')).toHaveLength(9)
+      expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
+      expect(calls.some((c) => c.op === 'save')).toBe(false)
+    },
+  )
+})
+
+describe('renderMap (object sprites)', () => {
+  const SIZE = 32
+
+  function hexViewport(gridType: 'hex-pointy' | 'hex-flat', cols: number, rows: number): Viewport {
+    const bounds = mapPixelBounds(cols, rows, gridType, SIZE)
+    return { width: bounds.width, height: bounds.height, cellSize: SIZE, offsetX: 0, offsetY: 0 }
+  }
+
+  function makeModelWithDoor(gridType: 'square' | 'hex-pointy' | 'hex-flat'): MapModel {
+    return applyCommand(createEmptyMap(3, 3, gridType), {
+      kind: 'addObject',
+      x: 1,
+      y: 1,
+      kindId: 'door',
+    })
+  }
+
+  it('square: draws an object sprite over the cell instead of a circle', () => {
+    const doorSprite = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
+      tiles: {},
+      objects: { door: doorSprite },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    // Центр клетки (48, 48), сторона = cellSize.
+    expect(draws[0]?.args).toEqual([doorSprite, 32, 32, 32, 32])
+    expect(calls.some((c) => c.op === 'arc')).toBe(false)
+  })
+
+  it.each(['hex-pointy', 'hex-flat'] as const)(
+    '%s: an object sprite covers the hex bbox',
+    (gridType) => {
+      const doorSprite = { width: 16 } as unknown as HTMLImageElement
+      const { ctx, calls } = makeFakeCtx()
+      renderMap(ctx, makeModelWithDoor(gridType), hexViewport(gridType, 3, 3), {
+        tiles: {},
+        objects: { door: doorSprite },
+      })
+
+      const center = cellCenterAt(1, 1, gridType, SIZE)
+      const draws = calls.filter((c) => c.op === 'drawImage')
+      expect(draws).toHaveLength(1)
+      expect(draws[0]?.args).toEqual([
+        doorSprite,
+        center.x - SIZE,
+        center.y - SIZE,
+        SIZE * 2,
+        SIZE * 2,
+      ])
+      expect(calls.some((c) => c.op === 'arc')).toBe(false)
+    },
+  )
+
+  it('falls back to the color circle when the kind has no sprite', () => {
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
+      tiles: {},
+      objects: {},
+    })
+
+    expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
+    expect(calls.some((c) => c.op === 'arc')).toBe(true)
+  })
+})

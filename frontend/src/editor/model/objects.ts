@@ -1,21 +1,41 @@
 import type { MapObject } from './types'
 
-export const OBJECT_KINDS = ['door', 'stairs', 'table', 'chair', 'chest', 'torch'] as const
+/**
+ * Реестр видов объектов — данные, а не логика: новый вид добавляется
+ * записью сюда (+ ключи i18n), без изменения кода потребителей.
+ */
+export const OBJECT_KIND_REGISTRY = {
+  door: { labelKey: 'editor.objects.door', color: '#b0762f' },
+  stairs: { labelKey: 'editor.objects.stairs', color: '#7a7f8c' },
+  table: { labelKey: 'editor.objects.table', color: '#8a5a2b' },
+  chair: { labelKey: 'editor.objects.chair', color: '#6b4423' },
+  chest: { labelKey: 'editor.objects.chest', color: '#9c6b30' },
+  torch: { labelKey: 'editor.objects.torch', color: '#e08a2d' },
+} as const
 
-export type ObjectKindId = (typeof OBJECT_KINDS)[number]
+export type ObjectKindId = keyof typeof OBJECT_KIND_REGISTRY
 
-/** Цвета отрисовки объектов; палитра UI берёт те же значения. */
-export const OBJECT_COLORS: Record<ObjectKindId, string> = {
-  door: '#b0762f',
-  stairs: '#7a7f8c',
-  table: '#8a5a2b',
-  chair: '#6b4423',
-  chest: '#9c6b30',
-  torch: '#e08a2d',
+export interface ObjectKindEntry {
+  readonly id: ObjectKindId
+  readonly labelKey: string
+  readonly color: string
 }
 
+/** Порядок видов в UI фиксируется порядком записей реестра. */
+export const OBJECT_KIND_ENTRIES: readonly ObjectKindEntry[] = (
+  Object.keys(OBJECT_KIND_REGISTRY) as ObjectKindId[]
+).map((id) => ({ id, ...OBJECT_KIND_REGISTRY[id] }))
+
+export const OBJECT_KINDS: readonly ObjectKindId[] = OBJECT_KIND_ENTRIES.map((entry) => entry.id)
+
+// Выводится из реестра во время выполнения; приведение безопасно,
+// т.к. ключи взяты из того же объекта.
+export const OBJECT_COLORS = Object.fromEntries(
+  OBJECT_KIND_ENTRIES.map((entry) => [entry.id, entry.color]),
+) as Record<ObjectKindId, string>
+
 export function isKnownKind(kindId: string): kindId is ObjectKindId {
-  return (OBJECT_KINDS as readonly string[]).includes(kindId)
+  return Object.hasOwn(OBJECT_KIND_REGISTRY, kindId)
 }
 
 /** Клетка занята, если на ней стоит любой объект. */

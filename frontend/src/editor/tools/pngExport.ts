@@ -1,5 +1,6 @@
 import { renderMap } from '../render/renderMap'
 import { mapPixelBounds } from '../render/gridGeometry'
+import type { SpriteRenderContext } from '../render/sprites/loader'
 import type { MapModel } from '../model/types'
 
 /** 1 клетка = 64px: печатный масштаб, независимый от экранного зума. */
@@ -10,9 +11,14 @@ const MAX_EXPORT_AREA = 134_217_728
 
 /**
  * Рендерит карту в offscreen canvas и отдаёт PNG через тот же renderMap,
- * что и на экране. Сетка сохраняется для печати.
+ * что и на экране. Сетка сохраняется для печати. Атлас опционален:
+ * недоступен/неполон — экспорт цветами, без ожидания и ошибок.
  */
-export function exportMapToPng(model: MapModel, cellSize = EXPORT_CELL_SIZE): Promise<Blob> {
+export function exportMapToPng(
+  model: MapModel,
+  cellSize = EXPORT_CELL_SIZE,
+  sprites?: SpriteRenderContext,
+): Promise<Blob> {
   // Габариты от геометрии сетки: у гексов холст шире/выше w·cellSize,
   // иначе крайние клетки молча обрезаются. canvas.width/height — целые
   // (дробная часть отбрасывается браузером), поэтому округляем вверх.
@@ -35,13 +41,18 @@ export function exportMapToPng(model: MapModel, cellSize = EXPORT_CELL_SIZE): Pr
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   // Координаты клеток (cellCenterAt) уже нормализованы к [0..bounds].
-  renderMap(ctx, model, {
-    width,
-    height,
-    cellSize,
-    offsetX: 0,
-    offsetY: 0,
-  })
+  renderMap(
+    ctx,
+    model,
+    {
+      width,
+      height,
+      cellSize,
+      offsetX: 0,
+      offsetY: 0,
+    },
+    sprites,
+  )
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {

@@ -1,6 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { EditorPage } from './EditorPage'
+import { RENDER_MODE_STORAGE_KEY } from './render/renderMode'
+
+// Атлас не относится к тестируемым сценариям: мок убирает асинхронный
+// setState (шум act) и сетевые запросы из RTL-тестов.
+vi.mock('./hooks/useSpriteAtlas', () => ({
+  useSpriteAtlas: () => ({ atlas: null, status: 'unavailable' }),
+}))
 
 describe('EditorPage', () => {
   it('renders the map canvas', () => {
@@ -88,6 +95,22 @@ describe('EditorPage', () => {
     clickGenerate()
 
     expect(() => fireEvent.keyDown(window, { key: 'Delete' })).not.toThrow()
+  })
+
+  // Пункт 4.5: выбор режима графики персистится в localStorage.
+  it('persists the graphics mode choice to localStorage', () => {
+    localStorage.removeItem(RENDER_MODE_STORAGE_KEY)
+    render(<EditorPage />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sprites' }))
+    expect(localStorage.getItem(RENDER_MODE_STORAGE_KEY)).toBe('sprites')
+    expect(screen.getByRole('button', { name: 'Color tiles' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Color tiles' }))
+    expect(localStorage.getItem(RENDER_MODE_STORAGE_KEY)).toBe('colors')
   })
 
   function clickGenerate() {

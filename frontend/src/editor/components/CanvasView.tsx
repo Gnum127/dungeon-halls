@@ -10,6 +10,7 @@ import { useHoverCell } from '../hooks/useHoverCell'
 import type { EditorStore } from '../store/EditorStore'
 import type { Command } from '../model/commands'
 import { renderMap } from '../render/renderMap'
+import type { SpriteRenderContext } from '../render/sprites/loader'
 import { drawStrokePreview } from '../render/strokePreview'
 import { drawCellHighlight } from '../render/cellHighlight'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
@@ -24,9 +25,11 @@ interface CanvasViewProps {
   tool: EditorTool
   selectedObjectId: number | null
   onSelectObject: (id: number | null) => void
+  /** Атлас спрайтов; undefined = цветной режим (fallback на плитки). */
+  sprites?: SpriteRenderContext
 }
 
-export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: CanvasViewProps) {
+export function CanvasView({ store, tool, selectedObjectId, onSelectObject, sprites }: CanvasViewProps) {
   const model = useEditor(store)
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -117,10 +120,10 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
     if (!ctx) return
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    renderMap(ctx, model, viewport)
+    renderMap(ctx, model, viewport, sprites)
     drawStrokePreview(ctx, pendingCells, viewport, brushTile, model.gridType)
     if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport, model.gridType)
-  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell])
+  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites])
 
   const pointerHandlers = useMemo(
     () => mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, hoverHandlers),

@@ -41,7 +41,7 @@ describe('MapFileActions', () => {
     const [filename, content] = download.mock.calls[0] as [string, string]
     expect(filename).toMatch(/\.json$/)
     const parsed = JSON.parse(content) as { version: number; objects: unknown[] }
-    expect(parsed.version).toBe(2)
+    expect(parsed.version).toBe(3)
     expect(parsed.objects).toHaveLength(1)
     expect(onResult).toHaveBeenCalledWith('saved')
   })
@@ -154,5 +154,68 @@ describe('MapFileActions', () => {
 
     expect(onResult).toHaveBeenCalledWith('invalid')
     expect(onLoaded).not.toHaveBeenCalled()
+  })
+})
+
+describe('MapFileActions UVTT export', () => {
+  it('downloads a .uvtt blob via the injected exporter', async () => {
+    const onResult = vi.fn()
+    const download = vi.fn()
+    const fakeBlob = new Blob(['uvtt'], { type: 'application/octet-stream' })
+    const exportUvtt = vi.fn().mockResolvedValue(fakeBlob)
+    const { getByText } = render(
+      <MapFileActions
+        getModel={() => createEmptyMap(4, 4)}
+        onLoaded={vi.fn()}
+        onResult={onResult}
+        download={download}
+        exportUvtt={exportUvtt}
+      />,
+    )
+
+    fireEvent.click(getByText('Export UVTT'))
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1))
+
+    expect(exportUvtt).toHaveBeenCalledTimes(1)
+    const [filename, blob, mime] = download.mock.calls[0] as [string, Blob, string]
+    expect(filename).toMatch(/\.uvtt$/)
+    expect(blob).toBe(fakeBlob)
+    expect(mime).toBe('application/octet-stream')
+    expect(onResult).toHaveBeenCalledWith('exportedUvtt')
+  })
+
+  it('reports a UVTT-specific failure when the exporter rejects', async () => {
+    const onResult = vi.fn()
+    const download = vi.fn()
+    const exportUvtt = vi.fn().mockRejectedValue(new Error('export failed'))
+    const { getByText } = render(
+      <MapFileActions
+        getModel={() => createEmptyMap(4, 4)}
+        onLoaded={vi.fn()}
+        onResult={onResult}
+        download={download}
+        exportUvtt={exportUvtt}
+      />,
+    )
+
+    fireEvent.click(getByText('Export UVTT'))
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith('uvttExportFailed'))
+    // Битый артефакт не скачивается.
+    expect(download).not.toHaveBeenCalled()
+  })
+
+  it('disables the UVTT button with a hint on non-square grids', () => {
+    const { getByText } = render(
+      <MapFileActions
+        getModel={() => createEmptyMap(4, 4, 'hex-pointy')}
+        onLoaded={vi.fn()}
+        onResult={vi.fn()}
+        uvttDisabled
+      />,
+    )
+
+    const button = getByText('Export UVTT')
+    expect(button).toBeDisabled()
+    expect(button.getAttribute('title')).toContain('square grids only')
   })
 })

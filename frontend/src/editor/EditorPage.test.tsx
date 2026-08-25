@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { EditorPage } from './EditorPage'
 import { RENDER_MODE_STORAGE_KEY } from './render/renderMode'
@@ -48,14 +48,17 @@ describe('EditorPage', () => {
 
   // Пункт 3.5: смена типа сетки уровня документа дизейблит генератор
   // (генераторы отдают только square), обратная смена возвращает кнопку.
+  // Подсказок-«note» две (генератор и стены) — проверяем по текстам.
   it('switching the document grid type disables and re-enables generation', () => {
     render(<EditorPage />)
     const gridSelect = screen.getByLabelText('Grid type')
     expect(screen.getByRole('button', { name: 'Generate' })).toBeEnabled()
+    expect(screen.queryByText(/Walls support square grids only/)).toBeNull()
 
     fireEvent.change(gridSelect, { target: { value: 'hex-pointy' } })
     expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled()
-    expect(screen.getByRole('note')).toBeInTheDocument()
+    expect(screen.getByText(/generator supports square grids/)).toBeInTheDocument()
+    expect(screen.getByText(/Walls support square grids only/)).toBeInTheDocument()
 
     fireEvent.change(gridSelect, { target: { value: 'square' } })
     expect(screen.getByRole('button', { name: 'Generate' })).toBeEnabled()
@@ -74,14 +77,30 @@ describe('EditorPage', () => {
     expect(screen.getByRole('button', { name: 'Regenerate same seed' })).toBeDisabled()
   })
 
+  // Интеграционная связка 5.7: uvttDisabled={model.gridType !== 'square'} —
+  // кнопка UVTT дизейблится ровно на гексах, без ручной подстановки пропа.
+  it('uvtt export button follows the document grid type', () => {
+    render(<EditorPage />)
+    expect(screen.getByRole('button', { name: 'Export UVTT' })).toBeEnabled()
+
+    fireEvent.change(screen.getByLabelText('Grid type'), { target: { value: 'hex-pointy' } })
+    const button = screen.getByRole('button', { name: 'Export UVTT' })
+    expect(button).toBeDisabled()
+    expect(button.getAttribute('title')).toContain('square grids only')
+
+    fireEvent.change(screen.getByLabelText('Grid type'), { target: { value: 'square' } })
+    expect(screen.getByRole('button', { name: 'Export UVTT' })).toBeEnabled()
+  })
+
   // Регрессия roadmap 2.7: stale id после генерации → removeObject бросал
   // RangeError внутри keydown. Теперь выделение сбрасывается при генерации.
   it('generate clears stale object selection: Delete does not throw', () => {
     render(<EditorPage />)
     const canvas = screen.getByTestId('editor-canvas')
 
-    // Ставим дверь (инструмент Door уже активен в палитре объектов).
-    fireEvent.click(screen.getByRole('button', { name: 'Door' }))
+    // Ставим дверь (инструмент Door из палитры объектов, не кнопка стен).
+    const objectsGroup = screen.getByRole('group', { name: 'Objects' })
+    fireEvent.click(within(objectsGroup).getByRole('button', { name: 'Door' }))
     fireEvent.pointerDown(canvas, { button: 0, buttons: 1, pointerId: 1, clientX: 48, clientY: 48 })
     fireEvent.pointerUp(canvas, { pointerId: 1, buttons: 0 })
 

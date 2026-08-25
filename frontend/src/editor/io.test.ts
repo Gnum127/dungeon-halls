@@ -30,7 +30,7 @@ describe('serializeMap / deserializeMap roundtrip', () => {
     const json = serializeMap(model)
 
     const parsed = JSON.parse(json) as Record<string, unknown>
-    expect(parsed.version).toBe(2)
+    expect(parsed.version).toBe(3)
     expect(Array.isArray(parsed.tiles)).toBe(true)
 
     const restored = deserializeMap(json)
@@ -70,9 +70,22 @@ describe('deserializeMap validation', () => {
 
     const restored = deserializeMap(JSON.stringify(raw))
 
-    expect(restored.version).toBe(2)
+    expect(restored.version).toBe(3)
     expect(restored.gridType).toBe('square')
     expect([...restored.tiles]).toEqual([...makeRichModel().tiles])
+  })
+
+  // Миграция v2 → v3 транзитивна: старые файлы читаются, walls/doors пустые.
+  it('migrates version 2 with empty walls and doors', () => {
+    const raw = JSON.parse(serializeMap(makeRichModel())) as Record<string, unknown>
+    raw.version = 2
+
+    const restored = deserializeMap(JSON.stringify(raw))
+
+    expect(restored.version).toBe(3)
+    expect(restored.walls).toEqual([])
+    expect(restored.doors).toEqual([])
+    expect(restored.objects).toEqual(makeRichModel().objects)
   })
 
   it('rejects unknown gridType values', () => {
@@ -146,6 +159,133 @@ describe('deserializeMap validation', () => {
         { id: 1, kindId: 'door', x: 0, y: 0 },
         { id: 2, kindId: 'stairs', x: 0, y: 0 },
       ]),
+    )
+  })
+})
+
+describe('walls and doors serialization (v3)', () => {
+  function makeWalledModel(): MapModel {
+    // Внутреннее ребро + периметровые E/S рёбра + дверь в открытом состоянии.
+    let model = applyCommand(createEmptyMap(4, 4), {
+      kind: 'setWalls',
+      updates: [
+        { edge: { x: 1, y: 2, side: 'N' }, present: true },
+        { edge: { x: 3, y: 1, side: 'E' }, present: true },
+        { edge: { x: 2, y: 3, side: 'S' }, present: true },
+      ],
+    })
+    model = applyCommand(model, { kind: 'addDoor', edge: { x: 1, y: 2, side: 'N' } })
+    return applyCommand(model, { kind: 'setDoorOpen', id: 1, open: true })
+  }
+
+  it('roundtrips non-empty walls including perimeter edges and an open door', () => {
+    const model = makeWalledModel()
+    const restored = deserializeMap(serializeMap(model))
+
+    expect(restored.version).toBe(3)
+    expect(restored.walls).toEqual(model.walls)
+    expect(restored.doors).toEqual(model.doors)
+    expect(restored.doors[0]?.open).toBe(true)
+  })
+
+  it('roundtrips lights and rejects broken light payloads', () => {
+    let model = applyCommand(createEmptyMap(4, 4), {
+      kind: 'addLight',
+      x: 2,
+      y: 2,
+      radius: 12,
+      color: '#88aaff',
+    })
+    model = applyCommand(model, { kind: 'addLight', x: 0, y: 0, radius: 1, color: '#ffd682' })
+
+    const restored = deserializeMap(serializeMap(model))
+    expect(restored.lights).toEqual(model.lights)
+
+    const withLights = (lights: unknown): string => {
+      const raw = JSON.parse(serializeMap(createEmptyMap(4, 4))) as Record<string, unknown>
+      raw.lights = lights
+      return JSON.stringify(raw)
+    }
+    expectMapLoadError(withLights([null]))
+    expectMapLoadError(withLights({}))
+    expectMapLoadError(withLights([{ id: 1, x: 9, y: 0, radius: 3, color: '#ffd682' }]))
+    expectMapLoadError(withLights([{ id: 1, x: 0.5, y: 0, radius: 3, color: '#ffd682' }]))
+    expectMapLoadError(withLights([{ id: 1, x: 0, y: 0, radius: 0, color: '#ffd682' }]))
+    expectMapLoadError(withLights([{ id: 1, x: 0, y: 0, radius: 31, color: '#ffd682' }]))
+    expectMapLoadError(withLights([{ id: 1, x: 0, y: 0, radius: '3', color: '#ffd682' }]))
+    expectMapLoadError(withLights([{ id: 1, x: 0, y: 0, radius: 3, color: 'orange' }]))
+    expectMapLoadError(
+      withLights([
+        { id: 1, x: 0, y: 0, radius: 3, color: '#ffd682' },
+        { id: 1, x: 1, y: 1, radius: 3, color: '#ffd682' },
+      ]),
+    )
+    // Ранние v3-файлы без секции lights читаются как пустые.
+    const noSection = JSON.parse(serializeMap(createEmptyMap(4, 4))) as Record<string, unknown>
+    delete noSection.lights
+    expect(deserializeMap(JSON.stringify(noSection)).lights).toEqual([])
+  })
+
+  it('rejects broken walls and doors', () => {
+    const withPayload = (walls: unknown[], doors: unknown[]): string => {
+      const raw = JSON.parse(serializeMap(createEmptyMap(4, 4))) as Record<string, unknown>
+      raw.walls = walls
+      raw.doors = doors
+      return JSON.stringify(raw)
+    }
+    const wall = { x: 1, y: 1, side: 'N' }
+    const perimeter = { x: 3, y: 1, side: 'E' }
+
+    // walls/doors не массивы.
+    const notArray = JSON.parse(serializeMap(createEmptyMap(4, 4))) as Record<string, unknown>
+    notArray.walls = {}
+    expectMapLoadError(JSON.stringify(notArray))
+    const doorsNotArray = JSON.parse(
+      serializeMap(deserializeMap(withPayload([wall], []))),
+    ) as Record<string, unknown>
+    doorsNotArray.doors = 'nope'
+    expectMapLoadError(JSON.stringify(doorsNotArray))
+
+    // Битые записи стен.
+    expectMapLoadError(withPayload([null], []))
+    expectMapLoadError(withPayload([{ x: -1, y: 1, side: 'N' }], []))
+    expectMapLoadError(withPayload([{ x: 1.5, y: 1, side: 'N' }], []))
+    expectMapLoadError(withPayload([{ x: 1, y: 1, side: 'X' }], []))
+    // Не-каноничное ребро (E внутренней клетки) и дубликат ребра.
+    expectMapLoadError(withPayload([{ x: 0, y: 1, side: 'E' }], []))
+    expectMapLoadError(withPayload([wall, wall], []))
+    // Стены на гексах запрещены.
+    const hexRaw = JSON.parse(serializeMap(createEmptyMap(4, 4, 'hex-pointy'))) as Record<
+      string,
+      unknown
+    >
+    hexRaw.walls = [perimeter]
+    hexRaw.doors = []
+    expectMapLoadError(JSON.stringify(hexRaw))
+
+    // Битые записи дверей: не-boolean open, ребро без стены, дубликаты.
+    expectMapLoadError(withPayload([wall], [{ id: 1, edge: wall, open: 'yes' }]))
+    expectMapLoadError(
+      withPayload([wall], [{ id: 1, edge: { x: 2, y: 2, side: 'N' }, open: false }]),
+    )
+    expectMapLoadError(withPayload([], [{ id: 1, edge: wall, open: false }]))
+    expectMapLoadError(
+      withPayload(
+        [wall],
+        [
+          { id: 1, edge: wall, open: false },
+          { id: 1, edge: wall, open: true },
+        ],
+      ),
+    )
+    expectMapLoadError(
+      withPayload(
+        [wall],
+        [
+          { id: 1, edge: wall, open: false },
+          { id: 2, edge: wall, open: false },
+        ],
+      ),
     )
   })
 })

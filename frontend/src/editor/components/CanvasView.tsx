@@ -13,8 +13,12 @@ import { renderMap } from '../render/renderMap'
 import type { SpriteRenderContext } from '../render/sprites/loader'
 import { drawStrokePreview } from '../render/strokePreview'
 import { drawCellHighlight } from '../render/cellHighlight'
+import { drawEdgeHighlight } from '../render/edgeHighlight'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
+import { useWallBrush } from '../hooks/useWallBrush'
+import { useDoorTool } from '../hooks/useDoorTool'
+import { useLightTool } from '../hooks/useLightTool'
 import type { EditorTool } from '../tools/editorTool'
 import { mergePointerHandlers } from './pointerHandlers'
 import { formatCoords } from './formatCoords'
@@ -27,9 +31,20 @@ interface CanvasViewProps {
   onSelectObject: (id: number | null) => void
   /** Атлас спрайтов; undefined = цветной режим (fallback на плитки). */
   sprites?: SpriteRenderContext
+  /** Свойства инструмента света. */
+  lightRadius: number
+  lightColor: string
 }
 
-export function CanvasView({ store, tool, selectedObjectId, onSelectObject, sprites }: CanvasViewProps) {
+export function CanvasView({
+  store,
+  tool,
+  selectedObjectId,
+  onSelectObject,
+  sprites,
+  lightRadius,
+  lightColor,
+}: CanvasViewProps) {
   const model = useEditor(store)
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -87,6 +102,33 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject, spri
     onCommit: handleBrushCommit,
   })
 
+  const { handlers: wallHandlers } = useWallBrush({
+    canvasRef,
+    active: tool.type === 'wall' || tool.type === 'wall-eraser',
+    model,
+    present: tool.type === 'wall',
+    viewportRef,
+    onCommit: handleBrushCommit,
+  })
+
+  const { hoverEdge, handlers: doorHandlers } = useDoorTool({
+    canvasRef,
+    active: tool.type === 'door',
+    model,
+    viewportRef,
+    onCommit: handleBrushCommit,
+  })
+
+  const { handlers: lightHandlers } = useLightTool({
+    canvasRef,
+    active: tool.type === 'light',
+    model,
+    radius: lightRadius,
+    color: lightColor,
+    viewportRef,
+    onCommit: handleBrushCommit,
+  })
+
   const handleSelect = useCallback((id: number | null) => onSelectObject(id), [onSelectObject])
   const { handlers: objectHandlers } = useObjectTools({
     canvasRef,
@@ -123,11 +165,29 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject, spri
     renderMap(ctx, model, viewport, sprites)
     drawStrokePreview(ctx, pendingCells, viewport, brushTile, model.gridType)
     if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport, model.gridType)
-  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites])
+    if (hoverEdge && tool.type === 'door') drawEdgeHighlight(ctx, hoverEdge, viewport)
+  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites, hoverEdge, tool.type])
 
   const pointerHandlers = useMemo(
-    () => mergePointerHandlers(panHandlers, brushHandlers, objectHandlers, hoverHandlers),
-    [panHandlers, brushHandlers, objectHandlers, hoverHandlers],
+    () =>
+      mergePointerHandlers(
+        panHandlers,
+        brushHandlers,
+        objectHandlers,
+        hoverHandlers,
+        wallHandlers,
+        doorHandlers,
+        lightHandlers,
+      ),
+    [
+      panHandlers,
+      brushHandlers,
+      objectHandlers,
+      hoverHandlers,
+      wallHandlers,
+      doorHandlers,
+      lightHandlers,
+    ],
   )
 
   return (

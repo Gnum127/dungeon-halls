@@ -1,11 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SpriteManifest } from './manifest'
-import {
-  SPRITE_LOAD_TIMEOUT_MS,
-  loadManifest,
-  loadSprites,
-  resetSpriteCache,
-} from './loader'
+import { SPRITE_LOAD_TIMEOUT_MS, loadManifest, loadSprites, resetSpriteCache } from './loader'
 
 type Behavior = 'ok' | 'error' | 'stall'
 

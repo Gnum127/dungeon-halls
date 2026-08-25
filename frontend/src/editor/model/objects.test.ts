@@ -10,10 +10,15 @@ import {
 } from './objects'
 
 function resolveKey(resource: object, key: string): unknown {
-  return key.split('.').reduce<unknown>(
-    (node, part) => (node !== null && typeof node === 'object' ? (node as Record<string, unknown>)[part] : undefined),
-    resource,
-  )
+  return key
+    .split('.')
+    .reduce<unknown>(
+      (node, part) =>
+        node !== null && typeof node === 'object'
+          ? (node as Record<string, unknown>)[part]
+          : undefined,
+      resource,
+    )
 }
 
 describe('OBJECT_KIND_REGISTRY', () => {

@@ -1,10 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  RENDER_MODE_STORAGE_KEY,
-  isRenderMode,
-  loadRenderMode,
-  saveRenderMode,
-} from './renderMode'
+import { RENDER_MODE_STORAGE_KEY, isRenderMode, loadRenderMode, saveRenderMode } from './renderMode'
 
 function makeStorage(backing: Record<string, string> = {}): Storage {
   return {
@@ -38,9 +33,7 @@ describe('renderMode', () => {
   it('defaults to colors without storage or stored value', () => {
     expect(loadRenderMode(null)).toBe('colors')
     expect(loadRenderMode(makeStorage())).toBe('colors')
-    expect(loadRenderMode(makeStorage({ [RENDER_MODE_STORAGE_KEY]: 'garbage' }))).toBe(
-      'colors',
-    )
+    expect(loadRenderMode(makeStorage({ [RENDER_MODE_STORAGE_KEY]: 'garbage' }))).toBe('colors')
   })
 
   it('reads a persisted mode back', () => {

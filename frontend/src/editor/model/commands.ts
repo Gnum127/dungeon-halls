@@ -1,10 +1,26 @@
 import { findObjectById, isCellOccupied, isKnownKind, nextObjectId } from './objects'
+import { findLightById, isValidLightColor, isValidLightRadius, nextLightId } from './lights'
+import {
+  doorAtEdge,
+  edgeKey,
+  findDoorById,
+  hasWall,
+  isEdgeInBounds,
+  nextDoorId,
+  normalizeEdge,
+} from './walls'
+import type { Door, WallEdge } from './walls'
 import { MAX_MAP_DIMENSION, TILE_TYPES } from './types'
 import type { GridType, MapModel, TileGrid, TileValue } from './types'
 export interface TileUpdate {
   readonly x: number
   readonly y: number
   readonly tile: TileValue
+}
+
+export interface WallUpdate {
+  readonly edge: WallEdge
+  readonly present: boolean
 }
 
 export type Command =
@@ -21,6 +37,19 @@ export type Command =
       readonly gridType?: GridType
     }
   | { readonly kind: 'setGridType'; readonly gridType: GridType }
+  | { readonly kind: 'setWalls'; readonly updates: readonly WallUpdate[] }
+  | { readonly kind: 'toggleWall'; readonly edge: WallEdge }
+  | { readonly kind: 'addDoor'; readonly edge: WallEdge }
+  | { readonly kind: 'removeDoor'; readonly id: number }
+  | { readonly kind: 'setDoorOpen'; readonly id: number; readonly open: boolean }
+  | {
+      readonly kind: 'addLight'
+      readonly x: number
+      readonly y: number
+      readonly radius: number
+      readonly color: string
+    }
+  | { readonly kind: 'removeLight'; readonly id: number }
 
 function assertValidUpdate(update: TileUpdate, model: MapModel): void {
   const { x, y, tile } = update
@@ -146,19 +175,137 @@ function replaceMap(
     model.height === height &&
     model.gridType === gridType &&
     model.objects.length === 0 &&
+    model.walls.length === 0 &&
+    model.doors.length === 0 &&
+    model.lights.length === 0 &&
     tilesEqual(model.tiles, nextTiles)
 
   // No-op только при полностью идентичном документе: если сетка совпала,
-  // но есть объекты — замена нужна, чтобы их атомарно убрать.
+  // но есть сущности — замена нужна, чтобы атомарно их убрать.
   if (identical) return model
 
-  return { ...model, gridType, width, height, tiles: nextTiles, objects: [] }
+  return {
+    ...model,
+    gridType,
+    width,
+    height,
+    tiles: nextTiles,
+    objects: [],
+    walls: [],
+    doors: [],
+    lights: [],
+  }
 }
 
 /** Смена типа сетки как метаданных: тайлы и объекты сохраняются. */
 function setGridType(model: MapModel, gridType: GridType): MapModel {
+  // Рёбра квадратной сетки не имеют смысла на гексах: пока есть
+  // стены/двери/свет, смена сетки запрещена (UI дизейблит выбор).
+  if (model.walls.length > 0 || model.doors.length > 0 || model.lights.length > 0) {
+    return model
+  }
   if (model.gridType === gridType) return model
   return { ...model, gridType }
+}
+
+function addLight(model: MapModel, x: number, y: number, radius: number, color: string): MapModel {
+  assertInside(model, x, y)
+  if (!isValidLightRadius(radius)) {
+    throw new RangeError(`Light radius must be an integer in [1, 30], got ${String(radius)}`)
+  }
+  if (!isValidLightColor(color)) {
+    throw new RangeError(`Light color must be a hex string like #ffdd88, got ${String(color)}`)
+  }
+  const light = { id: nextLightId(model.lights), x, y, radius, color }
+  return { ...model, lights: [...model.lights, light] }
+}
+
+function removeLight(model: MapModel, id: number): MapModel {
+  const light = findLightById(model.lights, id)
+  if (!light) {
+    throw new RangeError(`Light ${id} not found`)
+  }
+  return { ...model, lights: model.lights.filter((candidate) => candidate.id !== id) }
+}
+
+function assertValidEdge(edge: WallEdge, width: number, height: number): void {
+  if (!isEdgeInBounds(edge, width, height)) {
+    throw new RangeError(
+      `Wall edge cell (${String(edge.x)}, ${String(edge.y)}) is out of bounds ${width}x${height}`,
+    )
+  }
+}
+
+/**
+ * Пакетное изменение стен: одна запись истории на штрих кисти/ластика.
+ * Входные рёбра принимаются в любой форме и нормализуются при коммите.
+ * Снятие стены каскадно удаляет дверь на её ребре той же командой.
+ */
+function setWalls(model: MapModel, updates: readonly WallUpdate[]): MapModel {
+  for (const { edge } of updates) {
+    assertValidEdge(edge, model.width, model.height)
+  }
+
+  const wallsByKey = new Map(model.walls.map((wall) => [edgeKey(wall), wall]))
+  const removedKeys = new Set<string>()
+  let changed = false
+  for (const { edge, present } of updates) {
+    const canonical = normalizeEdge(edge, model.width, model.height)
+    const key = edgeKey(canonical)
+    const exists = wallsByKey.has(key)
+    if (present && !exists) {
+      wallsByKey.set(key, canonical)
+      changed = true
+    } else if (!present && exists) {
+      wallsByKey.delete(key)
+      removedKeys.add(key)
+      changed = true
+    }
+  }
+  if (!changed) return model
+
+  // Каскад: двери снятых стен уходят той же командой (одна запись истории).
+  const keptDoors = model.doors.filter((door) => !removedKeys.has(edgeKey(door.edge)))
+  return {
+    ...model,
+    walls: [...wallsByKey.values()],
+    doors: keptDoors,
+  }
+}
+
+function addDoor(model: MapModel, edge: WallEdge): MapModel {
+  assertValidEdge(edge, model.width, model.height)
+  const canonical = normalizeEdge(edge, model.width, model.height)
+  if (!hasWall(model.walls, canonical)) {
+    throw new RangeError('A door can only be placed on an existing wall')
+  }
+  if (doorAtEdge(model.doors, canonical)) {
+    throw new RangeError('This wall already has a door')
+  }
+  const door: Door = { id: nextDoorId(model.doors), edge: canonical, open: false }
+  return { ...model, doors: [...model.doors, door] }
+}
+
+function removeDoor(model: MapModel, id: number): MapModel {
+  const door = findDoorById(model.doors, id)
+  if (!door) {
+    throw new RangeError(`Door ${id} not found`)
+  }
+  return { ...model, doors: model.doors.filter((candidate) => candidate.id !== id) }
+}
+
+function setDoorOpen(model: MapModel, id: number, open: boolean): MapModel {
+  const door = findDoorById(model.doors, id)
+  if (!door) {
+    throw new RangeError(`Door ${id} not found`)
+  }
+  if (door.open === open) return model
+  return {
+    ...model,
+    doors: model.doors.map((candidate) =>
+      candidate.id === id ? { ...candidate, open } : candidate,
+    ),
+  }
 }
 
 export function applyCommand(model: MapModel, command: Command): MapModel {
@@ -183,5 +330,21 @@ export function applyCommand(model: MapModel, command: Command): MapModel {
       )
     case 'setGridType':
       return setGridType(model, command.gridType)
+    case 'setWalls':
+      return setWalls(model, command.updates)
+    case 'toggleWall': {
+      const edge = normalizeEdge(command.edge, model.width, model.height)
+      return setWalls(model, [{ edge, present: !hasWall(model.walls, edge) }])
+    }
+    case 'addDoor':
+      return addDoor(model, command.edge)
+    case 'removeDoor':
+      return removeDoor(model, command.id)
+    case 'setDoorOpen':
+      return setDoorOpen(model, command.id, command.open)
+    case 'addLight':
+      return addLight(model, command.x, command.y, command.radius, command.color)
+    case 'removeLight':
+      return removeLight(model, command.id)
   }
 }

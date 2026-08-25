@@ -8,6 +8,18 @@
     }
   },
   "editor": {
+    "tools": {
+      "walls": "Walls and doors",
+      "wall": "Wall",
+      "wallEraser": "Wall eraser",
+      "door": "Door",
+      "squareOnly": "Walls support square grids only"
+    },
+    "light": {
+      "label": "Light",
+      "radius": "Radius (cells)",
+      "color": "Light color"
+    },
     "renderMode": {
       "label": "Graphics",
       "colors": "Color tiles",
@@ -41,17 +53,22 @@
       "save": "Save",
       "load": "Load",
       "exportPng": "Export PNG",
+      "exportUvtt": "Export UVTT",
+      "uvttSquareOnly": "Universal VTT supports square grids only",
       "saved": "Map saved",
       "exported": "PNG downloaded",
+      "exportedUvtt": "UVTT downloaded",
       "loaded": "Map loaded",
       "invalid": "Failed to open file",
-      "exportFailed": "PNG export failed"
+      "exportFailed": "PNG export failed",
+      "uvttExportFailed": "UVTT export failed"
     },
     "grid": {
       "label": "Grid type",
       "square": "Square",
       "hexFlat": "Hex (flat-top)",
-      "hexPointy": "Hex (pointy-top)"
+      "hexPointy": "Hex (pointy-top)",
+      "changeLocked": "Remove walls and doors to switch the grid"
     },
     "generator": {
       "title": "Map generator",

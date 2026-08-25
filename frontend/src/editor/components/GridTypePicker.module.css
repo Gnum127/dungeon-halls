@@ -24,3 +24,9 @@
 .select:focus-visible {
   outline: 2px solid var(--accent);
 }
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}

@@ -7,6 +7,8 @@ import styles from './GridTypePicker.module.css'
 
 export interface GridTypePickerProps {
   gridType: GridType
+  /** Смена запрещена, пока на карте есть стены/двери (рёбра square-сетки). */
+  disabled?: boolean
   onChange: (gridType: GridType) => void
 }
 
@@ -17,11 +19,12 @@ const LABEL_KEYS: Record<GridType, string> = {
 }
 
 /** Выбор типа сетки — свойство документа, а не инструмента. */
-export function GridTypePicker({ gridType, onChange }: GridTypePickerProps) {
+export function GridTypePicker({ gridType, disabled = false, onChange }: GridTypePickerProps) {
   const { t } = useTranslation()
   const id = useId()
 
   function handleChange(event: ReactChangeEvent<HTMLSelectElement>) {
+    if (disabled) return
     const next = event.target.value
     if (isGridType(next)) onChange(next)
   }
@@ -31,13 +34,24 @@ export function GridTypePicker({ gridType, onChange }: GridTypePickerProps) {
       <label className={styles.label} htmlFor={id}>
         {t('editor.grid.label')}
       </label>
-      <select id={id} className={styles.select} value={gridType} onChange={handleChange}>
+      <select
+        id={id}
+        className={styles.select}
+        value={gridType}
+        disabled={disabled}
+        onChange={handleChange}
+      >
         {GRID_TYPES.map((type) => (
           <option key={type} value={type}>
             {t(LABEL_KEYS[type])}
           </option>
         ))}
       </select>
+      {disabled && (
+        <p className={styles.hint} role="note">
+          {t('editor.grid.changeLocked')}
+        </p>
+      )}
     </div>
   )
 }

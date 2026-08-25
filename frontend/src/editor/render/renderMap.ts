@@ -3,12 +3,17 @@ import { TILE_TYPES } from '../model/types'
 import type { MapModel } from '../model/types'
 import { cellCorners } from '@/shared/hex'
 import type { SpriteRenderContext } from './sprites/loader'
+import type { WallEdge } from '../model/walls'
 import {
   CANVAS_BACKGROUND_COLOR,
+  DOOR_FILL_COLOR,
   FALLBACK_OBJECT_COLOR,
   GRID_LINE_COLOR,
+  LIGHT_GLOW_COLOR,
+  LIGHT_MARKER_COLOR,
   OBJECT_OUTLINE_COLOR,
   TILE_COLORS,
+  WALL_LINE_COLOR,
 } from './colors'
 import { cellCenterAt, hexOrientationOf, traceCellPolygon, visibleCellRange } from './gridGeometry'
 import type { Viewport } from './viewport'
@@ -151,4 +156,115 @@ export function renderMap(
   }
 
   if (sprites) ctx.imageSmoothingEnabled = smoothingBefore
+
+  // Defense-in-depth: рёбра определены только для квадратной сетки.
+  if (model.gridType === 'square') {
+    drawWalls(ctx, model, cellSize, offsetX, offsetY)
+    drawDoors(ctx, model, cellSize, offsetX, offsetY)
+  }
+  drawLights(ctx, model, viewport)
+}
+
+/** Свечение (полупрозрачный круг) + маркер источника; поверх остального. */
+function drawLights(ctx: CanvasRenderingContext2D, model: MapModel, viewport: Viewport): void {
+  if (model.lights.length === 0) return
+  const { cellSize, offsetX, offsetY } = viewport
+  const marker = Math.max(3, Math.round(cellSize * 0.12))
+  for (const light of model.lights) {
+    const center = cellCenterAt(light.x, light.y, model.gridType, cellSize)
+    const cx = center.x - offsetX
+    const cy = center.y - offsetY
+    ctx.fillStyle = LIGHT_GLOW_COLOR
+    ctx.beginPath()
+    ctx.arc(cx, cy, light.radius * cellSize, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = LIGHT_MARKER_COLOR
+    ctx.beginPath()
+    ctx.arc(cx, cy, marker, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+/** Линии стен поверх тайлов и объектов; экранная геометрия ребра. */
+function drawWalls(
+  ctx: CanvasRenderingContext2D,
+  model: MapModel,
+  cellSize: number,
+  offsetX: number,
+  offsetY: number,
+): void {
+  if (model.walls.length === 0) return
+  ctx.lineWidth = 3
+  ctx.strokeStyle = WALL_LINE_COLOR
+  ctx.beginPath()
+  for (const wall of model.walls) {
+    const x = wall.x * cellSize - offsetX
+    const y = wall.y * cellSize - offsetY
+    if (wall.side === 'N') {
+      ctx.moveTo(x, y)
+      ctx.lineTo(x + cellSize, y)
+    } else if (wall.side === 'S') {
+      ctx.moveTo(x, y + cellSize)
+      ctx.lineTo(x + cellSize, y + cellSize)
+    } else if (wall.side === 'W') {
+      ctx.moveTo(x, y)
+      ctx.lineTo(x, y + cellSize)
+    } else {
+      ctx.moveTo(x + cellSize, y)
+      ctx.lineTo(x + cellSize, y + cellSize)
+    }
+  }
+  ctx.stroke()
+}
+
+interface Rect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/**
+ * Прямоугольники двери в мировых координатах. Закрытая — полотно по центру
+ * ребра (60% длины); открытая — два коротких сегмента у концов (просвет).
+ */
+function doorRects(edge: WallEdge, open: boolean, cellSize: number): Array<Rect> {
+  const horizontal = edge.side === 'N' || edge.side === 'S'
+  const thickness = Math.max(4, Math.round(cellSize * 0.18))
+  if (horizontal) {
+    const x = edge.x * cellSize
+    const y = edge.y * cellSize + (edge.side === 'N' ? -thickness / 2 : cellSize - thickness / 2)
+    if (open) {
+      return [
+        { x, y, w: cellSize * 0.2, h: thickness },
+        { x: x + cellSize * 0.8, y, w: cellSize * 0.2, h: thickness },
+      ]
+    }
+    return [{ x: x + cellSize * 0.2, y, w: cellSize * 0.6, h: thickness }]
+  }
+  const x = edge.x * cellSize + (edge.side === 'W' ? -thickness / 2 : cellSize - thickness / 2)
+  const y = edge.y * cellSize
+  if (open) {
+    return [
+      { x, y, w: thickness, h: cellSize * 0.2 },
+      { x, y: y + cellSize * 0.8, w: thickness, h: cellSize * 0.2 },
+    ]
+  }
+  return [{ x, y: y + cellSize * 0.2, w: thickness, h: cellSize * 0.6 }]
+}
+
+function drawDoors(
+  ctx: CanvasRenderingContext2D,
+  model: MapModel,
+  cellSize: number,
+  offsetX: number,
+  offsetY: number,
+): void {
+  if (model.doors.length === 0) return
+  ctx.fillStyle = DOOR_FILL_COLOR
+  for (const door of model.doors) {
+    for (const rect of doorRects(door.edge, door.open, cellSize)) {
+      ctx.fillRect(rect.x - offsetX, rect.y - offsetY, rect.w, rect.h)
+    }
+  }
 }

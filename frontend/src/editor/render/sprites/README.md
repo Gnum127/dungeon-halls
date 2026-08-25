@@ -11,12 +11,12 @@
 
 ## Состав модуля
 
-| Файл | Назначение |
-|---|---|
-| `manifest.ts` | тип `SpriteManifest`, `validateManifest`, константы пути и версии |
-| `loader.ts` | `loadManifest` / `loadSprites` / `resolveSpriteUrl`, кэш и таймауты |
-| `../renderMode.ts` | выбор «цвета / спрайты» + localStorage (`dungeon-halls.editor.renderMode`) |
-| `../../hooks/useSpriteAtlas.ts` | React-состояние атласа для EditorPage |
+| Файл                            | Назначение                                                                 |
+| ------------------------------- | -------------------------------------------------------------------------- |
+| `manifest.ts`                   | тип `SpriteManifest`, `validateManifest`, константы пути и версии          |
+| `loader.ts`                     | `loadManifest` / `loadSprites` / `resolveSpriteUrl`, кэш и таймауты        |
+| `../renderMode.ts`              | выбор «цвета / спрайты» + localStorage (`dungeon-halls.editor.renderMode`) |
+| `../../hooks/useSpriteAtlas.ts` | React-состояние атласа для EditorPage                                      |
 
 ## Ассеты
 
@@ -45,7 +45,7 @@ public/sprites/
 ```json
 {
   "version": 1,
-  "tiles":   { "floor": "sprites/tiles/floor.png", "wall": "sprites/tiles/wall.png" },
+  "tiles": { "floor": "sprites/tiles/floor.png", "wall": "sprites/tiles/wall.png" },
   "objects": { "door": "sprites/objects/door.png" }
 }
 ```

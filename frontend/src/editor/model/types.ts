@@ -1,10 +1,12 @@
 import type { TileGrid } from '@/shared/tiles'
+import type { Door, WallEdge } from './walls'
+import type { MapLight } from './lights'
 
 export { EMPTY_TILE, MAX_MAP_DIMENSION, TILE_TYPES } from '@/shared/tiles'
 export { GRID_TYPES, isGridType } from '@/shared/tiles'
 export type { GridType, TileGrid, TileTypeName, TileValue } from '@/shared/tiles'
 
-export const MAP_VERSION = 2
+export const MAP_VERSION = 3
 
 /** Объект карты занимает одну клетку; каталог видов появляется в пункте 1.8. */
 export interface MapObject {
@@ -22,4 +24,9 @@ export interface MapModel {
   readonly height: number
   readonly tiles: TileGrid
   readonly objects: readonly MapObject[]
+  /** Стены-рёбра и двери на них — только для square (MVP этапа 5). */
+  readonly walls: readonly WallEdge[]
+  readonly doors: readonly Door[]
+  /** Источники света для VTT-экспорта; физика считается платформой. */
+  readonly lights: readonly MapLight[]
 }

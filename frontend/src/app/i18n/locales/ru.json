@@ -8,6 +8,18 @@
     }
   },
   "editor": {
+    "tools": {
+      "walls": "Стены и двери",
+      "wall": "Стена",
+      "wallEraser": "Ластик стен",
+      "door": "Дверь",
+      "squareOnly": "Стены поддерживают только квадратную сетку"
+    },
+    "light": {
+      "label": "Свет",
+      "radius": "Радиус (клетки)",
+      "color": "Цвет света"
+    },
     "renderMode": {
       "label": "Графика",
       "colors": "Цветные плитки",
@@ -41,17 +53,22 @@
       "save": "Сохранить",
       "load": "Загрузить",
       "exportPng": "Экспорт PNG",
+      "exportUvtt": "Экспорт UVTT",
+      "uvttSquareOnly": "Universal VTT поддерживает только квадратную сетку",
       "saved": "Карта сохранена",
       "exported": "PNG скачан",
+      "exportedUvtt": "UVTT скачан",
       "loaded": "Карта загружена",
       "invalid": "Не удалось открыть файл",
-      "exportFailed": "Ошибка экспорта PNG"
+      "exportFailed": "Ошибка экспорта PNG",
+      "uvttExportFailed": "Ошибка экспорта UVTT"
     },
     "grid": {
       "label": "Тип сетки",
       "square": "Квадратная",
       "hexFlat": "Гекс (flat-top)",
-      "hexPointy": "Гекс (pointy-top)"
+      "hexPointy": "Гекс (pointy-top)",
+      "changeLocked": "Удалите стены и двери, чтобы сменить сетку"
     },
     "generator": {
       "title": "Генератор карт",

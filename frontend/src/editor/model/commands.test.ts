@@ -365,3 +365,184 @@ describe('replaceMap', () => {
     expect(sameAgain).toBe(source)
   })
 })
+
+describe('setWalls / toggleWall', () => {
+  it('adds and removes walls, normalizing shared edges', () => {
+    let model = applyCommand(makeMap(), { kind: 'toggleWall', edge: { x: 0, y: 0, side: 'E' } })
+    // E внутренней клетки канонизируется в W соседа.
+    expect(model.walls).toEqual([{ x: 1, y: 0, side: 'W' }])
+
+    model = applyCommand(model, { kind: 'toggleWall', edge: { x: 2, y: 2, side: 'E' } })
+    // Периметр хранится как есть.
+    expect(model.walls[1]).toEqual({ x: 2, y: 2, side: 'E' })
+
+    model = applyCommand(model, { kind: 'toggleWall', edge: { x: 1, y: 0, side: 'W' } })
+    expect(model.walls).toHaveLength(1)
+  })
+
+  it('deduplicates repeated additions in one batch (no-op returns same model)', () => {
+    const source = makeMap()
+    const next = applyCommand(source, {
+      kind: 'setWalls',
+      updates: [
+        { edge: { x: 0, y: 0, side: 'E' }, present: true },
+        { edge: { x: 1, y: 0, side: 'W' }, present: true },
+      ],
+    })
+    expect(next.walls).toEqual([{ x: 1, y: 0, side: 'W' }])
+  })
+
+  it('is a no-op when every update matches the current state', () => {
+    const source = applyCommand(makeMap(), { kind: 'toggleWall', edge: { x: 1, y: 1, side: 'N' } })
+    const next = applyCommand(source, {
+      kind: 'setWalls',
+      updates: [{ edge: { x: 1, y: 1, side: 'N' }, present: true }],
+    })
+    expect(next).toBe(source)
+  })
+
+  it('rejects out-of-bounds edges', () => {
+    expect(() =>
+      applyCommand(makeMap(), { kind: 'toggleWall', edge: { x: 4, y: 0, side: 'W' } }),
+    ).toThrow(RangeError)
+    expect(() =>
+      applyCommand(makeMap(), {
+        kind: 'setWalls',
+        updates: [{ edge: { x: -1, y: 0, side: 'N' }, present: true }],
+      }),
+    ).toThrow(/bounds/)
+  })
+
+  it('removing a wall cascades its door away in the same entry', () => {
+    let model = applyCommand(makeMap(), { kind: 'toggleWall', edge: { x: 1, y: 0, side: 'W' } })
+    model = applyCommand(model, { kind: 'addDoor', edge: { x: 1, y: 0, side: 'W' } })
+    expect(model.doors).toHaveLength(1)
+
+    model = applyCommand(model, { kind: 'toggleWall', edge: { x: 1, y: 0, side: 'W' } })
+    expect(model.walls).toEqual([])
+    expect(model.doors).toEqual([])
+  })
+})
+
+describe('doors', () => {
+  function mapWithWall(): MapModel {
+    return applyCommand(makeMap(), { kind: 'toggleWall', edge: { x: 1, y: 0, side: 'W' } })
+  }
+
+  it('requires an existing wall', () => {
+    expect(() =>
+      applyCommand(makeMap(), { kind: 'addDoor', edge: { x: 2, y: 2, side: 'N' } }),
+    ).toThrow(/existing wall/)
+  })
+
+  it('allows only one door per edge', () => {
+    const withDoor = applyCommand(mapWithWall(), {
+      kind: 'addDoor',
+      edge: { x: 1, y: 0, side: 'W' },
+    })
+    expect(() =>
+      applyCommand(withDoor, { kind: 'addDoor', edge: { x: 1, y: 0, side: 'W' } }),
+    ).toThrow(/already has a door/)
+  })
+
+  it('toggles open state and no-ops on identical state', () => {
+    let model = applyCommand(mapWithWall(), { kind: 'addDoor', edge: { x: 1, y: 0, side: 'W' } })
+    model = applyCommand(model, { kind: 'setDoorOpen', id: 1, open: true })
+    expect(model.doors[0]?.open).toBe(true)
+    expect(applyCommand(model, { kind: 'setDoorOpen', id: 1, open: true })).toBe(model)
+
+    model = applyCommand(model, { kind: 'removeDoor', id: 1 })
+    expect(model.doors).toEqual([])
+    expect(() => applyCommand(model, { kind: 'removeDoor', id: 1 })).toThrow(/not found/)
+  })
+})
+
+describe('setGridType with walls/doors', () => {
+  it('is forbidden while walls or doors exist', () => {
+    let model = applyCommand(makeMap(), { kind: 'toggleWall', edge: { x: 1, y: 0, side: 'W' } })
+    model = applyCommand(model, { kind: 'addDoor', edge: { x: 1, y: 0, side: 'W' } })
+
+    expect(applyCommand(model, { kind: 'setGridType', gridType: 'hex-pointy' })).toBe(model)
+  })
+})
+
+describe('walls interactions with replaceMap and immutability', () => {
+  function walledMapWithDoor(): MapModel {
+    let model = applyCommand(makeMap(), { kind: 'toggleWall', edge: { x: 1, y: 0, side: 'W' } })
+    model = applyCommand(model, { kind: 'addDoor', edge: { x: 1, y: 0, side: 'W' } })
+    return model
+  }
+
+  it('replaceMap clears walls and doors atomically with objects', () => {
+    const source = walledMapWithDoor()
+    const next = applyCommand(source, {
+      kind: 'replaceMap',
+      width: 2,
+      height: 2,
+      tiles: [FLOOR, FLOOR, 0, WATER],
+    })
+
+    expect(next.walls).toEqual([])
+    expect(next.doors).toEqual([])
+    expect(next.width).toBe(2)
+  })
+
+  it('replaceMap no longer no-ops while walls exist even on identical grid', () => {
+    const source = applyCommand(makeMap(), { kind: 'toggleWall', edge: { x: 1, y: 1, side: 'N' } })
+    const sameGridTiles = [...source.tiles]
+
+    const next = applyCommand(source, {
+      kind: 'replaceMap',
+      width: source.width,
+      height: source.height,
+      tiles: sameGridTiles,
+    })
+    // Замена нужна, чтобы атомарно убрать стены.
+    expect(next).not.toBe(source)
+    expect(next.walls).toEqual([])
+  })
+
+  it('does not mutate the source model', () => {
+    const source = walledMapWithDoor()
+    const snapshot = {
+      walls: source.walls,
+      doors: source.doors,
+    }
+
+    applyCommand(source, { kind: 'toggleWall', edge: { x: 1, y: 0, side: 'W' } })
+    applyCommand(source, {
+      kind: 'setWalls',
+      updates: [
+        { edge: { x: 0, y: 0, side: 'N' }, present: true },
+        { edge: { x: 1, y: 0, side: 'W' }, present: false },
+      ],
+    })
+
+    expect(source.walls).toEqual(snapshot.walls)
+    expect(source.doors).toEqual(snapshot.doors)
+  })
+
+  it('batch removal of several walls cascades all their doors at once', () => {
+    let model = applyCommand(makeMap(), {
+      kind: 'setWalls',
+      updates: [
+        { edge: { x: 0, y: 0, side: 'N' }, present: true },
+        { edge: { x: 1, y: 2, side: 'N' }, present: true },
+        { edge: { x: 2, y: 2, side: 'N' }, present: true },
+      ],
+    })
+    model = applyCommand(model, { kind: 'addDoor', edge: { x: 0, y: 0, side: 'N' } })
+    model = applyCommand(model, { kind: 'addDoor', edge: { x: 1, y: 2, side: 'N' } })
+    expect(model.doors).toHaveLength(2)
+
+    model = applyCommand(model, {
+      kind: 'setWalls',
+      updates: [
+        { edge: { x: 0, y: 0, side: 'N' }, present: false },
+        { edge: { x: 1, y: 2, side: 'N' }, present: false },
+      ],
+    })
+    expect(model.walls).toEqual([{ x: 2, y: 2, side: 'N' }])
+    expect(model.doors).toEqual([])
+  })
+})

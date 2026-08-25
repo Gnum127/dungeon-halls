@@ -350,9 +350,7 @@ describe('renderMap (sprites)', () => {
 
     // Ни одного drawImage: у 'empty' и 'floor' нет записей в атласе.
     expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
-    const floorFill = calls.find(
-      (c) => c.op === 'fillRect' && c.args[0] === 32 && c.args[1] === 32,
-    )
+    const floorFill = calls.find((c) => c.op === 'fillRect' && c.args[0] === 32 && c.args[1] === 32)
     expect(floorFill?.fillStyle).toBe(TILE_COLORS.floor)
   })
 
@@ -386,10 +384,7 @@ describe('renderMap (sprites)', () => {
       const pathOps = calls.slice(start + 1, saveIndex)
       const corners = cellCorners(gridType === 'hex-pointy' ? 'pointy' : 'flat', SIZE)
       expect(pathOps[0]?.op).toBe('moveTo')
-      expect(pathOps[0]?.args).toEqual([
-        center.x + corners[0][0],
-        center.y + corners[0][1],
-      ])
+      expect(pathOps[0]?.args).toEqual([center.x + corners[0][0], center.y + corners[0][1]])
       expect(pathOps.filter((c) => c.op === 'lineTo')).toHaveLength(5)
       expect(pathOps.at(-1)?.op).toBe('closePath')
     },

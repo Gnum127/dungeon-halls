@@ -4,12 +4,14 @@ import type { GenerationParams } from '@/generator'
 import { createRng, generateCaves, generateDungeon } from '@/generator'
 import { CanvasView } from './components/CanvasView'
 import { GridTypePicker } from './components/GridTypePicker'
+import { LightPanel } from './components/LightPanel'
 import { MapFileActions } from './components/MapFileActions'
 import type { FileActionStatus } from './components/MapFileActions'
 import { GeneratorPanel } from './components/GeneratorPanel'
 import { ObjectPalette } from './components/ObjectPalette'
 import { RenderModePicker } from './components/RenderModePicker'
 import { TerrainPalette } from './components/TerrainPalette'
+import { WallTools } from './components/WallTools'
 import { useEditor } from './hooks/useEditor'
 import { useSpriteAtlas } from './hooks/useSpriteAtlas'
 import { createEmptyMap } from './model/createEmptyMap'
@@ -48,6 +50,9 @@ export function EditorPage() {
   // Режим отображения и атлас — настройка просмотра, не данные карты.
   const { atlas, status: atlasStatus } = useSpriteAtlas()
   const [renderMode, setRenderMode] = useState<RenderMode>(loadRenderMode)
+  // Свойства инструмента света (действуют на следующее размещение).
+  const [lightRadius, setLightRadius] = useState(3)
+  const [lightColor, setLightColor] = useState('#ffd682')
 
   // Последний непустой тайл кисти — куда возвращает клавиша B.
   const lastBrushTileRef = useRef<TileValue>(defaultBrushTile())
@@ -66,6 +71,11 @@ export function EditorPage() {
   function selectMoveTool() {
     setSelectedObjectId(null)
     setTool({ type: 'select' })
+  }
+
+  function selectWallTool(mode: 'wall' | 'wall-eraser' | 'door') {
+    setSelectedObjectId(null)
+    setTool({ type: mode })
   }
 
   function changeRenderMode(mode: RenderMode) {
@@ -93,6 +103,17 @@ export function EditorPage() {
     onRedo: () => store.redo(),
     onSelectBrush: () => selectTerrain(lastBrushTileRef.current),
     onSelectEraser: () => selectTerrain(EMPTY_TILE),
+    onSelectWalls: () => {
+      // Хоткей не должен обходить UI-гард: рёбра определены только на square.
+      if (model.gridType === 'square') selectWallTool('wall')
+    },
+    onSelectDoors: () => {
+      if (model.gridType === 'square') selectWallTool('door')
+    },
+    onSelectLights: () => {
+      setSelectedObjectId(null)
+      setTool({ type: 'light' })
+    },
   })
 
   return (
@@ -101,12 +122,14 @@ export function EditorPage() {
         <RenderModePicker mode={renderMode} atlasStatus={atlasStatus} onChange={changeRenderMode} />
         <GridTypePicker
           gridType={model.gridType}
+          disabled={model.walls.length > 0 || model.doors.length > 0}
           onChange={(gridType) => store.dispatch({ kind: 'setGridType', gridType })}
         />
         <GeneratorPanel onGenerate={handleGenerate} gridDisabled={model.gridType !== 'square'} />
         <MapFileActions
           getModel={() => store.getModel()}
           sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
+          uvttDisabled={model.gridType !== 'square'}
           onLoaded={(model) => store.reset(model)}
           onResult={setFileStatus}
         />
@@ -115,6 +138,32 @@ export function EditorPage() {
             {t(`editor.files.${fileStatus}`)}
           </p>
         )}
+        <WallTools
+          activeMode={
+            tool.type === 'wall' || tool.type === 'wall-eraser' || tool.type === 'door'
+              ? tool.type
+              : null
+          }
+          disabled={model.gridType !== 'square'}
+          onSelectWall={() => selectWallTool('wall')}
+          onSelectEraser={() => selectWallTool('wall-eraser')}
+          onSelectDoor={() => selectWallTool('door')}
+        />
+        <LightPanel
+          active={tool.type === 'light'}
+          radius={lightRadius}
+          color={lightColor}
+          onToggle={() => {
+            setSelectedObjectId(null)
+            setTool((current) =>
+              current.type === 'light' ? { type: 'select' } : { type: 'light' },
+            )
+          }}
+          onRadiusChange={(radius) => {
+            if (radius >= 1 && radius <= 30) setLightRadius(radius)
+          }}
+          onColorChange={setLightColor}
+        />
         <TerrainPalette
           selected={tool.type === 'terrain' ? tool.tile : -1}
           onSelect={selectTerrain}
@@ -133,6 +182,8 @@ export function EditorPage() {
           selectedObjectId={selectedObjectId}
           onSelectObject={setSelectedObjectId}
           sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
+          lightRadius={lightRadius}
+          lightColor={lightColor}
         />
       </div>
     </div>

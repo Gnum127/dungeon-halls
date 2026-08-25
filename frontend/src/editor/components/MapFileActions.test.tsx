@@ -282,3 +282,107 @@ describe('MapFileActions SVG export', () => {
     expect(download).not.toHaveBeenCalled()
   })
 })
+
+describe('MapFileActions PDF export', () => {
+  type ExportPdf = (model: MapModel, options: unknown) => Promise<Blob>
+
+  function renderPdfActions(exportPdf: ExportPdf, model: MapModel, download = vi.fn()) {
+    const onResult = vi.fn()
+    const utils = render(
+      <MapFileActions
+        getModel={() => model}
+        onLoaded={vi.fn()}
+        onResult={onResult}
+        download={download}
+        exportPdf={exportPdf}
+      />,
+    )
+    return { ...utils, onResult, download }
+  }
+
+  it('shows page count preview and recomputes it when parameters change', () => {
+    // A4 1": страницы 8×11 клеток; карта 20×15 → 3×2 = 6 страниц.
+    const { getByLabelText, getByText } = renderPdfActions(vi.fn(), createEmptyMap(20, 15))
+    expect(getByText('Pages: 6')).toBeInTheDocument()
+
+    // 0.5": страницы 16×23 → ceil(20/16)=2 колонки × ceil(15/23)=1 → 2 страницы.
+    fireEvent.change(getByLabelText('Cell size'), { target: { value: '0.5' } })
+    expect(getByText('Pages: 2')).toBeInTheDocument()
+
+    fireEvent.change(getByLabelText('Paper'), { target: { value: 'a3' } })
+    fireEvent.change(getByLabelText('Orientation'), { target: { value: 'landscape' } })
+    // A3 landscape 1": 33×23 → 1 страница.
+    expect(getByText('Pages: 1')).toBeInTheDocument()
+  })
+
+  it('warns when the printout exceeds fifty pages', () => {
+    // 300×300 на A4 1": 38×28 = 1064 страницы.
+    const many = renderPdfActions(vi.fn(), createEmptyMap(300, 300))
+    expect(many.getByText(/large print, many pages/)).toBeInTheDocument()
+    many.unmount()
+
+    // 8×11 на A4 1" — ровно одна страница, без предупреждения.
+    const few = renderPdfActions(vi.fn(), createEmptyMap(8, 11))
+    expect(few.queryByText(/large print, many pages/)).toBeNull()
+  })
+
+  it('downloads a .pdf blob passing paper, orientation, scale and light flag', async () => {
+    const exportPdf = vi
+      .fn<ExportPdf>()
+      .mockResolvedValue(new Blob(['%PDF'], { type: 'application/pdf' }))
+    const download = vi.fn()
+    const model = applyCommand(createEmptyMap(8, 11), {
+      kind: 'addLight',
+      x: 0,
+      y: 0,
+      radius: 3,
+      color: '#ffd682',
+    })
+    const {
+      getByLabelText,
+      getByText,
+      onResult,
+      download: dl,
+    } = renderPdfActions(exportPdf, model, download)
+
+    fireEvent.click(getByLabelText('Print light sources'))
+    fireEvent.click(getByText('Export PDF'))
+    await waitFor(() => expect(dl).toHaveBeenCalledTimes(1))
+
+    expect(exportPdf).toHaveBeenCalledWith(model, {
+      paper: 'a4',
+      orientation: 'portrait',
+      cellInches: 1,
+      includeLight: true,
+    })
+    const [filename, blob, mime] = dl.mock.calls[0] as [string, Blob, string]
+    expect(filename).toMatch(/\.pdf$/)
+    expect(blob.type).toBe('application/pdf')
+    expect(mime).toBe('application/pdf')
+    expect(onResult).toHaveBeenCalledWith('exportedPdf')
+  })
+
+  it('reports a dedicated failure and downloads nothing when the exporter rejects', async () => {
+    const exportPdf = vi.fn<ExportPdf>().mockRejectedValue(new Error('export failed'))
+    const { getByText, onResult, download } = renderPdfActions(exportPdf, createEmptyMap(4, 4))
+
+    fireEvent.click(getByText('Export PDF'))
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith('pdfExportFailed'))
+    expect(download).not.toHaveBeenCalled()
+  })
+
+  it('disables the PDF button with a hint on non-square grids', () => {
+    const { getByText } = render(
+      <MapFileActions
+        getModel={() => createEmptyMap(4, 4, 'hex-pointy')}
+        onLoaded={vi.fn()}
+        onResult={vi.fn()}
+        pdfDisabled
+      />,
+    )
+
+    const button = getByText('Export PDF')
+    expect(button).toBeDisabled()
+    expect(button.getAttribute('title')).toContain('square grids only')
+  })
+})

@@ -1,4 +1,3 @@
-import { jsPDF } from 'jspdf'
 import { renderToCanvas } from '../tools/pngExport'
 import type { MapModel } from '../model/types'
 import { paginateMap } from './pages'
@@ -82,12 +81,17 @@ function defaultPageRenderer(
   }).toDataURL('image/png')
 }
 
-/** Сборка мультистраничного PDF из готовых PNG-страниц (jsPDF, pt-геометрия). */
-export function assemblePdf(
+/**
+ * Сборка мультистраничного PDF из готовых PNG-страниц (jsPDF, pt-геометрия).
+ * jsPDF грузится динамически: ~600KB библиотеки печати не должны попадать
+ * в стартовый бандл приложения.
+ */
+export async function assemblePdf(
   pages: readonly string[],
   layout: Pick<PrintLayout, 'pageWidthPt' | 'pageHeightPt'>,
   title: string,
-): Blob {
+): Promise<Blob> {
+  const { jsPDF } = await import('jspdf')
   const pdf = new jsPDF({
     orientation: layout.pageWidthPt <= layout.pageHeightPt ? 'portrait' : 'landscape',
     unit: 'pt',

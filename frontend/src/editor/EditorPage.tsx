@@ -130,6 +130,7 @@ export function EditorPage() {
           getModel={() => store.getModel()}
           sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
           uvttDisabled={model.gridType !== 'square'}
+          pdfDisabled={model.gridType !== 'square'}
           onLoaded={(model) => store.reset(model)}
           onResult={setFileStatus}
         />

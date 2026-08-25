@@ -45,7 +45,7 @@ describe('computePrintLayout', () => {
 
 describe('assemblePdf', () => {
   it('builds one PDF page per image with pt geometry and title metadata', async () => {
-    const blob = assemblePdf(
+    const blob = await assemblePdf(
       [TINY_PNG, TINY_PNG],
       { pageWidthPt: 595.28, pageHeightPt: 841.89 },
       PDF_TITLE,
@@ -65,16 +65,16 @@ describe('assemblePdf', () => {
   })
 
   it('keeps landscape geometry as given (no side swapping inside jsPDF)', async () => {
-    const blob = assemblePdf([TINY_PNG], { pageWidthPt: 792, pageHeightPt: 612 }, PDF_TITLE)
+    const blob = await assemblePdf([TINY_PNG], { pageWidthPt: 792, pageHeightPt: 612 }, PDF_TITLE)
     const text = await toLatin1(blob)
     const mediaBox = /MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)/.exec(text)
     expect(Number(mediaBox?.[1])).toBeCloseTo(792, 2)
     expect(Number(mediaBox?.[2])).toBeCloseTo(612, 2)
   })
 
-  it('produces a non-empty blob slightly larger than its images', () => {
+  it('produces a non-empty blob slightly larger than its images', async () => {
     const pngBytes = Math.floor((TINY_PNG.length - 'data:image/png;base64,'.length) * 0.75)
-    const blob = assemblePdf(
+    const blob = await assemblePdf(
       [TINY_PNG, TINY_PNG],
       { pageWidthPt: 612, pageHeightPt: 792 },
       PDF_TITLE,

@@ -411,3 +411,71 @@ describe('renderMap (sprites)', () => {
     },
   )
 })
+
+describe('renderMap (object sprites)', () => {
+  const SIZE = 32
+
+  function hexViewport(gridType: 'hex-pointy' | 'hex-flat', cols: number, rows: number): Viewport {
+    const bounds = mapPixelBounds(cols, rows, gridType, SIZE)
+    return { width: bounds.width, height: bounds.height, cellSize: SIZE, offsetX: 0, offsetY: 0 }
+  }
+
+  function makeModelWithDoor(gridType: 'square' | 'hex-pointy' | 'hex-flat'): MapModel {
+    return applyCommand(createEmptyMap(3, 3, gridType), {
+      kind: 'addObject',
+      x: 1,
+      y: 1,
+      kindId: 'door',
+    })
+  }
+
+  it('square: draws an object sprite over the cell instead of a circle', () => {
+    const doorSprite = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
+      tiles: {},
+      objects: { door: doorSprite },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    // Центр клетки (48, 48), сторона = cellSize.
+    expect(draws[0]?.args).toEqual([doorSprite, 32, 32, 32, 32])
+    expect(calls.some((c) => c.op === 'arc')).toBe(false)
+  })
+
+  it.each(['hex-pointy', 'hex-flat'] as const)(
+    '%s: an object sprite covers the hex bbox',
+    (gridType) => {
+      const doorSprite = { width: 16 } as unknown as HTMLImageElement
+      const { ctx, calls } = makeFakeCtx()
+      renderMap(ctx, makeModelWithDoor(gridType), hexViewport(gridType, 3, 3), {
+        tiles: {},
+        objects: { door: doorSprite },
+      })
+
+      const center = cellCenterAt(1, 1, gridType, SIZE)
+      const draws = calls.filter((c) => c.op === 'drawImage')
+      expect(draws).toHaveLength(1)
+      expect(draws[0]?.args).toEqual([
+        doorSprite,
+        center.x - SIZE,
+        center.y - SIZE,
+        SIZE * 2,
+        SIZE * 2,
+      ])
+      expect(calls.some((c) => c.op === 'arc')).toBe(false)
+    },
+  )
+
+  it('falls back to the color circle when the kind has no sprite', () => {
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
+      tiles: {},
+      objects: {},
+    })
+
+    expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
+    expect(calls.some((c) => c.op === 'arc')).toBe(true)
+  })
+})

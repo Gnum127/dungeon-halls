@@ -130,6 +130,14 @@ export function renderMap(
     if (cx < -cellSize || cx > width + cellSize || cy < -cellSize || cy > height + cellSize) {
       continue
     }
+    const sprite =
+      sprites && isKnownKind(object.kindId) ? sprites.objects[object.kindId] : undefined
+    if (sprite) {
+      // Размер бокса клетки той же сетки, что у полигона тайла.
+      const size = orientation === null ? cellSize : cellSize * 2
+      ctx.drawImage(sprite, cx - size / 2, cy - size / 2, size, size)
+      continue
+    }
     const radius = Math.max(3, cellSize * 0.3)
     ctx.beginPath()
     ctx.arc(cx, cy, radius, 0, Math.PI * 2)

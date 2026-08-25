@@ -8,12 +8,16 @@ import { MapFileActions } from './components/MapFileActions'
 import type { FileActionStatus } from './components/MapFileActions'
 import { GeneratorPanel } from './components/GeneratorPanel'
 import { ObjectPalette } from './components/ObjectPalette'
+import { RenderModePicker } from './components/RenderModePicker'
 import { TerrainPalette } from './components/TerrainPalette'
 import { useEditor } from './hooks/useEditor'
+import { useSpriteAtlas } from './hooks/useSpriteAtlas'
 import { createEmptyMap } from './model/createEmptyMap'
 import { EMPTY_TILE, TILE_TYPES } from './model/types'
 import type { TileValue } from './model/types'
 import type { ObjectKindId } from './model/objects'
+import type { RenderMode } from './render/renderMode'
+import { loadRenderMode, saveRenderMode } from './render/renderMode'
 import { EditorStore } from './store/EditorStore'
 import type { EditorTool } from './tools/editorTool'
 import { useEditorHotkeys } from './hooks/useEditorHotkeys'
@@ -41,6 +45,10 @@ export function EditorPage() {
   // Реактивная модель: выбор типа сетки и дизейбл генератора живут в UI страницы.
   const model = useEditor(store)
 
+  // Режим отображения и атлас — настройка просмотра, не данные карты.
+  const { atlas, status: atlasStatus } = useSpriteAtlas()
+  const [renderMode, setRenderMode] = useState<RenderMode>(loadRenderMode)
+
   // Последний непустой тайл кисти — куда возвращает клавиша B.
   const lastBrushTileRef = useRef<TileValue>(defaultBrushTile())
 
@@ -58,6 +66,11 @@ export function EditorPage() {
   function selectMoveTool() {
     setSelectedObjectId(null)
     setTool({ type: 'select' })
+  }
+
+  function changeRenderMode(mode: RenderMode) {
+    setRenderMode(mode)
+    saveRenderMode(mode)
   }
 
   function handleGenerate(params: GenerationParams) {
@@ -85,6 +98,7 @@ export function EditorPage() {
   return (
     <div className={styles.root}>
       <aside className={styles.sidebar}>
+        <RenderModePicker mode={renderMode} atlasStatus={atlasStatus} onChange={changeRenderMode} />
         <GridTypePicker
           gridType={model.gridType}
           onChange={(gridType) => store.dispatch({ kind: 'setGridType', gridType })}
@@ -117,6 +131,7 @@ export function EditorPage() {
           tool={tool}
           selectedObjectId={selectedObjectId}
           onSelectObject={setSelectedObjectId}
+          sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
         />
       </div>
     </div>

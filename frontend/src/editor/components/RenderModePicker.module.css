@@ -1,0 +1,35 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm, 6px);
+}
+
+.label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.group {
+  display: flex;
+  gap: 4px;
+}
+
+.button {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.button.selected {
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}

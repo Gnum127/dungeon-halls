@@ -19,6 +19,11 @@ import {
 import { cellCenterAt, hexOrientationOf, traceCellPolygon, visibleCellRange } from './gridGeometry'
 import type { Viewport } from './viewport'
 
+export interface RenderMapOptions {
+  /** false = не рисовать свет (печать по чекбоксу); по умолчанию свет есть. */
+  readonly includeLight?: boolean
+}
+
 /**
  * Единственная точка рендера карты: чистая функция от модели и вьюпорта.
  * Спрайтовый режим включается опциональным атласом готовых картинок;
@@ -32,6 +37,7 @@ export function renderMap(
   model: MapModel,
   viewport: Viewport,
   sprites?: SpriteRenderContext,
+  options?: RenderMapOptions,
 ): void {
   const { width, height, cellSize, offsetX, offsetY } = viewport
 
@@ -163,7 +169,9 @@ export function renderMap(
     drawWalls(ctx, model, cellSize, offsetX, offsetY)
     drawDoors(ctx, model, cellSize, offsetX, offsetY)
   }
-  drawLights(ctx, model, viewport)
+  if (options?.includeLight !== false) {
+    drawLights(ctx, model, viewport)
+  }
 }
 
 /** Свечение (полупрозрачный круг) + маркер источника; поверх остального. */

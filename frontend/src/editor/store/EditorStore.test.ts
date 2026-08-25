@@ -137,7 +137,7 @@ describe('EditorStore', () => {
 
     expect(store.getModel().gridType).toBe('hex-pointy')
     // Метаданные меняются, содержимое сохраняется.
-    expect(store.getModel().tiles).toBe(store.getModel().tiles)
+    expect(store.getModel().tiles).toBe(before.tiles)
     expect(store.getModel().objects).toEqual(before.objects)
 
     expect(store.undo()).toBe(true)

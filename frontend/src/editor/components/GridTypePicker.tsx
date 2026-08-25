@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import type { ChangeEvent as ReactChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { GRID_TYPES } from '../model/types'
+import { GRID_TYPES, isGridType } from '../model/types'
 import type { GridType } from '../model/types'
 import styles from './GridTypePicker.module.css'
 
@@ -23,7 +23,7 @@ export function GridTypePicker({ gridType, onChange }: GridTypePickerProps) {
 
   function handleChange(event: ReactChangeEvent<HTMLSelectElement>) {
     const next = event.target.value
-    if (isGridTypeValue(next)) onChange(next)
+    if (isGridType(next)) onChange(next)
   }
 
   return (
@@ -40,8 +40,4 @@ export function GridTypePicker({ gridType, onChange }: GridTypePickerProps) {
       </select>
     </div>
   )
-}
-
-function isGridTypeValue(value: string): value is GridType {
-  return (GRID_TYPES as readonly string[]).includes(value)
 }

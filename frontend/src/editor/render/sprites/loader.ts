@@ -15,6 +15,9 @@ export interface SpriteAtlas {
   readonly objects: Partial<Record<ObjectKindId, HTMLImageElement>>
 }
 
+/** Атлас под именем контракта рендера (renderMap, pngExport). */
+export type SpriteRenderContext = SpriteAtlas
+
 // Пути в манифесте относительны базовому URL статики Vite ('/' по умолчанию).
 export function resolveSpriteUrl(path: string): string {
   const base = import.meta.env.BASE_URL

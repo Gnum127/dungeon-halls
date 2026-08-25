@@ -6,6 +6,7 @@ export interface FakeCtx {
   globalAlpha: number
   strokeStyle: string
   lineWidth: number
+  imageSmoothingEnabled: boolean
   fillRect(...args: unknown[]): void
   beginPath(): void
   arc(...args: unknown[]): void
@@ -16,6 +17,10 @@ export interface FakeCtx {
   stroke(): void
   strokeRect(...args: unknown[]): void
   setTransform(...args: unknown[]): void
+  drawImage(...args: unknown[]): void
+  save(): void
+  restore(): void
+  clip(...args: unknown[]): void
 }
 
 /** Фейковый 2D-контекст, записывающий вызовы для ассертов в тестах рендера. */
@@ -34,6 +39,7 @@ export function makeFakeCtx(
     globalAlpha: 1,
     strokeStyle: '',
     lineWidth: 1,
+    imageSmoothingEnabled: true,
     fillRect(...args: unknown[]) {
       calls.push({ op: 'fillRect', args, fillStyle: this.fillStyle })
     },
@@ -63,6 +69,18 @@ export function makeFakeCtx(
     },
     setTransform(...args: unknown[]) {
       calls.push({ op: 'setTransform', args, fillStyle: this.fillStyle })
+    },
+    drawImage(...args: unknown[]) {
+      calls.push({ op: 'drawImage', args, fillStyle: this.fillStyle })
+    },
+    save() {
+      calls.push({ op: 'save', args: [], fillStyle: this.fillStyle })
+    },
+    restore() {
+      calls.push({ op: 'restore', args: [], fillStyle: this.fillStyle })
+    },
+    clip(...args: unknown[]) {
+      calls.push({ op: 'clip', args, fillStyle: this.fillStyle })
     },
   }
   return { ctx: ctx as unknown as CanvasRenderingContext2D, calls, raw: ctx }

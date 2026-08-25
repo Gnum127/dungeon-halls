@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next'
 import type { GenerationParams } from '@/generator'
 import { createRng, generateCaves, generateDungeon } from '@/generator'
 import { CanvasView } from './components/CanvasView'
+import { GridTypePicker } from './components/GridTypePicker'
 import { MapFileActions } from './components/MapFileActions'
 import type { FileActionStatus } from './components/MapFileActions'
 import { GeneratorPanel } from './components/GeneratorPanel'
 import { ObjectPalette } from './components/ObjectPalette'
 import { TerrainPalette } from './components/TerrainPalette'
+import { useEditor } from './hooks/useEditor'
 import { createEmptyMap } from './model/createEmptyMap'
 import { EMPTY_TILE, TILE_TYPES } from './model/types'
 import type { TileValue } from './model/types'
@@ -36,6 +38,8 @@ export function EditorPage() {
   }))
   const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null)
   const [fileStatus, setFileStatus] = useState<FileActionStatus | null>(null)
+  // Реактивная модель: выбор типа сетки и дизейбл генератора живут в UI страницы.
+  const model = useEditor(store)
 
   // Последний непустой тайл кисти — куда возвращает клавиша B.
   const lastBrushTileRef = useRef<TileValue>(defaultBrushTile())
@@ -81,7 +85,11 @@ export function EditorPage() {
   return (
     <div className={styles.root}>
       <aside className={styles.sidebar}>
-        <GeneratorPanel onGenerate={handleGenerate} />
+        <GridTypePicker
+          gridType={model.gridType}
+          onChange={(gridType) => store.dispatch({ kind: 'setGridType', gridType })}
+        />
+        <GeneratorPanel onGenerate={handleGenerate} gridDisabled={model.gridType !== 'square'} />
         <MapFileActions
           getModel={() => store.getModel()}
           onLoaded={(model) => store.reset(model)}

@@ -40,6 +40,12 @@
       "invalid": "Failed to open file",
       "exportFailed": "PNG export failed"
     },
+    "grid": {
+      "label": "Grid type",
+      "square": "Square",
+      "hexFlat": "Hex (flat-top)",
+      "hexPointy": "Hex (pointy-top)"
+    },
     "generator": {
       "title": "Map generator",
       "type": "Generation type",
@@ -52,7 +58,8 @@
       "fillProbability": "Cave density",
       "iterations": "Smoothing iterations",
       "generate": "Generate",
-      "again": "Regenerate same seed"
+      "again": "Regenerate same seed",
+      "squareOnly": "The generator supports square grids only"
     }
   }
 }

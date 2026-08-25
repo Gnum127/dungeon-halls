@@ -88,3 +88,14 @@
   min-height: 1.8rem;
   font-size: 0.8rem;
 }
+
+.again:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}

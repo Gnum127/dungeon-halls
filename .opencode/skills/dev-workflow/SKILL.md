@@ -11,9 +11,10 @@ description: Рабочий процесс проекта «Чертоги по�
 бэкенда нет. Главный источник правды о проекте — `AGENTS.md` в корне репозитория.
 
 **Состояние (обновлять по мере продвижения):**
-Этап 1 (MVP редактора) и Этап 2 (генератор: данжи, пещеры, seed-детерминизм,
-UI-панель) завершены полностью. Текущий этап — Этап 3 «Сетки и визуал»
-(гексагональная сетка), ветка `stage/3`.
+Этапы 1 (MVP редактора), 2 (генератор: данжи, пещеры, seed-детерминизм,
+UI-панель) и 3 (гексагональная сетка: hex flat/pointy, миграция v1→v2,
+setGridType, formatCoords) завершены полностью. Следующий этап выбирает
+автор вручную (этапы 4+ в roadmap).
 
 ## Перед началом работы
 
@@ -76,6 +77,18 @@ npm run build      # сборка + проверка типов tsc
   конкретную регрессию, см. stale-id тест EditorPage); стабы jsdom
   (ResizeObserver, matchMedia) живут в `src/test/setup.ts`; язык i18n в
   тестах зафиксирован en там же.
+- **Hex-геометрия рендера**: мировые координаты клеток — только через
+  `editor/render/gridGeometry.ts` (`cellCenterAt` нормализована к [0..bounds],
+  origin-сдвиг гексов зашит внутрь); размеры холстов/лимиты — из
+  `mapPixelBounds` с `Math.ceil` (canvas.width целочисленный); culling —
+  `visibleCellRange` (запас 2 клетки, пустой диапазон за картой обязателен);
+  полигоны трассировать только `traceCellPolygon` (с `closePath` — иначе
+  stroke теряет ребро).
+- **Hex hit-test**: `screenToCell(viewport, x, y, gridType)` — hex-ветка
+  обязана зеркалить origin-нормировку `cellCenterAt` (сдвиг −(√3/2·s, s)
+  для pointy / −(s, √3/2·s) для flat); константы повторяются в трёх местах
+  (mapPixelBounds, cellCenterAt, screenToCell) и охраняются round-trip
+  тестом по всем клеткам и viewport'ам; `gridType` в deps `useCallback`.
 - **Известные ловушки vitest**: `fireEvent.pointercancel` отсутствует —
   собирать через `Object.assign(new Event('pointercancel'), {...})`.
 

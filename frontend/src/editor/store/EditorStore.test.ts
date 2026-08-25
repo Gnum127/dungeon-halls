@@ -127,6 +127,31 @@ describe('EditorStore', () => {
     expect(store.canRedo()).toBe(true)
   })
 
+  it('setGridType is one history entry: undo restores the type and keeps content', () => {
+    const store = makeStore()
+    store.dispatch({ kind: 'setTile', x: 1, y: 1, tile: FLOOR })
+    store.dispatch({ kind: 'addObject', x: 0, y: 0, kindId: DOOR_KIND })
+    const before = store.getModel()
+
+    store.dispatch({ kind: 'setGridType', gridType: 'hex-pointy' })
+
+    expect(store.getModel().gridType).toBe('hex-pointy')
+    // Метаданные меняются, содержимое сохраняется.
+    expect(store.getModel().tiles).toBe(before.tiles)
+    expect(store.getModel().objects).toEqual(before.objects)
+
+    expect(store.undo()).toBe(true)
+    expect(store.getModel()).toBe(before)
+    expect(store.canRedo()).toBe(true)
+
+    // No-op при неизменном типе не пишет историю: стор не уведомляет.
+    store.redo()
+    const listener = vi.fn()
+    store.subscribe(listener)
+    store.dispatch({ kind: 'setGridType', gridType: 'hex-pointy' })
+    expect(listener).not.toHaveBeenCalled()
+  })
+
   it('reset replaces the document and clears history', () => {
     const store = makeStore()
     const listener = vi.fn()

@@ -47,7 +47,7 @@ export function useObjectTools(options: ObjectToolsOptions): {
   const { canvasRef, viewportRef, store, model, tool, selectedId, onSelect } = options
   const dragRef = useRef<DragState | null>(null)
 
-  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
+  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef, model.gridType)
 
   function capturePointer(event: ReactPointerEvent<HTMLCanvasElement>) {
     try {

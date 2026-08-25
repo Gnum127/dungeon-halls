@@ -30,7 +30,7 @@ export function useHoverCell(options: HoverCellOptions): {
   const clientPointRef = useRef<{ clientX: number; clientY: number } | null>(null)
   const [cell, setCell] = useState<{ x: number; y: number } | null>(null)
 
-  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
+  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef, model.gridType)
 
   const recompute = useCallback(() => {
     const point = clientPointRef.current

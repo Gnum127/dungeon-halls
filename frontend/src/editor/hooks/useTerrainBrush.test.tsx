@@ -1,6 +1,7 @@
 import { fireEvent, render } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { useRef } from 'react'
+import { cellCenterAt } from '../render/gridGeometry'
 import { createEmptyMap } from '../model/createEmptyMap'
 import { TILE_TYPES } from '../model/types'
 import type { Command } from '../model/commands'
@@ -16,12 +17,13 @@ function makeViewport(): Viewport {
 interface ProbeProps {
   onCommit: (command: Command | null) => void
   active?: boolean
+  gridType?: 'square' | 'hex-pointy' | 'hex-flat'
 }
 
-function Probe({ onCommit, active = true }: ProbeProps) {
+function Probe({ onCommit, active = true, gridType = 'square' }: ProbeProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = useRef<Viewport>(makeViewport())
-  const model = createEmptyMap(8, 8)
+  const model = createEmptyMap(8, 8, gridType)
   const { pendingCells, handlers } = useTerrainBrush({
     canvasRef,
     active,
@@ -182,5 +184,63 @@ describe('useTerrainBrush', () => {
     if (command.kind === 'setTiles') {
       expect(command.updates).toHaveLength(2)
     }
+  })
+
+  describe('hex grid', () => {
+    const SIZE = 32
+
+    function hexCenter(col: number, row: number): { x: number; y: number } {
+      return cellCenterAt(col, row, 'hex-pointy', SIZE)
+    }
+
+    function flatCenter(col: number, row: number): { x: number; y: number } {
+      return cellCenterAt(col, row, 'hex-flat', SIZE)
+    }
+
+    it.each(['hex-pointy', 'hex-flat'] as const)(
+      '%s: paints exactly the hex under the click',
+      (gridType) => {
+        const onCommit = vi.fn()
+        const { getByTestId } = render(<Probe onCommit={onCommit} gridType={gridType} />)
+        const canvas = getByTestId('canvas')
+
+        const center = gridType === 'hex-pointy' ? hexCenter(3, 4) : flatCenter(3, 4)
+        pointer(canvas, 'pointerdown', { clientX: center.x, clientY: center.y })
+        pointer(canvas, 'pointerup', { buttons: 0 })
+
+        expect(onCommit).toHaveBeenCalledTimes(1)
+        const command = onCommit.mock.calls[0][0] as Command
+        expect(command.kind).toBe('setTiles')
+        if (command.kind === 'setTiles') {
+          expect(command.updates).toEqual([{ x: 3, y: 4, tile: FLOOR }])
+        }
+      },
+    )
+
+    it.each(['hex-pointy', 'hex-flat'] as const)(
+      '%s: drag collects the hexes under the stroke path',
+      (gridType) => {
+        const onCommit = vi.fn()
+        const { getByTestId } = render(<Probe onCommit={onCommit} gridType={gridType} />)
+        const canvas = getByTestId('canvas')
+
+        const from = gridType === 'hex-pointy' ? hexCenter(2, 2) : flatCenter(2, 2)
+        const to = gridType === 'hex-pointy' ? hexCenter(3, 3) : flatCenter(3, 3)
+        pointer(canvas, 'pointerdown', { clientX: from.x, clientY: from.y })
+        pointer(canvas, 'pointermove', { clientX: to.x, clientY: to.y })
+        pointer(canvas, 'pointerup', { buttons: 0 })
+
+        expect(onCommit).toHaveBeenCalledTimes(1)
+        const command = onCommit.mock.calls[0][0] as Command
+        expect(command.kind).toBe('setTiles')
+        if (command.kind === 'setTiles') {
+          expect(command.updates).toEqual([
+            { x: 2, y: 2, tile: FLOOR },
+            { x: 3, y: 3, tile: FLOOR },
+          ])
+        }
+        expect(getByTestId('canvas').dataset.pending).toBe('0')
+      },
+    )
   })
 })

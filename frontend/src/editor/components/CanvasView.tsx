@@ -16,6 +16,7 @@ import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
 import type { EditorTool } from '../tools/editorTool'
 import { mergePointerHandlers } from './pointerHandlers'
+import { formatCoords } from './formatCoords'
 import styles from './CanvasView.module.css'
 
 interface CanvasViewProps {
@@ -117,8 +118,8 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     renderMap(ctx, model, viewport)
-    drawStrokePreview(ctx, pendingCells, viewport, brushTile)
-    if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport)
+    drawStrokePreview(ctx, pendingCells, viewport, brushTile, model.gridType)
+    if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport, model.gridType)
   }, [model, viewport, dpr, pendingCells, brushTile, hoverCell])
 
   const pointerHandlers = useMemo(
@@ -137,7 +138,7 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
       />
       {/* Не live-регион: координаты меняются на каждый шаг курсора. */}
       <div className={styles.status} data-testid="editor-coords">
-        {hoverCell ? `x: ${hoverCell.x} · y: ${hoverCell.y}` : '—'}
+        {hoverCell ? formatCoords(hoverCell, model.gridType) : '—'}
       </div>
     </div>
   )

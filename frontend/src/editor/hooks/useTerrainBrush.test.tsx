@@ -193,42 +193,52 @@ describe('useTerrainBrush', () => {
       return cellCenterAt(col, row, 'hex-pointy', SIZE)
     }
 
-    it('paints exactly the hex under the click', () => {
+    function flatCenter(col: number, row: number): { x: number; y: number } {
+      return cellCenterAt(col, row, 'hex-flat', SIZE)
+    }
+
+    it.each(['hex-pointy', 'hex-flat'] as const)('%s: paints exactly the hex under the click', (gridType) => {
       const onCommit = vi.fn()
-      const { getByTestId } = render(<Probe onCommit={onCommit} gridType="hex-pointy" />)
+      const { getByTestId } = render(<Probe onCommit={onCommit} gridType={gridType} />)
       const canvas = getByTestId('canvas')
 
-      const center = hexCenter(3, 4)
+      const center =
+        gridType === 'hex-pointy' ? hexCenter(3, 4) : flatCenter(3, 4)
       pointer(canvas, 'pointerdown', { clientX: center.x, clientY: center.y })
       pointer(canvas, 'pointerup', { buttons: 0 })
 
       expect(onCommit).toHaveBeenCalledTimes(1)
       const command = onCommit.mock.calls[0][0] as Command
+      expect(command.kind).toBe('setTiles')
       if (command.kind === 'setTiles') {
         expect(command.updates).toEqual([{ x: 3, y: 4, tile: FLOOR }])
       }
     })
 
-    it('drag collects the hexes under the stroke path', () => {
-      const onCommit = vi.fn()
-      const { getByTestId } = render(<Probe onCommit={onCommit} gridType="hex-pointy" />)
-      const canvas = getByTestId('canvas')
+    it.each(['hex-pointy', 'hex-flat'] as const)(
+      '%s: drag collects the hexes under the stroke path',
+      (gridType) => {
+        const onCommit = vi.fn()
+        const { getByTestId } = render(<Probe onCommit={onCommit} gridType={gridType} />)
+        const canvas = getByTestId('canvas')
 
-      const from = hexCenter(2, 2)
-      const to = hexCenter(3, 3)
-      pointer(canvas, 'pointerdown', { clientX: from.x, clientY: from.y })
-      pointer(canvas, 'pointermove', { clientX: to.x, clientY: to.y })
-      pointer(canvas, 'pointerup', { buttons: 0 })
+        const from = gridType === 'hex-pointy' ? hexCenter(2, 2) : flatCenter(2, 2)
+        const to = gridType === 'hex-pointy' ? hexCenter(3, 3) : flatCenter(3, 3)
+        pointer(canvas, 'pointerdown', { clientX: from.x, clientY: from.y })
+        pointer(canvas, 'pointermove', { clientX: to.x, clientY: to.y })
+        pointer(canvas, 'pointerup', { buttons: 0 })
 
-      expect(onCommit).toHaveBeenCalledTimes(1)
-      const command = onCommit.mock.calls[0][0] as Command
-      if (command.kind === 'setTiles') {
-        expect(command.updates).toEqual([
-          { x: 2, y: 2, tile: FLOOR },
-          { x: 3, y: 3, tile: FLOOR },
-        ])
-      }
-      expect(getByTestId('canvas').dataset.pending).toBe('0')
-    })
+        expect(onCommit).toHaveBeenCalledTimes(1)
+        const command = onCommit.mock.calls[0][0] as Command
+        expect(command.kind).toBe('setTiles')
+        if (command.kind === 'setTiles') {
+          expect(command.updates).toEqual([
+            { x: 2, y: 2, tile: FLOOR },
+            { x: 3, y: 3, tile: FLOOR },
+          ])
+        }
+        expect(getByTestId('canvas').dataset.pending).toBe('0')
+      },
+    )
   })
 })

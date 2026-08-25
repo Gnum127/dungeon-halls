@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { cellCenterAt } from './gridGeometry'
 import {
   BASE_CELL_SIZE,
@@ -50,19 +50,65 @@ describe('screenToCell', () => {
   })
 
   it.each(['hex-pointy', 'hex-flat'] as const)(
-    '%s: round-trips the center of every cell',
+    '%s: round-trips the center of every cell across viewports',
     (gridType) => {
-      const size = 32
-      // В jsdom rect нулевой, поэтому клиентские координаты = экранные.
-      for (let row = 0; row < 6; row += 1) {
-        for (let col = 0; col < 6; col += 1) {
-          const center = cellCenterAt(col, row, gridType, size)
-          const cell = screenToCell(vp({ cellSize: size }), center.x, center.y, gridType)
-          expect(cell).toEqual({ x: col, y: row })
+      // Зум ≠ 32 и ненулевые (в т.ч. отрицательные) offset: потеря
+      // origin-сдвига или ошибка масштабирования ломают round-trip.
+      const viewports: Viewport[] = [
+        vp({ cellSize: 32 }),
+        vp({ cellSize: 16, offsetX: 96, offsetY: -64 }),
+        vp({ cellSize: 64 }),
+        vp({ cellSize: 20, offsetX: -50, offsetY: 70 }),
+      ]
+      for (const viewport of viewports) {
+        for (let row = 0; row < 6; row += 1) {
+          for (let col = 0; col < 6; col += 1) {
+            const center = cellCenterAt(col, row, gridType, viewport.cellSize)
+            const cell = screenToCell(
+              viewport,
+              center.x - viewport.offsetX,
+              center.y - viewport.offsetY,
+              gridType,
+            )
+            expect(cell).toEqual({ x: col, y: row })
+          }
         }
       }
     },
   )
+
+  it.each(['hex-pointy', 'hex-flat'] as const)(
+    '%s: keeps off-center points inside their hex',
+    (gridType) => {
+      const size = 32
+      // Точки внутри гекса, но не в центре: сдвиги меньше апофемы (√3/2·s)
+      // и половины размера — сбой cube-round на границе здесь виден.
+      const center = cellCenterAt(2, 3, gridType, size)
+      const offsets: Array<[number, number]> = [
+        [0.4 * size, 0],
+        [-0.4 * size, 0],
+        [0, 0.4 * size],
+        [0, -0.4 * size],
+        [0.25 * size, 0.25 * size],
+      ]
+      for (const [dx, dy] of offsets) {
+        const cell = screenToCell(vp({ cellSize: size }), center.x + dx, center.y + dy, gridType)
+        expect(cell).toEqual({ x: 2, y: 3 })
+      }
+    },
+  )
+
+  it('hex-pointy: returns cells outside the map for far points', () => {
+    const size = 32
+    // Cube-round не должен «заворачивать» далёкие точки внутрь карты.
+    const topLeft = screenToCell(vp({ cellSize: size }), -1000, -1000, 'hex-pointy')
+    expect(topLeft.x).toBeLessThanOrEqual(-1)
+    expect(topLeft.y).toBeLessThanOrEqual(-1)
+
+    const bottomRight = screenToCell(vp({ cellSize: size }), 5000, 5000, 'hex-pointy')
+    expect(bottomRight.x).toBeGreaterThanOrEqual(8)
+    expect(bottomRight.y).toBeGreaterThanOrEqual(8)
+  })
 
   it('hex-pointy: resolves the shifted odd row to its own column', () => {
     const size = 32

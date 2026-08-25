@@ -77,6 +77,21 @@ describe('EditorPage', () => {
     expect(screen.getByRole('button', { name: 'Regenerate same seed' })).toBeDisabled()
   })
 
+  // Интеграционная связка 5.7: uvttDisabled={model.gridType !== 'square'} —
+  // кнопка UVTT дизейблится ровно на гексах, без ручной подстановки пропа.
+  it('uvtt export button follows the document grid type', () => {
+    render(<EditorPage />)
+    expect(screen.getByRole('button', { name: 'Export UVTT' })).toBeEnabled()
+
+    fireEvent.change(screen.getByLabelText('Grid type'), { target: { value: 'hex-pointy' } })
+    const button = screen.getByRole('button', { name: 'Export UVTT' })
+    expect(button).toBeDisabled()
+    expect(button.getAttribute('title')).toContain('square grids only')
+
+    fireEvent.change(screen.getByLabelText('Grid type'), { target: { value: 'square' } })
+    expect(screen.getByRole('button', { name: 'Export UVTT' })).toBeEnabled()
+  })
+
   // Регрессия roadmap 2.7: stale id после генерации → removeObject бросал
   // RangeError внутри keydown. Теперь выделение сбрасывается при генерации.
   it('generate clears stale object selection: Delete does not throw', () => {

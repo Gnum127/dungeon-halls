@@ -2,13 +2,14 @@ import { useRef } from 'react'
 import type { ChangeEvent as ReactChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { deserializeMap, serializeMap } from '../io'
-import { exportMapToPng } from '../tools/pngExport'
-import { EXPORT_CELL_SIZE } from '../tools/pngExport'
+import { EXPORT_CELL_SIZE, exportMapToPng } from '../tools/pngExport'
+import { exportMapToUvtt } from '../vtt/uvtt'
 import type { SpriteRenderContext } from '../render/sprites/loader'
 import type { MapModel } from '../model/types'
 import styles from './MapFileActions.module.css'
 
-export type FileActionStatus = 'saved' | 'loaded' | 'invalid' | 'exported' | 'exportFailed'
+export type FileActionStatus =
+  'saved' | 'loaded' | 'invalid' | 'exported' | 'exportedUvtt' | 'exportFailed' | 'uvttExportFailed'
 
 interface MapFileActionsProps {
   getModel: () => MapModel
@@ -16,16 +17,21 @@ interface MapFileActionsProps {
   onResult: (status: FileActionStatus) => void
   /** Атлас текущего режима; undefined/частичный = экспорт цветами. */
   sprites?: SpriteRenderContext
+  /** UVTT только для square-сеток (формат прямоугольных клеток). */
+  uvttDisabled?: boolean
   /** Инъекция для тестов: перехватывает браузерное скачивание. */
   download?: (filename: string, content: Blob | string, mime?: string) => void
   /** Инъекция для тестов: перехватывает чтение файла. */
   readJsonFile?: (file: File, onDone: (json: string) => void, onError: () => void) => void
   /** Инъекция для тестов: подменяет PNG-экспорт. */
   exportPng?: (model: MapModel, sprites?: SpriteRenderContext) => Promise<Blob>
+  /** Инъекция для тестов: подменяет UVTT-экспорт. */
+  exportUvtt?: (model: MapModel, sprites?: SpriteRenderContext) => Promise<Blob>
 }
 
 const MAP_FILENAME = 'dungeon-halls-map.json'
 const MAP_PNG_FILENAME = 'dungeon-halls-map.png'
+const UVTT_FILENAME = 'dungeon-halls-map'
 
 function browserDownload(filename: string, content: Blob | string, mime?: string): void {
   const blob =
@@ -51,11 +57,12 @@ function defaultReadJsonFile(
 }
 
 export function MapFileActions(props: MapFileActionsProps) {
-  const { getModel, onLoaded, onResult, sprites } = props
+  const { getModel, onLoaded, onResult, sprites, uvttDisabled } = props
   const download = props.download ?? browserDownload
   const readFile = props.readJsonFile ?? defaultReadJsonFile
   const exportPng =
     props.exportPng ?? ((model, sprites) => exportMapToPng(model, EXPORT_CELL_SIZE, sprites))
+  const exportUvtt = props.exportUvtt ?? ((model, sprites) => exportMapToUvtt(model, sprites))
   const inputRef = useRef<HTMLInputElement | null>(null)
   const { t } = useTranslation()
 
@@ -73,6 +80,16 @@ export function MapFileActions(props: MapFileActionsProps) {
         onResult('exported')
       })
       .catch(() => onResult('exportFailed'))
+  }
+
+  function handleExportUvtt() {
+    Promise.resolve()
+      .then(() => exportUvtt(getModel(), sprites))
+      .then((blob) => {
+        download(`${UVTT_FILENAME}.uvtt`, blob, 'application/octet-stream')
+        onResult('exportedUvtt')
+      })
+      .catch(() => onResult('uvttExportFailed'))
   }
 
   function handleLoadChange(event: ReactChangeEvent<HTMLInputElement>) {
@@ -103,6 +120,15 @@ export function MapFileActions(props: MapFileActionsProps) {
       </button>
       <button type="button" className={styles.button} onClick={handleExportPng}>
         {t('editor.files.exportPng')}
+      </button>
+      <button
+        type="button"
+        className={styles.button}
+        disabled={uvttDisabled}
+        title={uvttDisabled ? t('editor.files.uvttSquareOnly') : undefined}
+        onClick={handleExportUvtt}
+      >
+        {t('editor.files.exportUvtt')}
       </button>
       <input
         ref={inputRef}

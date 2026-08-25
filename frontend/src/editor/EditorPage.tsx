@@ -129,6 +129,7 @@ export function EditorPage() {
         <MapFileActions
           getModel={() => store.getModel()}
           sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
+          uvttDisabled={model.gridType !== 'square'}
           onLoaded={(model) => store.reset(model)}
           onResult={setFileStatus}
         />
@@ -154,7 +155,9 @@ export function EditorPage() {
           color={lightColor}
           onToggle={() => {
             setSelectedObjectId(null)
-            setTool((current) => (current.type === 'light' ? { type: 'select' } : { type: 'light' }))
+            setTool((current) =>
+              current.type === 'light' ? { type: 'select' } : { type: 'light' },
+            )
           }}
           onRadiusChange={(radius) => {
             if (radius >= 1 && radius <= 30) setLightRadius(radius)

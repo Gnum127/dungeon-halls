@@ -19,6 +19,24 @@ export function exportMapToPng(
   cellSize = EXPORT_CELL_SIZE,
   sprites?: SpriteRenderContext,
 ): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const canvas = renderToCanvas(model, cellSize, sprites)
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob)
+      else reject(new Error('PNG encoding failed'))
+    }, 'image/png')
+  })
+}
+
+/**
+ * Рендер карты в offscreen canvas: общая точка для PNG- и UVTT-экспорта.
+ * Бросает RangeError при превышении лимитов canvas.
+ */
+export function renderToCanvas(
+  model: MapModel,
+  cellSize = EXPORT_CELL_SIZE,
+  sprites?: SpriteRenderContext,
+): HTMLCanvasElement {
   // Габариты от геометрии сетки: у гексов холст шире/выше w·cellSize,
   // иначе крайние клетки молча обрезаются. canvas.width/height — целые
   // (дробная часть отбрасывается браузером), поэтому округляем вверх.
@@ -27,7 +45,7 @@ export function exportMapToPng(
   const height = Math.ceil(bounds.height)
   // Большие canvas браузеры молча не растеризуют — отказываем заранее с причиной.
   if (width > MAX_EXPORT_SIDE || height > MAX_EXPORT_SIDE || width * height > MAX_EXPORT_AREA) {
-    return Promise.reject(new Error(`Export size ${width}x${height} exceeds canvas limits`))
+    throw new RangeError(`Export size ${width}x${height} exceeds canvas limits`)
   }
 
   const canvas = document.createElement('canvas')
@@ -36,28 +54,26 @@ export function exportMapToPng(
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    return Promise.reject(new Error('2D context is unavailable'))
+    throw new Error('2D context is unavailable')
   }
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
-  // Координаты клеток (cellCenterAt) уже нормализованы к [0..bounds].
-  renderMap(
-    ctx,
-    model,
-    {
-      width,
-      height,
-      cellSize,
-      offsetX: 0,
-      offsetY: 0,
-    },
-    sprites,
-  )
+  renderMap(ctx, model, { width, height, cellSize, offsetX: 0, offsetY: 0 }, sprites)
+  return canvas
+}
 
+/** PNG-байты offscreen canvas; общий хелпер PNG- и UVTT-экспорта. */
+export function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
-      if (blob) resolve(blob)
-      else reject(new Error('PNG encoding failed'))
+      if (!blob) {
+        reject(new Error('PNG encoding failed'))
+        return
+      }
+      blob.arrayBuffer().then(
+        (buffer) => resolve(new Uint8Array(buffer)),
+        () => reject(new Error('PNG encoding failed')),
+      )
     }, 'image/png')
   })
 }

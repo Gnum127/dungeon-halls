@@ -12,11 +12,11 @@ export interface ZipEntry {
  * Собирает ZIP-архив (STORE) из записей. Возвращает байты готового файла.
  */
 export function createZip(entries: readonly ZipEntry[]): Uint8Array {
-  const files: Record<string, Uint8Array> = {}
+  const files: Record<string, [Uint8Array, { level: 0 }]> = {}
   for (const entry of entries) {
-    files[entry.name] = [entry.data]
+    files[entry.name] = [entry.data, { level: ZIP_STORE_LEVEL }]
   }
-  return zipSync(files, { level: ZIP_STORE_LEVEL })
+  return zipSync(files)
 }
 
 export function utf8(text: string): Uint8Array {

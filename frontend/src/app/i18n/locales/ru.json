@@ -53,11 +53,15 @@
       "save": "Сохранить",
       "load": "Загрузить",
       "exportPng": "Экспорт PNG",
+      "exportUvtt": "Экспорт UVTT",
+      "uvttSquareOnly": "Universal VTT поддерживает только квадратную сетку",
       "saved": "Карта сохранена",
       "exported": "PNG скачан",
+      "exportedUvtt": "UVTT скачан",
       "loaded": "Карта загружена",
       "invalid": "Не удалось открыть файл",
-      "exportFailed": "Ошибка экспорта PNG"
+      "exportFailed": "Ошибка экспорта PNG",
+      "uvttExportFailed": "Ошибка экспорта UVTT"
     },
     "grid": {
       "label": "Тип сетки",

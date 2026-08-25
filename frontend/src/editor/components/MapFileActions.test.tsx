@@ -219,3 +219,66 @@ describe('MapFileActions UVTT export', () => {
     expect(button.getAttribute('title')).toContain('square grids only')
   })
 })
+
+describe('MapFileActions SVG export', () => {
+  type ExportSvg = (model: MapModel, includeLight: boolean) => Promise<Blob>
+
+  function renderSvgActions(exportSvg: ExportSvg, download = vi.fn()) {
+    const onResult = vi.fn()
+    const { getByLabelText, getByText } = render(
+      <MapFileActions
+        getModel={makeModel}
+        onLoaded={vi.fn()}
+        onResult={onResult}
+        download={download}
+        exportSvg={exportSvg}
+      />,
+    )
+    return { getByLabelText, getByText, onResult, download }
+  }
+
+  it('passes the light checkbox state to the exporter (default off)', async () => {
+    const exportSvg = vi
+      .fn<ExportSvg>()
+      .mockResolvedValue(new Blob(['svg'], { type: 'image/svg+xml' }))
+    const { getByLabelText, getByText, onResult, download } = renderSvgActions(exportSvg)
+    const checkbox = getByLabelText('Print light sources') as HTMLInputElement
+    expect(checkbox.checked).toBe(false)
+
+    fireEvent.click(getByText('Export SVG'))
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1))
+    expect(exportSvg).toHaveBeenCalledWith(expect.anything(), false)
+
+    fireEvent.click(checkbox)
+    expect(checkbox.checked).toBe(true)
+
+    fireEvent.click(getByText('Export SVG'))
+    await waitFor(() => expect(exportSvg).toHaveBeenCalledTimes(2))
+    // Флаг чекбокса доходит до экспортёра — иначе свет молча пропадает из печати.
+    expect(exportSvg).toHaveBeenLastCalledWith(expect.anything(), true)
+    expect(onResult).toHaveBeenLastCalledWith('exportedSvg')
+  })
+
+  it('downloads an .svg blob with the svg mime type', async () => {
+    const fakeBlob = new Blob(['<svg/>'], { type: 'image/svg+xml' })
+    const exportSvg = vi.fn().mockResolvedValue(fakeBlob)
+    const { getByText, download } = renderSvgActions(exportSvg)
+
+    fireEvent.click(getByText('Export SVG'))
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1))
+
+    const [filename, blob, mime] = download.mock.calls[0] as [string, Blob, string]
+    expect(filename).toMatch(/\.svg$/)
+    expect(blob).toBe(fakeBlob)
+    expect(mime).toBe('image/svg+xml')
+  })
+
+  it('reports a dedicated failure and downloads nothing when the exporter rejects', async () => {
+    const exportSvg = vi.fn().mockRejectedValue(new Error('export failed'))
+    const { getByText, onResult, download } = renderSvgActions(exportSvg)
+
+    fireEvent.click(getByText('Export SVG'))
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith('svgExportFailed'))
+    expect(download).not.toHaveBeenCalled()
+  })
+})

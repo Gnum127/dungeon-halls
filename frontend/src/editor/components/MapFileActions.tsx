@@ -1,15 +1,24 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import type { ChangeEvent as ReactChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { deserializeMap, serializeMap } from '../io'
 import { EXPORT_CELL_SIZE, exportMapToPng } from '../tools/pngExport'
 import { exportMapToUvtt } from '../vtt/uvtt'
+import { buildSvg } from '../print/svg'
 import type { SpriteRenderContext } from '../render/sprites/loader'
 import type { MapModel } from '../model/types'
 import styles from './MapFileActions.module.css'
 
 export type FileActionStatus =
-  'saved' | 'loaded' | 'invalid' | 'exported' | 'exportedUvtt' | 'exportFailed' | 'uvttExportFailed'
+  | 'saved'
+  | 'loaded'
+  | 'invalid'
+  | 'exported'
+  | 'exportedSvg'
+  | 'exportedUvtt'
+  | 'exportFailed'
+  | 'svgExportFailed'
+  | 'uvttExportFailed'
 
 interface MapFileActionsProps {
   getModel: () => MapModel
@@ -27,11 +36,14 @@ interface MapFileActionsProps {
   exportPng?: (model: MapModel, sprites?: SpriteRenderContext) => Promise<Blob>
   /** Инъекция для тестов: подменяет UVTT-экспорт. */
   exportUvtt?: (model: MapModel, sprites?: SpriteRenderContext) => Promise<Blob>
+  /** Инъекция для тестов: подменяет SVG-экспорт. */
+  exportSvg?: (model: MapModel, includeLight: boolean) => Promise<Blob>
 }
 
 const MAP_FILENAME = 'dungeon-halls-map.json'
 const MAP_PNG_FILENAME = 'dungeon-halls-map.png'
 const UVTT_FILENAME = 'dungeon-halls-map'
+const MAP_SVG_FILENAME = 'dungeon-halls-map.svg'
 
 function browserDownload(filename: string, content: Blob | string, mime?: string): void {
   const blob =
@@ -63,6 +75,12 @@ export function MapFileActions(props: MapFileActionsProps) {
   const exportPng =
     props.exportPng ?? ((model, sprites) => exportMapToPng(model, EXPORT_CELL_SIZE, sprites))
   const exportUvtt = props.exportUvtt ?? ((model, sprites) => exportMapToUvtt(model, sprites))
+  const exportSvg =
+    props.exportSvg ??
+    ((model, includeLight) =>
+      Promise.resolve(new Blob([buildSvg(model, { includeLight })], { type: 'image/svg+xml' })))
+  // Один контрол на все печатные форматы (SVG сейчас, PDF в 6.5).
+  const [printLight, setPrintLight] = useState(false)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const { t } = useTranslation()
 
@@ -90,6 +108,16 @@ export function MapFileActions(props: MapFileActionsProps) {
         onResult('exportedUvtt')
       })
       .catch(() => onResult('uvttExportFailed'))
+  }
+
+  function handleExportSvg() {
+    Promise.resolve()
+      .then(() => exportSvg(getModel(), printLight))
+      .then((blob) => {
+        download(MAP_SVG_FILENAME, blob, 'image/svg+xml')
+        onResult('exportedSvg')
+      })
+      .catch(() => onResult('svgExportFailed'))
   }
 
   function handleLoadChange(event: ReactChangeEvent<HTMLInputElement>) {
@@ -129,6 +157,17 @@ export function MapFileActions(props: MapFileActionsProps) {
         onClick={handleExportUvtt}
       >
         {t('editor.files.exportUvtt')}
+      </button>
+      <label className={styles.option}>
+        <input
+          type="checkbox"
+          checked={printLight}
+          onChange={(event) => setPrintLight(event.target.checked)}
+        />
+        {t('editor.files.printLight')}
+      </label>
+      <button type="button" className={styles.button} onClick={handleExportSvg}>
+        {t('editor.files.exportSvg')}
       </button>
       <input
         ref={inputRef}

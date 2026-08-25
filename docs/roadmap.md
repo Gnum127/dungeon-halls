@@ -453,7 +453,7 @@ RNG → данж → команда замены → пещеры → UI → п�
       ПРИМЕЧАНИЕ: геометрия стен/дверей — реэкспорт wallSegment/doorRects
       из renderMap.ts (единственный источник), толщина стены — константа
       WALL_LINE_WIDTH в colors.ts; PathSink — структурный тип в gridGeometry.
-- [ ] 6.2 UI «Export SVG»: кнопка рядом с PNG/UVTT в MapFileActions
+- [x] 6.2 UI «Export SVG»: кнопка рядом с PNG/UVTT в MapFileActions
       (инъекция exportSvg для тестов — образец exportUvtt); ЧЕКБОКС
       «Печатать источники света» (общий для SVG и PDF, default off);
       скачивание blob 'image/svg+xml' c расширением .svg; ошибки —

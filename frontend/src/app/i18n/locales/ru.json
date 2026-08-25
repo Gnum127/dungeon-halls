@@ -55,13 +55,17 @@
       "exportPng": "Экспорт PNG",
       "exportUvtt": "Экспорт UVTT",
       "uvttSquareOnly": "Universal VTT поддерживает только квадратную сетку",
+      "exportSvg": "Экспорт SVG",
+      "printLight": "Печатать источники света",
       "saved": "Карта сохранена",
       "exported": "PNG скачан",
       "exportedUvtt": "UVTT скачан",
+      "exportedSvg": "SVG скачан",
       "loaded": "Карта загружена",
       "invalid": "Не удалось открыть файл",
       "exportFailed": "Ошибка экспорта PNG",
-      "uvttExportFailed": "Ошибка экспорта UVTT"
+      "uvttExportFailed": "Ошибка экспорта UVTT",
+      "svgExportFailed": "Ошибка экспорта SVG"
     },
     "grid": {
       "label": "Тип сетки",

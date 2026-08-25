@@ -9,6 +9,7 @@ describe('App', () => {
 
   it('renders a language switcher', () => {
     render(<App />)
-    expect(screen.getByRole('combobox')).toBeInTheDocument()
+    // Языковой селектор различаем по подписи: в редакторе есть свои combobox.
+    expect(screen.getByLabelText('Language')).toBeInTheDocument()
   })
 })

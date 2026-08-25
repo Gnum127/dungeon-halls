@@ -145,4 +145,36 @@ describe('GeneratorPanel', () => {
     expect(onGenerate).toHaveBeenCalledTimes(2)
     expect(onGenerate.mock.calls[1]![0]).toEqual(firstCall)
   })
+
+  // Пункт 3.5: генераторы поддерживают только square — на гексах ОБЕ кнопки
+  // задизейблены и показана подсказка.
+  it('disables both generate buttons and hints when the grid is not square', () => {
+    const onGenerate = vi.fn()
+    render(<GeneratorPanel onGenerate={onGenerate} gridDisabled />)
+
+    clickGenerate()
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled()
+    const hint = screen.getByText('The generator supports square grids only')
+    expect(hint).toHaveAttribute('role', 'note')
+    expect(onGenerate).not.toHaveBeenCalled()
+  })
+
+  it('keeps the regenerate button clickable before disabling, blocks after', () => {
+    const onGenerate = vi.fn()
+    const { rerender } = render(<GeneratorPanel onGenerate={onGenerate} />)
+
+    clickGenerate()
+    expect(screen.getByRole('button', { name: 'Regenerate same seed' })).toBeEnabled()
+
+    rerender(<GeneratorPanel onGenerate={onGenerate} gridDisabled />)
+    expect(screen.getByRole('button', { name: 'Regenerate same seed' })).toBeDisabled()
+    expect(onGenerate).toHaveBeenCalledTimes(1)
+  })
+
+  it('enables buttons and hides the hint on a square grid', () => {
+    render(<GeneratorPanel onGenerate={vi.fn()} gridDisabled={false} />)
+
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeEnabled()
+    expect(screen.queryByRole('note')).toBeNull()
+  })
 })

@@ -39,6 +39,22 @@ describe('EditorPage', () => {
     expect(eraserButton).toHaveAttribute('aria-pressed', 'true')
   })
 
+  // Пункт 3.5: смена типа сетки уровня документа дизейблит генератор
+  // (генераторы отдают только square), обратная смена возвращает кнопку.
+  it('switching the document grid type disables and re-enables generation', () => {
+    render(<EditorPage />)
+    const gridSelect = screen.getByLabelText('Grid type')
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeEnabled()
+
+    fireEvent.change(gridSelect, { target: { value: 'hex-pointy' } })
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled()
+    expect(screen.getByRole('note')).toBeInTheDocument()
+
+    fireEvent.change(gridSelect, { target: { value: 'square' } })
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeEnabled()
+    expect(screen.queryByRole('note')).toBeNull()
+  })
+
   // Регрессия roadmap 2.7: stale id после генерации → removeObject бросал
   // RangeError внутри keydown. Теперь выделение сбрасывается при генерации.
   it('generate clears stale object selection: Delete does not throw', () => {

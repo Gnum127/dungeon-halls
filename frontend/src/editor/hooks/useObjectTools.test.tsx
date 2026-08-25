@@ -286,21 +286,24 @@ describe('useObjectTools', () => {
 })
 
 describe('useObjectTools (hex grid)', () => {
-  it.each(['hex-pointy', 'hex-flat'] as const)('%s: places an object into the hex under the click', (gridType) => {
-    const store = new EditorStore(createEmptyMap(8, 8, gridType))
-    const { getByTestId } = render(
-      <Probe store={store} tool={DOOR_TOOL} selectedId={null} onSelect={vi.fn()} />,
-    )
-    const canvas = getByTestId('canvas')
+  it.each(['hex-pointy', 'hex-flat'] as const)(
+    '%s: places an object into the hex under the click',
+    (gridType) => {
+      const store = new EditorStore(createEmptyMap(8, 8, gridType))
+      const { getByTestId } = render(
+        <Probe store={store} tool={DOOR_TOOL} selectedId={null} onSelect={vi.fn()} />,
+      )
+      const canvas = getByTestId('canvas')
 
-    // Клик в центр гекса (3,4) — не в центр «квадратной» клетки.
-    const center = cellCenterAt(3, 4, gridType, 32)
-    leftPointer(canvas, 'pointerdown', { clientX: center.x, clientY: center.y })
+      // Клик в центр гекса (3,4) — не в центр «квадратной» клетки.
+      const center = cellCenterAt(3, 4, gridType, 32)
+      leftPointer(canvas, 'pointerdown', { clientX: center.x, clientY: center.y })
 
-    const objects = store.getModel().objects
-    expect(objects).toHaveLength(1)
-    expect(objects[0]).toMatchObject({ x: 3, y: 4, kindId: 'door' })
-  })
+      const objects = store.getModel().objects
+      expect(objects).toHaveLength(1)
+      expect(objects[0]).toMatchObject({ x: 3, y: 4, kindId: 'door' })
+    },
+  )
 
   it.each(['hex-pointy', 'hex-flat'] as const)(
     '%s: drags an object to another hex with a single move command',

@@ -197,23 +197,25 @@ describe('useTerrainBrush', () => {
       return cellCenterAt(col, row, 'hex-flat', SIZE)
     }
 
-    it.each(['hex-pointy', 'hex-flat'] as const)('%s: paints exactly the hex under the click', (gridType) => {
-      const onCommit = vi.fn()
-      const { getByTestId } = render(<Probe onCommit={onCommit} gridType={gridType} />)
-      const canvas = getByTestId('canvas')
+    it.each(['hex-pointy', 'hex-flat'] as const)(
+      '%s: paints exactly the hex under the click',
+      (gridType) => {
+        const onCommit = vi.fn()
+        const { getByTestId } = render(<Probe onCommit={onCommit} gridType={gridType} />)
+        const canvas = getByTestId('canvas')
 
-      const center =
-        gridType === 'hex-pointy' ? hexCenter(3, 4) : flatCenter(3, 4)
-      pointer(canvas, 'pointerdown', { clientX: center.x, clientY: center.y })
-      pointer(canvas, 'pointerup', { buttons: 0 })
+        const center = gridType === 'hex-pointy' ? hexCenter(3, 4) : flatCenter(3, 4)
+        pointer(canvas, 'pointerdown', { clientX: center.x, clientY: center.y })
+        pointer(canvas, 'pointerup', { buttons: 0 })
 
-      expect(onCommit).toHaveBeenCalledTimes(1)
-      const command = onCommit.mock.calls[0][0] as Command
-      expect(command.kind).toBe('setTiles')
-      if (command.kind === 'setTiles') {
-        expect(command.updates).toEqual([{ x: 3, y: 4, tile: FLOOR }])
-      }
-    })
+        expect(onCommit).toHaveBeenCalledTimes(1)
+        const command = onCommit.mock.calls[0][0] as Command
+        expect(command.kind).toBe('setTiles')
+        if (command.kind === 'setTiles') {
+          expect(command.updates).toEqual([{ x: 3, y: 4, tile: FLOOR }])
+        }
+      },
+    )
 
     it.each(['hex-pointy', 'hex-flat'] as const)(
       '%s: drag collects the hexes under the stroke path',

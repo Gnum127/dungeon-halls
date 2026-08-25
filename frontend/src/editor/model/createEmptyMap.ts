@@ -24,5 +24,7 @@ export function createEmptyMap(
     height,
     tiles: new Uint8Array(width * height).fill(EMPTY_TILE),
     objects: [],
+    walls: [],
+    doors: [],
   }
 }

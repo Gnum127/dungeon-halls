@@ -312,7 +312,7 @@ RNG → данж → команда замены → пещеры → UI → п�
 - **Хоткеи новых инструментов**: W — стены, D — двери, L — свет (guard
   isEditableTarget уже есть; покрыть тестом по образцу сида генератора).
 
-- [ ] 5.1 Модель v3: `MapModel { …, walls, doors }`; типы WallEdge/Door;
+- [x] 5.1 Модель v3: `MapModel { …, walls, doors }`; типы WallEdge/Door;
       нормализация и дедупликация рёбер (model/walls.ts), включая края
       поля (E последней колонки / S последнего ряда — как есть, без соседа);
       пакетная setWalls + одиночные toggleWall/addDoor/removeDoor/setDoorOpen;

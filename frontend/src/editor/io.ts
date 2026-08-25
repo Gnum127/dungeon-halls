@@ -2,6 +2,13 @@ import { isGridType } from '@/shared/tiles'
 import { isKnownKind } from './model/objects'
 import { MAP_VERSION, MAX_MAP_DIMENSION, TILE_TYPES } from './model/types'
 import type { MapModel, MapObject, TileValue } from './model/types'
+import {
+  edgeKey,
+  hasWall,
+  isCanonical,
+  isWallSide,
+} from './model/walls'
+import type { Door, WallEdge } from './model/walls'
 
 /** Ошибка разбора файла карты: сообщение понятно пользователю без стека. */
 export class MapLoadError extends Error {}
@@ -13,6 +20,8 @@ interface RawMapFile {
   height?: unknown
   tiles?: unknown
   objects?: unknown
+  walls?: unknown
+  doors?: unknown
 }
 
 function validateGridType(value: unknown): 'square' | 'hex-flat' | 'hex-pointy' {
@@ -52,6 +61,12 @@ export function serializeMap(model: MapModel): string {
     height: model.height,
     tiles: Array.from(model.tiles),
     objects: model.objects.map((object) => ({ ...object })),
+    walls: model.walls.map((wall) => ({ ...wall })),
+    doors: model.doors.map((door) => ({
+      id: door.id,
+      edge: { ...door.edge },
+      open: door.open,
+    })),
   })
 }
 
@@ -69,7 +84,7 @@ export function deserializeMap(json: string): MapModel {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     throw new MapLoadError('Map file must contain a JSON object')
   }
-  if (raw.version !== 1 && raw.version !== 2) {
+  if (raw.version !== 1 && raw.version !== 2 && raw.version !== 3) {
     throw new MapLoadError(
       `Unsupported map version: ${String(raw.version)}, supported: 1–${MAP_VERSION}`,
     )
@@ -115,6 +130,89 @@ export function deserializeMap(json: string): MapModel {
     objects.push({ id, kindId, x, y })
   }
 
+  // walls/doors появились в v3; старые версии мигрируют пустыми коллекциями.
+  let walls: WallEdge[] = []
+  let doors: Door[] = []
+  if (raw.version === 3) {
+    // Стены-рёбра определены только для квадратной сетки (MVP этапа 5);
+    // команды такую модель создать не позволяют — файл тоже отклоняем.
+    const hasWalls = Array.isArray(raw.walls) && raw.walls.length > 0
+    const hasDoors = Array.isArray(raw.doors) && raw.doors.length > 0
+    if (gridType !== 'square' && (hasWalls || hasDoors)) {
+      throw new MapLoadError('Walls and doors are only supported on square grids')
+    }
+    if (!Array.isArray(raw.walls)) {
+      throw new MapLoadError('walls must be an array')
+    }
+    const seenEdges = new Set<string>()
+    for (const candidate of raw.walls) {
+      if (typeof candidate !== 'object' || candidate === null) {
+        throw new MapLoadError('Every wall must be a JSON object')
+      }
+      const { x, y, side } = candidate as Record<string, unknown>
+      assertIntInRange(x, 'wall x', 0, width)
+      assertIntInRange(y, 'wall y', 0, height)
+      if (!isWallSide(side)) {
+        throw new MapLoadError(`Unknown wall side: ${String(side)}`)
+      }
+      const edge: WallEdge = { x, y, side }
+      if (!isCanonical(edge, width, height)) {
+        throw new MapLoadError(
+          `Non-canonical wall edge: ${x},${y},${side} (E/S must point at the last cell)`,
+        )
+      }
+      const key = edgeKey(edge)
+      if (seenEdges.has(key)) throw new MapLoadError(`Duplicate wall edge: ${key}`)
+      seenEdges.add(key)
+      walls.push(edge)
+    }
+
+    if (!Array.isArray(raw.doors)) {
+      throw new MapLoadError('doors must be an array')
+    }
+    const seenDoorIds = new Set<number>()
+    const seenDoorEdges = new Set<string>()
+    for (const candidate of raw.doors) {
+      if (typeof candidate !== 'object' || candidate === null) {
+        throw new MapLoadError('Every door must be a JSON object')
+      }
+      const { id, edge, open } = candidate as Record<string, unknown>
+      assertIntInRange(id, 'door id', 1, Number.MAX_SAFE_INTEGER)
+      if (seenDoorIds.has(id)) throw new MapLoadError(`Duplicate door id: ${id}`)
+      seenDoorIds.add(id)
+      if (typeof open !== 'boolean') {
+        throw new MapLoadError('Door open must be a boolean')
+      }
+      if (
+        typeof edge !== 'object' ||
+        edge === null ||
+        Array.isArray(edge)
+      ) {
+        throw new MapLoadError('Door edge must be a JSON object')
+      }
+      const { x, y, side } = edge as Record<string, unknown>
+      assertIntInRange(x, 'door edge x', 0, width)
+      assertIntInRange(y, 'door edge y', 0, height)
+      if (!isWallSide(side)) {
+        throw new MapLoadError(`Unknown door edge side: ${String(side)}`)
+      }
+      const doorEdge: WallEdge = { x, y, side }
+      if (!isCanonical(doorEdge, width, height)) {
+        throw new MapLoadError(`Non-canonical door edge: ${x},${y},${String(side)}`)
+      }
+      if (!hasWall(walls, doorEdge)) {
+        throw new MapLoadError('Every door must be placed on an existing wall')
+      }
+      const doorKey = edgeKey(doorEdge)
+      // Инвариант «одна дверь на ребро» — тот же, что гарантируют команды.
+      if (seenDoorEdges.has(doorKey)) {
+        throw new MapLoadError(`Duplicate door edge: ${doorKey}`)
+      }
+      seenDoorEdges.add(doorKey)
+      doors.push({ id, edge: doorEdge, open })
+    }
+  }
+
   return {
     version: MAP_VERSION,
     gridType,
@@ -122,5 +220,7 @@ export function deserializeMap(json: string): MapModel {
     height,
     tiles: Uint8Array.from(raw.tiles as TileValue[]),
     objects,
+    walls,
+    doors,
   }
 }

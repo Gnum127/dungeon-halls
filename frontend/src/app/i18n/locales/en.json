@@ -58,7 +58,8 @@
       "label": "Grid type",
       "square": "Square",
       "hexFlat": "Hex (flat-top)",
-      "hexPointy": "Hex (pointy-top)"
+      "hexPointy": "Hex (pointy-top)",
+      "changeLocked": "Remove walls and doors to switch the grid"
     },
     "generator": {
       "title": "Map generator",

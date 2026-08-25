@@ -114,6 +114,7 @@ export function EditorPage() {
         <RenderModePicker mode={renderMode} atlasStatus={atlasStatus} onChange={changeRenderMode} />
         <GridTypePicker
           gridType={model.gridType}
+          disabled={model.walls.length > 0 || model.doors.length > 0}
           onChange={(gridType) => store.dispatch({ kind: 'setGridType', gridType })}
         />
         <GeneratorPanel onGenerate={handleGenerate} gridDisabled={model.gridType !== 'square'} />

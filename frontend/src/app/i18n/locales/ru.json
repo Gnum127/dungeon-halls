@@ -58,7 +58,8 @@
       "label": "Тип сетки",
       "square": "Квадратная",
       "hexFlat": "Гекс (flat-top)",
-      "hexPointy": "Гекс (pointy-top)"
+      "hexPointy": "Гекс (pointy-top)",
+      "changeLocked": "Удалите стены и двери, чтобы сменить сетку"
     },
     "generator": {
       "title": "Генератор карт",

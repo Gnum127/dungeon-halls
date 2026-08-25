@@ -39,4 +39,24 @@ describe('GridTypePicker', () => {
     rerender(<GridTypePicker gridType="hex-flat" onChange={onChange} />)
     expect((screen.getByLabelText('Grid type') as HTMLSelectElement).value).toBe('hex-flat')
   })
+
+  // Пункт 5.4: при стенах/дверях смена сетки запрещена (рёбра square-сетки).
+  it('disables the select with a hint while walls or doors exist', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(
+      <GridTypePicker gridType="square" disabled onChange={onChange} />,
+    )
+
+    const select = screen.getByLabelText('Grid type') as HTMLSelectElement
+    expect(select).toBeDisabled()
+    expect(screen.getByRole('note')).toHaveTextContent(/Remove walls and doors/)
+
+    fireEvent.change(select, { target: { value: 'hex-pointy' } })
+    expect(onChange).not.toHaveBeenCalled()
+
+    // Возврат в разрешённое состояние снимает дизейбл и подсказку.
+    rerender(<GridTypePicker gridType="square" onChange={onChange} />)
+    expect(screen.getByLabelText('Grid type')).toBeEnabled()
+    expect(screen.queryByRole('note')).toBeNull()
+  })
 })

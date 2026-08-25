@@ -438,7 +438,7 @@ RNG → данж → команда замены → пещеры → UI → п�
   в MapModel НЕТ; добавлять его с миграцией MAP_VERSION ради печати не
   будем); страницы без сжатия сверх того, что даёт PNG.
 
-- [ ] 6.1 SVG-сериализатор: `editor/print/svg.ts` — buildSvg(model): чистая
+- [x] 6.1 SVG-сериализатор: `editor/print/svg.ts` — buildSvg(model): чистая
       функция → строка SVG (viewBox c min-x/min-y; слои в порядке renderMap:
       фон → тайлы → сетка → объекты → стены → двери; полигоны клеток через
       PathSink-адаптер над traceCellPolygon — square/hex-flat/hex-pointy;
@@ -450,6 +450,9 @@ RNG → данж → команда замены → пещеры → UI → п�
       всех трёх типов сетки (полигоны крайних гексов внутри viewBox),
       детерминизм (два вызова — байт в байт), пустая карта не падает,
       флаг includeLight (по умолчанию кругов нет, с флагом есть)
+      ПРИМЕЧАНИЕ: геометрия стен/дверей — реэкспорт wallSegment/doorRects
+      из renderMap.ts (единственный источник), толщина стены — константа
+      WALL_LINE_WIDTH в colors.ts; PathSink — структурный тип в gridGeometry.
 - [ ] 6.2 UI «Export SVG»: кнопка рядом с PNG/UVTT в MapFileActions
       (инъекция exportSvg для тестов — образец exportUvtt); ЧЕКБОКС
       «Печатать источники света» (общий для SVG и PDF, default off);

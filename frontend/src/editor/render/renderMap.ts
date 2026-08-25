@@ -14,9 +14,15 @@ import {
   OBJECT_OUTLINE_COLOR,
   TILE_COLORS,
   WALL_LINE_COLOR,
+  WALL_LINE_WIDTH,
 } from './colors'
 import { cellCenterAt, hexOrientationOf, traceCellPolygon, visibleCellRange } from './gridGeometry'
 import type { Viewport } from './viewport'
+
+export interface RenderMapOptions {
+  /** false = не рисовать свет (печать по чекбоксу); по умолчанию свет есть. */
+  readonly includeLight?: boolean
+}
 
 /**
  * Единственная точка рендера карты: чистая функция от модели и вьюпорта.
@@ -31,6 +37,7 @@ export function renderMap(
   model: MapModel,
   viewport: Viewport,
   sprites?: SpriteRenderContext,
+  options?: RenderMapOptions,
 ): void {
   const { width, height, cellSize, offsetX, offsetY } = viewport
 
@@ -162,7 +169,9 @@ export function renderMap(
     drawWalls(ctx, model, cellSize, offsetX, offsetY)
     drawDoors(ctx, model, cellSize, offsetX, offsetY)
   }
-  drawLights(ctx, model, viewport)
+  if (options?.includeLight !== false) {
+    drawLights(ctx, model, viewport)
+  }
 }
 
 /** Свечение (полупрозрачный круг) + маркер источника; поверх остального. */
@@ -185,6 +194,25 @@ function drawLights(ctx: CanvasRenderingContext2D, model: MapModel, viewport: Vi
   }
 }
 
+/**
+ * Сегмент стены в мировых координатах [x1, y1, x2, y2]; единственный источник
+ * геометрии ребра для canvas-рендера и SVG-печати.
+ */
+export function wallSegment(edge: WallEdge, cellSize: number): [number, number, number, number] {
+  const x = edge.x * cellSize
+  const y = edge.y * cellSize
+  switch (edge.side) {
+    case 'N':
+      return [x, y, x + cellSize, y]
+    case 'S':
+      return [x, y + cellSize, x + cellSize, y + cellSize]
+    case 'W':
+      return [x, y, x, y + cellSize]
+    default:
+      return [x + cellSize, y, x + cellSize, y + cellSize]
+  }
+}
+
 /** Линии стен поверх тайлов и объектов; экранная геометрия ребра. */
 function drawWalls(
   ctx: CanvasRenderingContext2D,
@@ -194,25 +222,13 @@ function drawWalls(
   offsetY: number,
 ): void {
   if (model.walls.length === 0) return
-  ctx.lineWidth = 3
+  ctx.lineWidth = WALL_LINE_WIDTH
   ctx.strokeStyle = WALL_LINE_COLOR
   ctx.beginPath()
   for (const wall of model.walls) {
-    const x = wall.x * cellSize - offsetX
-    const y = wall.y * cellSize - offsetY
-    if (wall.side === 'N') {
-      ctx.moveTo(x, y)
-      ctx.lineTo(x + cellSize, y)
-    } else if (wall.side === 'S') {
-      ctx.moveTo(x, y + cellSize)
-      ctx.lineTo(x + cellSize, y + cellSize)
-    } else if (wall.side === 'W') {
-      ctx.moveTo(x, y)
-      ctx.lineTo(x, y + cellSize)
-    } else {
-      ctx.moveTo(x + cellSize, y)
-      ctx.lineTo(x + cellSize, y + cellSize)
-    }
+    const [x1, y1, x2, y2] = wallSegment(wall, cellSize)
+    ctx.moveTo(x1 - offsetX, y1 - offsetY)
+    ctx.lineTo(x2 - offsetX, y2 - offsetY)
   }
   ctx.stroke()
 }
@@ -227,8 +243,9 @@ interface Rect {
 /**
  * Прямоугольники двери в мировых координатах. Закрытая — полотно по центру
  * ребра (60% длины); открытая — два коротких сегмента у концов (просвет).
+ * Экспортирована для SVG-печати: единственный источник геометрии двери.
  */
-function doorRects(edge: WallEdge, open: boolean, cellSize: number): Array<Rect> {
+export function doorRects(edge: WallEdge, open: boolean, cellSize: number): Array<Rect> {
   const horizontal = edge.side === 'N' || edge.side === 'S'
   const thickness = Math.max(4, Math.round(cellSize * 0.18))
   if (horizontal) {

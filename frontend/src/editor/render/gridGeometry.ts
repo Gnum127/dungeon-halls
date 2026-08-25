@@ -128,16 +128,27 @@ export function visibleCellRange(
   }
 }
 
+/**
+ * Приёмник команд пути: структурный минимум CanvasRenderingContext2D,
+ * который использует traceCellPolygon. Позволяет трассировать клетку
+ * в любой бэкенд (canvas, SVG-коллектор точек, path-d строку).
+ */
+export interface PathSink {
+  moveTo(x: number, y: number): void
+  lineTo(x: number, y: number): void
+  closePath(): void
+}
+
 /** Добавляет в текущий путь замкнутый контур клетки с центром (cx, cy). */
 export function traceCellPolygon(
-  ctx: CanvasRenderingContext2D,
+  sink: PathSink,
   cx: number,
   cy: number,
   corners: Array<[number, number]>,
 ): void {
-  ctx.moveTo(cx + corners[0][0], cy + corners[0][1])
+  sink.moveTo(cx + corners[0][0], cy + corners[0][1])
   for (let i = 1; i < corners.length; i += 1) {
-    ctx.lineTo(cx + corners[i][0], cy + corners[i][1])
+    sink.lineTo(cx + corners[i][0], cy + corners[i][1])
   }
-  ctx.closePath()
+  sink.closePath()
 }

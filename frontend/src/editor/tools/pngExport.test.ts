@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { applyCommand } from '../model/commands'
 import { createEmptyMap } from '../model/createEmptyMap'
-import { CANVAS_BACKGROUND_COLOR } from '../render/colors'
+import { CANVAS_BACKGROUND_COLOR, TILE_COLORS } from '../render/colors'
 import { mapPixelBounds } from '../render/gridGeometry'
 import { makeFakeCtx } from '../render/testFakeCtx'
-import { EXPORT_CELL_SIZE, exportMapToPng } from './pngExport'
+import { EXPORT_CELL_SIZE, exportMapToPng, renderToCanvas } from './pngExport'
 
 const FLOOR = 1
 
@@ -242,5 +242,150 @@ describe('exportMapToPng', () => {
     expect(draws).toHaveLength(1)
     expect(draws[0]?.args[0]).toBe(floorSprite)
     expect(calls.filter((c) => c.op === 'arc')).toHaveLength(1)
+  })
+})
+
+describe('renderToCanvas page rendering', () => {
+  function stubCanvas() {
+    return stubCanvasRenderingContext()
+  }
+
+  function lightModel(): ReturnType<typeof createEmptyMap> {
+    return applyCommand(createEmptyMap(4, 4), {
+      kind: 'addLight',
+      x: 1,
+      y: 1,
+      radius: 2,
+      color: '#ffd682',
+    })
+  }
+
+  it('renders only the requested page with the matching offset', () => {
+    const { calls, created } = stubCanvas()
+    // Пол в клетке (2,2): однозначно связывает клетку карты с точкой страницы.
+    const model = applyCommand(createEmptyMap(4, 4), { kind: 'setTile', x: 2, y: 2, tile: FLOOR })
+
+    renderToCanvas(model, 64, undefined, {
+      page: { col: 1, row: 1, cols: 2, rows: 2 },
+    })
+
+    // Холст размером страницы, не карты.
+    expect(created[0]?.width).toBe(128)
+    expect(created[0]?.height).toBe(128)
+    const background = calls.find(
+      (c) => c.op === 'fillRect' && c.fillStyle === CANVAS_BACKGROUND_COLOR,
+    )
+    expect(background?.args).toEqual([0, 0, 128, 128])
+
+    // Клетка (2,2) карты рисуется в (64,64) страницы: смещение col/row × cellSize.
+    // При нулевом смещении пол оказался бы за холстом (128,128).
+    const floorFill = calls.find((c) => c.op === 'fillRect' && c.fillStyle === TILE_COLORS.floor)
+    expect(floorFill?.args).toEqual([64, 64, 64, 64])
+  })
+
+  it('clips cells outside the page: only page cells intersect the canvas', () => {
+    const { calls } = stubCanvas()
+    const s = 64
+    // Пол внутри страницы ((3,4)) и вне её ((0,0)): снаружи не рисуется.
+    let model = applyCommand(createEmptyMap(6, 6), { kind: 'setTile', x: 3, y: 4, tile: FLOOR })
+    model = applyCommand(model, { kind: 'setTile', x: 0, y: 0, tile: FLOOR })
+    renderToCanvas(model, s, undefined, {
+      page: { col: 2, row: 3, cols: 2, rows: 2 },
+    })
+
+    const floorFills = calls.filter((c) => c.op === 'fillRect' && c.fillStyle === TILE_COLORS.floor)
+    // Ровно одна заливка пола, в позиции клетки (3,4) на странице: (64,64).
+    expect(floorFills).toHaveLength(1)
+    expect(floorFills[0]?.args).toEqual([s, s, s, s])
+  })
+
+  it('lets a small page render from a map that exceeds full-canvas limits', () => {
+    stubCanvas()
+    // Полная карта 200×200×64px превышает лимиты; страница 2×2 — нет.
+    expect(() => renderToCanvas(createEmptyMap(200, 200))).toThrow(/exceeds canvas limits/)
+    expect(() =>
+      renderToCanvas(createEmptyMap(200, 200), 64, undefined, {
+        page: { col: 100, row: 100, cols: 2, rows: 2 },
+      }),
+    ).not.toThrow()
+  })
+
+  it('skips lights when includeLight is false', () => {
+    const { calls } = stubCanvas()
+    renderToCanvas(lightModel(), 64, undefined, { includeLight: false })
+    expect(calls.some((c) => c.op === 'arc')).toBe(false)
+  })
+
+  it('keeps lights by default', () => {
+    const fullRender = stubCanvas()
+    renderToCanvas(lightModel(), 64)
+    expect(fullRender.calls.some((c) => c.op === 'arc')).toBe(true)
+  })
+
+  it('keeps lights on a page with includeLight true', () => {
+    const pageRender = stubCanvas()
+    renderToCanvas(lightModel(), 64, undefined, {
+      page: { col: 0, row: 0, cols: 2, rows: 2 },
+      includeLight: true,
+    })
+    expect(pageRender.calls.some((c) => c.op === 'arc')).toBe(true)
+  })
+
+  it('gives an incomplete last page full page size with margins', () => {
+    const { calls, created } = stubCanvas()
+    // Карта 5×3, страница 2×2: последняя колонка/ряд — поля, не уменьшение
+    // холста (иначе страницы растянутся до разного масштаба при печати).
+    renderToCanvas(createEmptyMap(5, 3), 64, undefined, {
+      page: { col: 4, row: 2, cols: 1, rows: 1 },
+      pageSize: { cols: 2, rows: 2 },
+    })
+    expect(created[0]?.width).toBe(128)
+    expect(created[0]?.height).toBe(128)
+    const background = calls.find(
+      (c) => c.op === 'fillRect' && c.fillStyle === CANVAS_BACKGROUND_COLOR,
+    )
+    expect(background?.args).toEqual([0, 0, 128, 128])
+    // Единственная клетка карты — в левом верхнем углу листа.
+    const tileFill = calls.find((c) => c.op === 'fillRect' && c.fillStyle === TILE_COLORS.empty)
+    expect(tileFill?.args[0]).toBe(0)
+    expect(tileFill?.args[1]).toBe(0)
+  })
+
+  it('rejects invalid page windows', () => {
+    stubCanvas()
+    const model = createEmptyMap(4, 4)
+    expect(() =>
+      renderToCanvas(model, 64, undefined, { page: { col: -1, row: 0, cols: 2, rows: 2 } }),
+    ).toThrow(RangeError)
+    expect(() =>
+      renderToCanvas(model, 64, undefined, { page: { col: 0, row: 0, cols: 0, rows: 2 } }),
+    ).toThrow(RangeError)
+  })
+
+  it('rejects invalid or undersized pageSize', () => {
+    stubCanvas()
+    const model = createEmptyMap(4, 4)
+    expect(() =>
+      renderToCanvas(model, 64, undefined, {
+        page: { col: 0, row: 0, cols: 2, rows: 2 },
+        pageSize: { cols: -1, rows: 2 },
+      }),
+    ).toThrow(RangeError)
+    // Страница меньше окна клеток молча обрезала бы контент.
+    expect(() =>
+      renderToCanvas(model, 64, undefined, {
+        page: { col: 0, row: 0, cols: 3, rows: 3 },
+        pageSize: { cols: 2, rows: 2 },
+      }),
+    ).toThrow(/smaller than the page window/)
+  })
+
+  it('rejects paged rendering of non-square grids', () => {
+    stubCanvas()
+    expect(() =>
+      renderToCanvas(createEmptyMap(4, 4, 'hex-pointy'), 64, undefined, {
+        page: { col: 0, row: 0, cols: 2, rows: 2 },
+      }),
+    ).toThrow(/square grids only/)
   })
 })

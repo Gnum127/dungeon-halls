@@ -106,6 +106,7 @@ export function EditorPage() {
         <GeneratorPanel onGenerate={handleGenerate} gridDisabled={model.gridType !== 'square'} />
         <MapFileActions
           getModel={() => store.getModel()}
+          sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
           onLoaded={(model) => store.reset(model)}
           onResult={setFileStatus}
         />

@@ -66,7 +66,8 @@ describe('MapFileActions', () => {
 
     await waitFor(() => expect(download).toHaveBeenCalledTimes(1))
     expect(exportPng).toHaveBeenCalledTimes(1)
-    expect(exportPng).toHaveBeenCalledWith(store.getModel())
+    // Без атласа вторым аргументом приходит undefined (экспорт цветами).
+    expect(exportPng).toHaveBeenCalledWith(store.getModel(), undefined)
     const [filename, blob, mime] = download.mock.calls[0] as [string, Blob, string]
     expect(filename).toMatch(/\.png$/)
     expect(blob).toBe(fakeBlob)

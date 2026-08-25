@@ -3,6 +3,8 @@ import type { ChangeEvent as ReactChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { deserializeMap, serializeMap } from '../io'
 import { exportMapToPng } from '../tools/pngExport'
+import { EXPORT_CELL_SIZE } from '../tools/pngExport'
+import type { SpriteRenderContext } from '../render/sprites/loader'
 import type { MapModel } from '../model/types'
 import styles from './MapFileActions.module.css'
 
@@ -12,12 +14,14 @@ interface MapFileActionsProps {
   getModel: () => MapModel
   onLoaded: (model: MapModel) => void
   onResult: (status: FileActionStatus) => void
+  /** Атлас текущего режима; undefined/частичный = экспорт цветами. */
+  sprites?: SpriteRenderContext
   /** Инъекция для тестов: перехватывает браузерное скачивание. */
   download?: (filename: string, content: Blob | string, mime?: string) => void
   /** Инъекция для тестов: перехватывает чтение файла. */
   readJsonFile?: (file: File, onDone: (json: string) => void, onError: () => void) => void
   /** Инъекция для тестов: подменяет PNG-экспорт. */
-  exportPng?: (model: MapModel) => Promise<Blob>
+  exportPng?: (model: MapModel, sprites?: SpriteRenderContext) => Promise<Blob>
 }
 
 const MAP_FILENAME = 'dungeon-halls-map.json'
@@ -47,10 +51,11 @@ function defaultReadJsonFile(
 }
 
 export function MapFileActions(props: MapFileActionsProps) {
-  const { getModel, onLoaded, onResult } = props
+  const { getModel, onLoaded, onResult, sprites } = props
   const download = props.download ?? browserDownload
   const readFile = props.readJsonFile ?? defaultReadJsonFile
-  const exportPng = props.exportPng ?? exportMapToPng
+  const exportPng =
+    props.exportPng ?? ((model, sprites) => exportMapToPng(model, EXPORT_CELL_SIZE, sprites))
   const inputRef = useRef<HTMLInputElement | null>(null)
   const { t } = useTranslation()
 
@@ -62,7 +67,7 @@ export function MapFileActions(props: MapFileActionsProps) {
   function handleExportPng() {
     // Оборачиваем в Promise.resolve: инъекция может бросить синхронно.
     Promise.resolve()
-      .then(() => exportPng(getModel()))
+      .then(() => exportPng(getModel(), sprites))
       .then((blob) => {
         download(MAP_PNG_FILENAME, blob, 'image/png')
         onResult('exported')

@@ -83,6 +83,11 @@ npm run build      # сборка + проверка типов tsc
   `visibleCellRange` (запас 2 клетки, пустой диапазон за картой обязателен);
   полигоны трассировать только `traceCellPolygon` (с `closePath` — иначе
   stroke теряет ребро).
+- **Hex hit-test**: `screenToCell(viewport, x, y, gridType)` — hex-ветка
+  обязана зеркалить origin-нормировку `cellCenterAt` (сдвиг −(√3/2·s, s)
+  для pointy / −(s, √3/2·s) для flat); константы повторяются в трёх местах
+  (mapPixelBounds, cellCenterAt, screenToCell) и охраняются round-trip
+  тестом по всем клеткам и viewport'ам; `gridType` в deps `useCallback`.
 - **Известные ловушки vitest**: `fireEvent.pointercancel` отсутствует —
   собирать через `Object.assign(new Event('pointercancel'), {...})`.
 

@@ -150,24 +150,20 @@ describe('GeneratorPanel', () => {
   // задизейблены и показана подсказка.
   it('disables both generate buttons and hints when the grid is not square', () => {
     const onGenerate = vi.fn()
-    render(<GeneratorPanel onGenerate={onGenerate} gridDisabled />)
-
-    clickGenerate()
-    expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled()
-    const hint = screen.getByText('The generator supports square grids only')
-    expect(hint).toHaveAttribute('role', 'note')
-    expect(onGenerate).not.toHaveBeenCalled()
-  })
-
-  it('keeps the regenerate button clickable before disabling, blocks after', () => {
-    const onGenerate = vi.fn()
     const { rerender } = render(<GeneratorPanel onGenerate={onGenerate} />)
 
+    // Предусловие: lastParams существует → кнопка «Ещё раз» отрендерена.
     clickGenerate()
     expect(screen.getByRole('button', { name: 'Regenerate same seed' })).toBeEnabled()
+    expect(onGenerate).toHaveBeenCalledTimes(1)
 
     rerender(<GeneratorPanel onGenerate={onGenerate} gridDisabled />)
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Regenerate same seed' })).toBeDisabled()
+    const hint = screen.getByText('The generator supports square grids only')
+    expect(hint).toHaveAttribute('role', 'note')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate same seed' }))
     expect(onGenerate).toHaveBeenCalledTimes(1)
   })
 

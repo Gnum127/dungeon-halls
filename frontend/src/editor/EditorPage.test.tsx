@@ -55,6 +55,18 @@ describe('EditorPage', () => {
     expect(screen.queryByRole('note')).toBeNull()
   })
 
+  // Генерация была на square → переключились на гекс: «Ещё раз» тоже
+  // обязан задизейблиться (иначе повтор заменит гекс-документ квадратом).
+  it('regenerate button is disabled on hex grids after a square generation', () => {
+    render(<EditorPage />)
+
+    clickGenerate()
+    expect(screen.getByRole('button', { name: 'Regenerate same seed' })).toBeEnabled()
+
+    fireEvent.change(screen.getByLabelText('Grid type'), { target: { value: 'hex-flat' } })
+    expect(screen.getByRole('button', { name: 'Regenerate same seed' })).toBeDisabled()
+  })
+
   // Регрессия roadmap 2.7: stale id после генерации → removeObject бросал
   // RangeError внутри keydown. Теперь выделение сбрасывается при генерации.
   it('generate clears stale object selection: Delete does not throw', () => {

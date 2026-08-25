@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { GRID_TYPES } from '../model/types'
 import { GridTypePicker } from './GridTypePicker'
 
 describe('GridTypePicker', () => {
@@ -19,10 +20,23 @@ describe('GridTypePicker', () => {
     expect(onChange).toHaveBeenCalledWith('hex-pointy')
   })
 
-  it('offers every supported grid type', () => {
+  it('offers exactly the supported grid types as values', () => {
     render(<GridTypePicker gridType="square" onChange={vi.fn()} />)
 
-    const options = (screen.getByLabelText('Grid type') as HTMLSelectElement).options
-    expect(options).toHaveLength(3)
+    // Сравнение по values, а не по количеству: опечатка в value или потеря
+    // ориентации обязаны падать.
+    const values = [...(screen.getByLabelText('Grid type') as HTMLSelectElement).options].map(
+      (option) => option.value,
+    )
+    expect(values).toEqual([...GRID_TYPES])
+  })
+
+  it('follows the prop on rerender (controlled select)', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(<GridTypePicker gridType="square" onChange={onChange} />)
+
+    // Регрессия «select не следует за стором» (например, после undo).
+    rerender(<GridTypePicker gridType="hex-flat" onChange={onChange} />)
+    expect((screen.getByLabelText('Grid type') as HTMLSelectElement).value).toBe('hex-flat')
   })
 })

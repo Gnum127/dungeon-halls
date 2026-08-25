@@ -117,8 +117,8 @@ export function CanvasView({ store, tool, selectedObjectId, onSelectObject }: Ca
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     renderMap(ctx, model, viewport)
-    drawStrokePreview(ctx, pendingCells, viewport, brushTile)
-    if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport)
+    drawStrokePreview(ctx, pendingCells, viewport, brushTile, model.gridType)
+    if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport, model.gridType)
   }, [model, viewport, dpr, pendingCells, brushTile, hoverCell])
 
   const pointerHandlers = useMemo(

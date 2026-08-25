@@ -1,4 +1,5 @@
 import { renderMap } from '../render/renderMap'
+import { mapPixelBounds } from '../render/gridGeometry'
 import type { MapModel } from '../model/types'
 
 /** 1 клетка = 64px: печатный масштаб, независимый от экранного зума. */
@@ -12,8 +13,12 @@ const MAX_EXPORT_AREA = 134_217_728
  * что и на экране. Сетка сохраняется для печати.
  */
 export function exportMapToPng(model: MapModel, cellSize = EXPORT_CELL_SIZE): Promise<Blob> {
-  const width = model.width * cellSize
-  const height = model.height * cellSize
+  // Габариты от геометрии сетки: у гексов холст шире/выше w·cellSize,
+  // иначе крайние клетки молча обрезаются. canvas.width/height — целые
+  // (дробная часть отбрасывается браузером), поэтому округляем вверх.
+  const bounds = mapPixelBounds(model.width, model.height, model.gridType, cellSize)
+  const width = Math.ceil(bounds.width)
+  const height = Math.ceil(bounds.height)
   // Большие canvas браузеры молча не растеризуют — отказываем заранее с причиной.
   if (width > MAX_EXPORT_SIDE || height > MAX_EXPORT_SIDE || width * height > MAX_EXPORT_AREA) {
     return Promise.reject(new Error(`Export size ${width}x${height} exceeds canvas limits`))
@@ -29,6 +34,7 @@ export function exportMapToPng(model: MapModel, cellSize = EXPORT_CELL_SIZE): Pr
   }
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
+  // Координаты клеток (cellCenterAt) уже нормализованы к [0..bounds].
   renderMap(ctx, model, {
     width,
     height,

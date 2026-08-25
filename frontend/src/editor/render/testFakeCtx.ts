@@ -10,6 +10,7 @@ export interface FakeCtx {
   beginPath(): void
   arc(...args: unknown[]): void
   fill(): void
+  closePath(): void
   moveTo(...args: unknown[]): void
   lineTo(...args: unknown[]): void
   stroke(): void
@@ -44,6 +45,9 @@ export function makeFakeCtx(
     },
     fill() {
       calls.push({ op: 'fill', args: [], fillStyle: this.fillStyle })
+    },
+    closePath() {
+      calls.push({ op: 'closePath', args: [], fillStyle: this.fillStyle })
     },
     moveTo(...args: unknown[]) {
       calls.push({ op: 'moveTo', args, fillStyle: this.fillStyle })

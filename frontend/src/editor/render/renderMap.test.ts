@@ -11,6 +11,8 @@ import {
   TILE_COLORS,
 } from './colors'
 import { renderMap } from './renderMap'
+import { cellCenterAt, mapPixelBounds, visibleCellRange } from './gridGeometry'
+import { cellCorners } from '@/shared/hex'
 import { makeFakeCtx } from './testFakeCtx'
 import type { Viewport } from './viewport'
 
@@ -148,4 +150,163 @@ describe('renderMap', () => {
     const fillAfterArc = calls.slice(arcIndex).find((c) => c.op === 'fill')
     expect(fillAfterArc?.fillStyle).toBe(FALLBACK_OBJECT_COLOR)
   })
+})
+
+describe('renderMap (hex)', () => {
+  const SIZE = 32
+
+  function hexViewport(gridType: 'hex-pointy' | 'hex-flat', cols: number, rows: number): Viewport {
+    const bounds = mapPixelBounds(cols, rows, gridType, SIZE)
+    return { width: bounds.width, height: bounds.height, cellSize: SIZE, offsetX: 0, offsetY: 0 }
+  }
+
+  function makeHexModel(gridType: 'hex-pointy' | 'hex-flat'): MapModel {
+    return applyCommand(createEmptyMap(3, 3, gridType), {
+      kind: 'setTile',
+      x: 1,
+      y: 1,
+      tile: FLOOR,
+    })
+  }
+
+  it.each(['hex-pointy', 'hex-flat'] as const)(
+    '%s: fills one polygon per cell and strokes edges in one path',
+    (gridType) => {
+      const { ctx, calls } = makeFakeCtx()
+      renderMap(ctx, makeHexModel(gridType), hexViewport(gridType, 3, 3))
+
+      const fills = calls.filter((c) => c.op === 'fill')
+      expect(fills).toHaveLength(9)
+      // 9 клеток заливки + один общий путь рёбер сетки.
+      expect(calls.filter((c) => c.op === 'beginPath')).toHaveLength(10)
+      const edgeStroke = calls.filter((c) => c.op === 'stroke')
+      expect(edgeStroke.length).toBeGreaterThanOrEqual(1)
+      expect(edgeStroke[0]?.fillStyle).toBe(GRID_LINE_COLOR)
+    },
+  )
+
+  it('paints the painted hex with the palette color', () => {
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeHexModel('hex-pointy'), hexViewport('hex-pointy', 3, 3))
+
+    const floorFills = calls.filter((c) => c.op === 'fill' && c.fillStyle === TILE_COLORS.floor)
+    expect(floorFills).toHaveLength(1)
+  })
+
+  it('draws an object at the hex center of its cell', () => {
+    const { ctx, calls } = makeFakeCtx()
+    let model = createEmptyMap(3, 3, 'hex-pointy')
+    model = applyCommand(model, { kind: 'addObject', x: 1, y: 1, kindId: 'door' })
+
+    const viewport = hexViewport('hex-pointy', 3, 3)
+    renderMap(ctx, model, viewport)
+
+    const arcs = calls.filter((c) => c.op === 'arc')
+    expect(arcs).toHaveLength(1)
+    const center = cellCenterAt(1, 1, 'hex-pointy', SIZE)
+    expect(arcs[0]?.args[0]).toBeCloseTo(center.x, 6)
+    expect(arcs[0]?.args[1]).toBeCloseTo(center.y, 6)
+  })
+
+  it.each([
+    ['hex-pointy', 32],
+    ['hex-flat', 64],
+  ] as const)('%s @%ipx: culls hex cells fully outside the viewport', (gridType, size) => {
+    const { ctx, calls } = makeFakeCtx()
+    const far: Viewport = {
+      width: 96,
+      height: 96,
+      cellSize: size,
+      offsetX: 100000,
+      offsetY: 100000,
+    }
+    renderMap(ctx, createEmptyMap(20, 20, gridType), far)
+
+    expect(calls.filter((c) => c.op === 'fill')).toHaveLength(0)
+    // Рёбра тоже не рисуются: путь остаётся пустым.
+    expect(calls.filter((c) => c.op === 'moveTo')).toHaveLength(0)
+  })
+
+  it.each(['hex-pointy', 'hex-flat'] as const)(
+    '%s: empty when the viewport is fully before the map',
+    (gridType) => {
+      const { ctx, calls } = makeFakeCtx()
+      renderMap(ctx, createEmptyMap(10, 10, gridType), {
+        width: 96,
+        height: 96,
+        cellSize: SIZE,
+        offsetX: -50000,
+        offsetY: -50000,
+      })
+
+      expect(calls.filter((c) => c.op === 'fill')).toHaveLength(0)
+      expect(calls.filter((c) => c.op === 'moveTo')).toHaveLength(0)
+    },
+  )
+
+  it.each(['hex-pointy', 'hex-flat'] as const)(
+    '%s: renders only the visible window of a large hex map',
+    (gridType) => {
+      const { ctx, calls } = makeFakeCtx()
+      const viewport: Viewport = {
+        width: 320,
+        height: 240,
+        cellSize: SIZE,
+        offsetX: 100,
+        offsetY: 60,
+      }
+      renderMap(ctx, createEmptyMap(40, 40, gridType), viewport)
+
+      // Независимый брутфорс: клетка видима, если её полигон пересекает
+      // вьюпорт (пересечение по ограничивающему прямоугольнику клетки).
+      const orientation = gridType === 'hex-pointy' ? 'pointy' : 'flat'
+      const corners = cellCorners(orientation, SIZE)
+      let bruteForce = 0
+      for (let row = 0; row < 40; row += 1) {
+        for (let col = 0; col < 40; col += 1) {
+          const center = cellCenterAt(col, row, gridType, SIZE)
+          const xs = corners.map(([cx]) => center.x - viewport.offsetX + cx)
+          const ys = corners.map(([, cy]) => center.y - viewport.offsetY + cy)
+          if (
+            Math.max(...xs) >= 0 &&
+            Math.min(...xs) <= viewport.width &&
+            Math.max(...ys) >= 0 &&
+            Math.min(...ys) <= viewport.height
+          ) {
+            bruteForce += 1
+          }
+        }
+      }
+
+      // Culling дискриминируем в обе стороны: не рисуем меньше видимых клеток
+      // (нижняя граница — брутфорс пересечений) и не рисуем карту целиком
+      // (верхняя граница — площадь консервативного диапазона).
+      const fills = calls.filter((c) => c.op === 'fill')
+      const range = visibleCellRange(viewport, 40, 40, gridType)
+      const maxDraw = (range.lastCol - range.firstCol + 1) * (range.lastRow - range.firstRow + 1)
+      expect(fills.length).toBeGreaterThanOrEqual(bruteForce)
+      expect(fills.length).toBeLessThanOrEqual(maxDraw)
+      expect(maxDraw).toBeLessThan(200)
+    },
+  )
+
+  it.each(['hex-pointy', 'hex-flat'] as const)(
+    '%s: keeps every corner of visible cells inside export-sized canvas',
+    (gridType) => {
+      const { ctx, calls } = makeFakeCtx()
+      const cols = 5
+      const rows = 4
+      const bounds = mapPixelBounds(cols, rows, gridType, SIZE)
+      const viewport = hexViewport(gridType, cols, rows)
+      renderMap(ctx, createEmptyMap(cols, rows, gridType), viewport)
+
+      for (const call of calls.filter((c) => c.op === 'moveTo' || c.op === 'lineTo')) {
+        const [x, y] = call.args as [number, number]
+        expect(x).toBeGreaterThanOrEqual(-1e-9)
+        expect(y).toBeGreaterThanOrEqual(-1e-9)
+        expect(x).toBeLessThanOrEqual(bounds.width + 1e-9)
+        expect(y).toBeLessThanOrEqual(bounds.height + 1e-9)
+      }
+    },
+  )
 })

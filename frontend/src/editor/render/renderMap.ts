@@ -1,6 +1,7 @@
 import { isKnownKind, OBJECT_COLORS } from '../model/objects'
 import { TILE_TYPES } from '../model/types'
 import type { MapModel } from '../model/types'
+import { cellCorners } from '@/shared/hex'
 import {
   CANVAS_BACKGROUND_COLOR,
   FALLBACK_OBJECT_COLOR,
@@ -8,6 +9,7 @@ import {
   OBJECT_OUTLINE_COLOR,
   TILE_COLORS,
 } from './colors'
+import { cellCenterAt, hexOrientationOf, traceCellPolygon, visibleCellRange } from './gridGeometry'
 import type { Viewport } from './viewport'
 
 /**
@@ -27,40 +29,69 @@ export function renderMap(
   ctx.fillStyle = CANVAS_BACKGROUND_COLOR
   ctx.fillRect(0, 0, width, height)
 
-  const firstCol = Math.max(0, Math.floor(offsetX / cellSize))
-  const firstRow = Math.max(0, Math.floor(offsetY / cellSize))
-  const lastCol = Math.min(model.width - 1, Math.floor((offsetX + width) / cellSize))
-  const lastRow = Math.min(model.height - 1, Math.floor((offsetY + height) / cellSize))
+  const orientation = hexOrientationOf(model.gridType)
+  if (orientation === null) {
+    // Квадратная ветка: заливка/линии зафиксированы тестами, менять нельзя.
+    // Culling общий с hex через visibleCellRange (формулы идентичны прежним).
+    const range = visibleCellRange(viewport, model.width, model.height, model.gridType)
 
-  for (let row = firstRow; row <= lastRow; row += 1) {
-    for (let col = firstCol; col <= lastCol; col += 1) {
-      const tileIndex = model.tiles[row * model.width + col]
-      // Fallback на случай битых значений из будущих загруженных файлов.
-      const typeName = TILE_TYPES[tileIndex] ?? 'empty'
-      ctx.fillStyle = TILE_COLORS[typeName]
-      ctx.fillRect(col * cellSize - offsetX, row * cellSize - offsetY, cellSize, cellSize)
+    for (let row = range.firstRow; row <= range.lastRow; row += 1) {
+      for (let col = range.firstCol; col <= range.lastCol; col += 1) {
+        const tileIndex = model.tiles[row * model.width + col]
+        // Fallback на случай битых значений из будущих загруженных файлов.
+        const typeName = TILE_TYPES[tileIndex] ?? 'empty'
+        ctx.fillStyle = TILE_COLORS[typeName]
+        ctx.fillRect(col * cellSize - offsetX, row * cellSize - offsetY, cellSize, cellSize)
+      }
     }
-  }
 
-  ctx.strokeStyle = GRID_LINE_COLOR
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  for (let col = firstCol; col <= lastCol + 1; col += 1) {
-    const x = Math.floor(col * cellSize - offsetX) + 0.5
-    ctx.moveTo(x, Math.max(0, -offsetY))
-    ctx.lineTo(x, Math.min(height, model.height * cellSize - offsetY))
+    ctx.strokeStyle = GRID_LINE_COLOR
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    for (let col = range.firstCol; col <= range.lastCol + 1; col += 1) {
+      const x = Math.floor(col * cellSize - offsetX) + 0.5
+      ctx.moveTo(x, Math.max(0, -offsetY))
+      ctx.lineTo(x, Math.min(height, model.height * cellSize - offsetY))
+    }
+    for (let row = range.firstRow; row <= range.lastRow + 1; row += 1) {
+      const y = Math.floor(row * cellSize - offsetY) + 0.5
+      ctx.moveTo(Math.max(0, -offsetX), y)
+      ctx.lineTo(Math.min(width, model.width * cellSize - offsetX), y)
+    }
+    ctx.stroke()
+  } else {
+    const corners = cellCorners(orientation, cellSize)
+    const range = visibleCellRange(viewport, model.width, model.height, model.gridType)
+
+    for (let row = range.firstRow; row <= range.lastRow; row += 1) {
+      for (let col = range.firstCol; col <= range.lastCol; col += 1) {
+        const tileIndex = model.tiles[row * model.width + col]
+        const typeName = TILE_TYPES[tileIndex] ?? 'empty'
+        const center = cellCenterAt(col, row, model.gridType, cellSize)
+        ctx.fillStyle = TILE_COLORS[typeName]
+        ctx.beginPath()
+        traceCellPolygon(ctx, center.x - offsetX, center.y - offsetY, corners)
+        ctx.fill()
+      }
+    }
+
+    ctx.strokeStyle = GRID_LINE_COLOR
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    for (let row = range.firstRow; row <= range.lastRow; row += 1) {
+      for (let col = range.firstCol; col <= range.lastCol; col += 1) {
+        const center = cellCenterAt(col, row, model.gridType, cellSize)
+        traceCellPolygon(ctx, center.x - offsetX, center.y - offsetY, corners)
+      }
+    }
+    ctx.stroke()
   }
-  for (let row = firstRow; row <= lastRow + 1; row += 1) {
-    const y = Math.floor(row * cellSize - offsetY) + 0.5
-    ctx.moveTo(Math.max(0, -offsetX), y)
-    ctx.lineTo(Math.min(width, model.width * cellSize - offsetX), y)
-  }
-  ctx.stroke()
 
   // Объекты рисуются в порядке массива: верхний — последним.
   for (const object of model.objects) {
-    const cx = object.x * cellSize - offsetX + cellSize / 2
-    const cy = object.y * cellSize - offsetY + cellSize / 2
+    const center = cellCenterAt(object.x, object.y, model.gridType, cellSize)
+    const cx = center.x - offsetX
+    const cy = center.y - offsetY
     if (cx < -cellSize || cx > width + cellSize || cy < -cellSize || cy > height + cellSize) {
       continue
     }

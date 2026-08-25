@@ -130,7 +130,7 @@ RNG → данж → команда замены → пещеры → UI → п�
       cube-round), cellCenter, cellCorners; конверсии offset↔axial
       (odd-r для pointy, odd-q для flat — зафиксировать); property-тест
       round-trip по всем клеткам тестовой карты + known-answer точки
-- [ ] 3.3 Рендер и границы: renderMap рисует полигоны клеток по geometry
+- [x] 3.3 Рендер и границы: renderMap рисует полигоны клеток по geometry
       (вместо прямоугольной ветки), culling видимости через hex-bounds,
       позиционирование объектов через cellCenter; strokePreview и
       cellHighlight переходят на polygon клетки; **pngExport переводится на

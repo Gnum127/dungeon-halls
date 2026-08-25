@@ -76,6 +76,13 @@ npm run build      # сборка + проверка типов tsc
   конкретную регрессию, см. stale-id тест EditorPage); стабы jsdom
   (ResizeObserver, matchMedia) живут в `src/test/setup.ts`; язык i18n в
   тестах зафиксирован en там же.
+- **Hex-геометрия рендера**: мировые координаты клеток — только через
+  `editor/render/gridGeometry.ts` (`cellCenterAt` нормализована к [0..bounds],
+  origin-сдвиг гексов зашит внутрь); размеры холстов/лимиты — из
+  `mapPixelBounds` с `Math.ceil` (canvas.width целочисленный); culling —
+  `visibleCellRange` (запас 2 клетки, пустой диапазон за картой обязателен);
+  полигоны трассировать только `traceCellPolygon` (с `closePath` — иначе
+  stroke теряет ребро).
 - **Известные ловушки vitest**: `fireEvent.pointercancel` отсутствует —
   собирать через `Object.assign(new Event('pointercancel'), {...})`.
 

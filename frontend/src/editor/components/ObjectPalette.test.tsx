@@ -3,16 +3,19 @@ import { describe, expect, it, vi } from 'vitest'
 import { OBJECT_KIND_ENTRIES } from '../model/objects'
 import { ObjectPalette } from './ObjectPalette'
 
+const defaultProps = {
+  activeKindId: null as null,
+  selectActive: false,
+  onSelectKind: vi.fn(),
+  onSelectSelectTool: vi.fn(),
+  objectRotation: 0 as const,
+  objectScale: { w: 1, h: 1 },
+  onRotate: vi.fn(),
+}
+
 describe('ObjectPalette', () => {
   it('renders category headers and swatches for every object kind', () => {
-    render(
-      <ObjectPalette
-        activeKindId={null}
-        selectActive
-        onSelectKind={vi.fn()}
-        onSelectSelectTool={vi.fn()}
-      />,
-    )
+    render(<ObjectPalette {...defaultProps} selectActive />)
 
     // Category headers
     expect(screen.getByText('Structural')).toBeInTheDocument()
@@ -26,28 +29,14 @@ describe('ObjectPalette', () => {
   })
 
   it('shows scale badge for multi-cell objects', () => {
-    render(
-      <ObjectPalette
-        activeKindId={null}
-        selectActive={false}
-        onSelectKind={vi.fn()}
-        onSelectSelectTool={vi.fn()}
-      />,
-    )
+    render(<ObjectPalette {...defaultProps} />)
 
     expect(screen.getByText('2×1')).toBeInTheDocument() // table
     expect(screen.getByText('2×2')).toBeInTheDocument() // rock
   })
 
   it('filters objects by search', () => {
-    render(
-      <ObjectPalette
-        activeKindId={null}
-        selectActive={false}
-        onSelectKind={vi.fn()}
-        onSelectSelectTool={vi.fn()}
-      />,
-    )
+    render(<ObjectPalette {...defaultProps} />)
 
     fireEvent.change(screen.getByPlaceholderText('Search...'), { target: { value: 'door' } })
     expect(screen.getByTitle('Door')).toBeInTheDocument()
@@ -55,18 +44,18 @@ describe('ObjectPalette', () => {
   })
 
   it('marks the active kind and the select tool with aria-pressed', () => {
-    render(
-      <ObjectPalette
-        activeKindId="chest"
-        selectActive={false}
-        onSelectKind={vi.fn()}
-        onSelectSelectTool={vi.fn()}
-      />,
-    )
+    render(<ObjectPalette {...defaultProps} activeKindId="chest" />)
 
     expect(screen.getByTitle('Chest')).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTitle('Door')).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByText('Select (Del to remove)')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('shows rotation bar when an object kind is active', () => {
+    render(<ObjectPalette {...defaultProps} activeKindId="door" objectRotation={90} />)
+
+    expect(screen.getByText('90°')).toBeInTheDocument()
+    expect(screen.getByTitle('Rotate (R)')).toBeInTheDocument()
   })
 
   it('reports the clicked kind id and select tool activation', () => {
@@ -74,7 +63,7 @@ describe('ObjectPalette', () => {
     const onSelectSelectTool = vi.fn()
     render(
       <ObjectPalette
-        activeKindId={null}
+        {...defaultProps}
         selectActive
         onSelectKind={onSelectKind}
         onSelectSelectTool={onSelectSelectTool}

@@ -67,7 +67,14 @@ export function useObjectTools(options: ObjectToolsOptions): {
     if (tool.type === 'object') {
       event.preventDefault()
       if (!isCellFree(model, cell.x, cell.y)) return
-      store.dispatch({ kind: 'addObject', x: cell.x, y: cell.y, kindId: tool.kindId })
+      store.dispatch({
+        kind: 'addObject',
+        x: cell.x,
+        y: cell.y,
+        kindId: tool.kindId,
+        rotation: tool.rotation,
+        scale: tool.scale,
+      })
       return
     }
 

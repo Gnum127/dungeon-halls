@@ -42,7 +42,7 @@ function Probe({ store, tool, selectedId, onSelect }: ProbeProps) {
 
 const TERRAIN_TOOL: EditorTool = { type: 'terrain', tile: 1 }
 const SELECT_TOOL: EditorTool = { type: 'select' }
-const DOOR_TOOL: EditorTool = { type: 'object', kindId: 'door' }
+const DOOR_TOOL: EditorTool = { type: 'object', kindId: 'door', rotation: 0, scale: { w: 1, h: 1 } }
 
 function leftPointer(
   target: Element,

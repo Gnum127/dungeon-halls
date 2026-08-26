@@ -23,6 +23,8 @@ function makeOptions() {
     onSelectWalls: vi.fn(),
     onSelectDoors: vi.fn(),
     onSelectLights: vi.fn(),
+    onSelectObjectKind: vi.fn(),
+    onRotateObject: vi.fn(),
   }
 }
 

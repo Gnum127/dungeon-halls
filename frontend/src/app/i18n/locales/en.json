@@ -56,7 +56,8 @@
       "barrel": "Barrel",
       "torch": "Torch",
       "bush": "Bush",
-      "rock": "Rock"
+      "rock": "Rock",
+      "rotate": "Rotate (R)"
     },
     "files": {
       "save": "Save",

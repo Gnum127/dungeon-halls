@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ObjectCategory, ObjectKindEntry, ObjectKindId } from '../model/objects'
+import type { ObjectRotation, ObjectScale } from '../model/types'
 import { OBJECT_KIND_ENTRIES } from '../model/objects'
 import styles from './ObjectPalette.module.css'
 
@@ -18,6 +19,9 @@ interface ObjectPaletteProps {
   selectActive: boolean
   onSelectKind: (kindId: ObjectKindId) => void
   onSelectSelectTool: () => void
+  objectRotation: ObjectRotation
+  objectScale: ObjectScale
+  onRotate: () => void
 }
 
 export function ObjectPalette({
@@ -25,6 +29,9 @@ export function ObjectPalette({
   selectActive,
   onSelectKind,
   onSelectSelectTool,
+  objectRotation,
+  objectScale,
+  onRotate,
 }: ObjectPaletteProps) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
@@ -40,6 +47,8 @@ export function ObjectPalette({
     }
     return map
   }, [search, t])
+
+  const isActive = activeKindId !== null
 
   return (
     <div className={styles.palette}>
@@ -60,6 +69,24 @@ export function ObjectPalette({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
+      {isActive && (
+        <div className={styles.rotationBar}>
+          <span className={styles.rotationLabel}>{objectRotation}°</span>
+          <button
+            type="button"
+            className={styles.rotateButton}
+            onClick={onRotate}
+            title={t('editor.objects.rotate')}
+          >
+            ↻
+          </button>
+          {(objectScale.w !== 1 || objectScale.h !== 1) && (
+            <span className={styles.scaleBadge}>
+              {objectScale.w}×{objectScale.h}
+            </span>
+          )}
+        </div>
+      )}
       {CATEGORY_ORDER.map((cat) => {
         const kinds = filteredByCategory.get(cat)
         if (!kinds || kinds.length === 0) return null

@@ -42,6 +42,12 @@
     "objects": {
       "label": "Objects",
       "select": "Select (Del to remove)",
+      "search": "Search...",
+      "categories": {
+        "structural": "Structural",
+        "furniture": "Furniture",
+        "dungeon": "Dungeon"
+      },
       "door": "Door",
       "stairs": "Stairs",
       "table": "Table",

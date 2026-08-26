@@ -42,6 +42,12 @@
     "objects": {
       "label": "Объекты",
       "select": "Выбор (Del — удалить)",
+      "search": "Поиск...",
+      "categories": {
+        "structural": "Конструкции",
+        "furniture": "Мебель",
+        "dungeon": "Подземелье"
+      },
       "door": "Дверь",
       "stairs": "Лестница",
       "table": "Стол",

@@ -4,7 +4,7 @@ import { OBJECT_KIND_ENTRIES } from '../model/objects'
 import { ObjectPalette } from './ObjectPalette'
 
 describe('ObjectPalette', () => {
-  it('renders a swatch for every object kind with localized names', () => {
+  it('renders category headers and swatches for every object kind', () => {
     render(
       <ObjectPalette
         activeKindId={null}
@@ -14,15 +14,44 @@ describe('ObjectPalette', () => {
       />,
     )
 
-    // +1 кнопка «выбрать объект» перед списком видов.
-    const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(OBJECT_KIND_ENTRIES.length + 1)
+    // Category headers
+    expect(screen.getByText('Structural')).toBeInTheDocument()
+    expect(screen.getByText('Furniture')).toBeInTheDocument()
+    expect(screen.getByText('Dungeon')).toBeInTheDocument()
 
-    // Язык зафиксирован в setup.ts как en.
+    // All object kinds are present
+    for (const kind of OBJECT_KIND_ENTRIES) {
+      expect(screen.getByTitle(kind.id.charAt(0).toUpperCase() + kind.id.slice(1))).toBeInTheDocument()
+    }
+  })
+
+  it('shows scale badge for multi-cell objects', () => {
+    render(
+      <ObjectPalette
+        activeKindId={null}
+        selectActive={false}
+        onSelectKind={vi.fn()}
+        onSelectSelectTool={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('2×1')).toBeInTheDocument() // table
+    expect(screen.getByText('2×2')).toBeInTheDocument() // rock
+  })
+
+  it('filters objects by search', () => {
+    render(
+      <ObjectPalette
+        activeKindId={null}
+        selectActive={false}
+        onSelectKind={vi.fn()}
+        onSelectSelectTool={vi.fn()}
+      />,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('Search...'), { target: { value: 'door' } })
     expect(screen.getByTitle('Door')).toBeInTheDocument()
-    expect(screen.getByTitle('Stairs')).toBeInTheDocument()
-    expect(screen.getByTitle('Torch')).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Objects' })).toBeInTheDocument()
+    expect(screen.queryByTitle('Table')).not.toBeInTheDocument()
   })
 
   it('marks the active kind and the select tool with aria-pressed', () => {

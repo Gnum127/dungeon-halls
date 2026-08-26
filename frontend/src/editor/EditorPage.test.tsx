@@ -99,8 +99,8 @@ describe('EditorPage', () => {
     const canvas = screen.getByTestId('editor-canvas')
 
     // Ставим дверь (инструмент Door из палитры объектов, не кнопка стен).
-    const objectsGroup = screen.getByRole('group', { name: 'Objects' })
-    fireEvent.click(within(objectsGroup).getByRole('button', { name: 'Door' }))
+    const structuralGroup = screen.getByRole('group', { name: 'Structural' })
+    fireEvent.click(within(structuralGroup).getByRole('button', { name: 'Door' }))
     fireEvent.pointerDown(canvas, { button: 0, buttons: 1, pointerId: 1, clientX: 48, clientY: 48 })
     fireEvent.pointerUp(canvas, { pointerId: 1, buttons: 0 })
 

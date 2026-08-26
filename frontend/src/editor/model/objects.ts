@@ -1,16 +1,60 @@
 import type { MapObject } from './types'
 
+export type ObjectCategory = 'structural' | 'furniture' | 'dungeon'
+
 /**
  * Реестр видов объектов — данные, а не логика: новый вид добавляется
  * записью сюда (+ ключи i18n), без изменения кода потребителей.
  */
 export const OBJECT_KIND_REGISTRY = {
-  door: { labelKey: 'editor.objects.door', color: '#b0762f' },
-  stairs: { labelKey: 'editor.objects.stairs', color: '#7a7f8c' },
-  table: { labelKey: 'editor.objects.table', color: '#8a5a2b' },
-  chair: { labelKey: 'editor.objects.chair', color: '#6b4423' },
-  chest: { labelKey: 'editor.objects.chest', color: '#9c6b30' },
-  torch: { labelKey: 'editor.objects.torch', color: '#e08a2d' },
+  door: {
+    labelKey: 'editor.objects.door',
+    color: '#b0762f',
+    category: 'structural' as const,
+  },
+  stairs: {
+    labelKey: 'editor.objects.stairs',
+    color: '#7a7f8c',
+    category: 'structural' as const,
+  },
+  table: {
+    labelKey: 'editor.objects.table',
+    color: '#8a5a2b',
+    category: 'furniture' as const,
+    defaultScale: { w: 2, h: 1 },
+  },
+  chair: {
+    labelKey: 'editor.objects.chair',
+    color: '#6b4423',
+    category: 'furniture' as const,
+  },
+  chest: {
+    labelKey: 'editor.objects.chest',
+    color: '#9c6b30',
+    category: 'furniture' as const,
+  },
+  barrel: {
+    labelKey: 'editor.objects.barrel',
+    color: '#7a5a2b',
+    category: 'furniture' as const,
+  },
+  torch: {
+    labelKey: 'editor.objects.torch',
+    color: '#e08a2d',
+    category: 'dungeon' as const,
+    gridRestriction: 'square' as const,
+  },
+  bush: {
+    labelKey: 'editor.objects.bush',
+    color: '#2d6b2d',
+    category: 'dungeon' as const,
+  },
+  rock: {
+    labelKey: 'editor.objects.rock',
+    color: '#6e6e78',
+    category: 'dungeon' as const,
+    defaultScale: { w: 2, h: 2 },
+  },
 } as const
 
 export type ObjectKindId = keyof typeof OBJECT_KIND_REGISTRY
@@ -19,12 +63,25 @@ export interface ObjectKindEntry {
   readonly id: ObjectKindId
   readonly labelKey: string
   readonly color: string
+  readonly category: ObjectCategory
+  readonly defaultScale?: { readonly w: number; readonly h: number }
+  readonly gridRestriction?: 'square'
 }
 
 /** Порядок видов в UI фиксируется порядком записей реестра. */
 export const OBJECT_KIND_ENTRIES: readonly ObjectKindEntry[] = (
   Object.keys(OBJECT_KIND_REGISTRY) as ObjectKindId[]
-).map((id) => ({ id, ...OBJECT_KIND_REGISTRY[id] }))
+).map((id) => {
+  const entry = OBJECT_KIND_REGISTRY[id]
+  return {
+    id,
+    labelKey: entry.labelKey,
+    color: entry.color,
+    category: entry.category,
+    ...('defaultScale' in entry && { defaultScale: entry.defaultScale }),
+    ...('gridRestriction' in entry && { gridRestriction: entry.gridRestriction }),
+  }
+})
 
 export const OBJECT_KINDS: readonly ObjectKindId[] = OBJECT_KIND_ENTRIES.map((entry) => entry.id)
 

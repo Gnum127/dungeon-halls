@@ -47,7 +47,10 @@
       "table": "Table",
       "chair": "Chair",
       "chest": "Chest",
-      "torch": "Torch"
+      "barrel": "Barrel",
+      "torch": "Torch",
+      "bush": "Bush",
+      "rock": "Rock"
     },
     "files": {
       "save": "Save",

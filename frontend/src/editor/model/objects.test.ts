@@ -37,12 +37,15 @@ function obj(id: number, x: number, y: number, w = 1, h = 1): MapObject {
 
 describe('OBJECT_KIND_REGISTRY', () => {
   it('derives kinds, colors and entries from a single source', () => {
-    expect(OBJECT_KINDS).toEqual(['door', 'stairs', 'table', 'chair', 'chest', 'torch'])
+    expect(OBJECT_KINDS).toEqual([
+      'door', 'stairs', 'table', 'chair', 'chest', 'barrel', 'torch', 'bush', 'rock',
+    ])
     expect(OBJECT_KIND_ENTRIES.map((entry) => entry.id)).toEqual(OBJECT_KINDS)
     expect(Object.keys(OBJECT_COLORS)).toEqual(OBJECT_KINDS)
     for (const entry of OBJECT_KIND_ENTRIES) {
       expect(entry.color).toBe(OBJECT_COLORS[entry.id])
       expect(entry.labelKey).toBe(`editor.objects.${entry.id}`)
+      expect(entry.category).toBeDefined()
     }
   })
 
@@ -57,7 +60,24 @@ describe('OBJECT_KIND_REGISTRY', () => {
     for (const [id, meta] of Object.entries(OBJECT_KIND_REGISTRY)) {
       expect(meta.labelKey).toContain(id)
       expect(meta.color).toMatch(/^#[0-9a-f]{6}$/i)
+      expect(meta.category).toBeDefined()
     }
+  })
+
+  it('has defaultScale for multi-cell objects', () => {
+    const table = OBJECT_KIND_ENTRIES.find((e) => e.id === 'table')
+    expect(table?.defaultScale).toEqual({ w: 2, h: 1 })
+    const rock = OBJECT_KIND_ENTRIES.find((e) => e.id === 'rock')
+    expect(rock?.defaultScale).toEqual({ w: 2, h: 2 })
+    const chair = OBJECT_KIND_ENTRIES.find((e) => e.id === 'chair')
+    expect(chair?.defaultScale).toBeUndefined()
+  })
+
+  it('has gridRestriction for hex-incompatible objects', () => {
+    const torch = OBJECT_KIND_ENTRIES.find((e) => e.id === 'torch')
+    expect(torch?.gridRestriction).toBe('square')
+    const door = OBJECT_KIND_ENTRIES.find((e) => e.id === 'door')
+    expect(door?.gridRestriction).toBeUndefined()
   })
 
   it('recognizes only registered kinds', () => {

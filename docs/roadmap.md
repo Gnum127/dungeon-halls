@@ -502,6 +502,21 @@ RNG → данж → команда замены → пещеры → UI → п�
 - [ ] FastAPI в `backend/`: хранение проектов, возможно шаринг карт ссылкой
 - [ ] Решение о публикации: имя/домен свободны? (кандидаты: GridSmith, HexForge…)
 
+## Этап 8. Многоклеточные объекты (rotation/scale) ✅ ЗАВЕРШЁН
+
+- [x] 8.1 Модель: MapObject.rotation/scale, MAP_VERSION=4, footprint утилиты,
+      v3→v4 миграция, addObject/moveObject footprint-валидация
+- [x] 8.1 Каталог: OBJECT_KIND_REGISTRY — категории, defaultScale, gridRestriction,
+      новые виды (barrel, bush, rock), i18n
+- [x] 8.2 Спрайты: public/sprites/ manifest.json, 15 placeholder PNG,
+      gen-sprites.mjs скрипт
+- [x] 8.2 Палитра: категории (collapsible), поиск, scale badge, rotation bar
+- [x] 8.3 Рендер: rotation (ctx.rotate), scale (drawImage/ellipse dimensions),
+      SVG transform, PDF через renderMap
+- [x] 8.4 Инструменты: горячие 1-9 (объекты), R (поворот), ghost preview,
+      EditorTool.rotation/scale
+- [x] 8.5 Полировка: README, AGENTS.md
+
 ## Бэклог идей (не спланировано)
 
 - Многослойность (terrain / objects / markers)

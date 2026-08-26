@@ -75,6 +75,39 @@ describe('useEditorHotkeys', () => {
     expect(h.onSelectLights).toHaveBeenCalledTimes(1)
   })
 
+  it('R rotates the object tool', () => {
+    const h = makeOptions()
+    render(<Probe options={h} />)
+
+    press(window, { code: 'KeyR', key: 'r' })
+    expect(h.onRotateObject).toHaveBeenCalledTimes(1)
+  })
+
+  it('digit keys 1-9 select object kinds from the catalog', () => {
+    const h = makeOptions()
+    render(<Probe options={h} />)
+
+    press(window, { code: 'Digit1', key: '1' })
+    expect(h.onSelectObjectKind).toHaveBeenCalledTimes(1)
+    expect(h.onSelectObjectKind).toHaveBeenCalledWith('door')
+
+    press(window, { code: 'Digit3', key: '3' })
+    expect(h.onSelectObjectKind).toHaveBeenCalledTimes(2)
+    expect(h.onSelectObjectKind).toHaveBeenCalledWith('table')
+
+    press(window, { code: 'Digit9', key: '9' })
+    expect(h.onSelectObjectKind).toHaveBeenCalledTimes(3)
+    expect(h.onSelectObjectKind).toHaveBeenCalledWith('rock')
+  })
+
+  it('digit 0 and Digit10 do nothing (out of range)', () => {
+    const h = makeOptions()
+    render(<Probe options={h} />)
+
+    press(window, { code: 'Digit0', key: '0' })
+    expect(h.onSelectObjectKind).not.toHaveBeenCalled()
+  })
+
   it('ignores hotkeys while focus is in an editable element', () => {
     const h = makeOptions()
     const { getByTestId } = render(<Probe options={h} />)

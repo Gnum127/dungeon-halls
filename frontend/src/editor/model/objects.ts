@@ -38,9 +38,75 @@ export function isKnownKind(kindId: string): kindId is ObjectKindId {
   return Object.hasOwn(OBJECT_KIND_REGISTRY, kindId)
 }
 
-/** Клетка занята, если на ней стоит любой объект. */
+// ---------------------------------------------------------------------------
+// Footprint utilities
+// ---------------------------------------------------------------------------
+
+/** Footprint объекта: прямоугольник [x..x+w) × [y..y+h). scale undefined = 1×1. */
+export function objectFootprint(obj: MapObject): { x: number; y: number; w: number; h: number } {
+  const w = obj.scale?.w ?? 1
+  const h = obj.scale?.h ?? 1
+  return { x: obj.x, y: obj.y, w, h }
+}
+
+/** Все ключи клеток, которые занимает объект. */
+export function footprintCells(obj: MapObject): string[] {
+  const { x, y, w, h } = objectFootprint(obj)
+  const cells: string[] = []
+  for (let dx = 0; dx < w; dx += 1) {
+    for (let dy = 0; dy < h; dy += 1) {
+      cells.push(`${x + dx},${y + dy}`)
+    }
+  }
+  return cells
+}
+
+/** Проверка пересечения двух прямоугольников (в клетках). */
+export function rectsOverlap(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+}
+
+/** Footprint в границах карты? */
+export function footprintInBounds(
+  obj: MapObject,
+  mapWidth: number,
+  mapHeight: number,
+): boolean {
+  const { w, h } = objectFootprint(obj)
+  return obj.x >= 0 && obj.y >= 0 && obj.x + w <= mapWidth && obj.y + h <= mapHeight
+}
+
+/** Клетка занята, если она в footprint'е любого объекта. */
 export function isCellOccupied(objects: readonly MapObject[], x: number, y: number): boolean {
-  return objects.some((object) => object.x === x && object.y === y)
+  return objects.some((obj) => {
+    const { x: ox, y: oy, w, h } = objectFootprint(obj)
+    return x >= ox && x < ox + w && y >= oy && y < oy + h
+  })
+}
+
+/** Все клетки footprint'а назначения свободны от других объектов. */
+export function isFootprintFree(
+  objects: readonly MapObject[],
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): boolean {
+  const target = { x, y, w, h }
+  return !objects.some((obj) => rectsOverlap(target, objectFootprint(obj)))
+}
+
+/** Объект, чей footprint содержит (x,y), последний в массиве (z-order). */
+export function topmostObjectAt(objects: readonly MapObject[], x: number, y: number): MapObject | undefined {
+  for (let i = objects.length - 1; i >= 0; i -= 1) {
+    const obj = objects[i]
+    const { x: ox, y: oy, w, h } = objectFootprint(obj)
+    if (x >= ox && x < ox + w && y >= oy && y < oy + h) return obj
+  }
+  return undefined
 }
 
 export function nextObjectId(objects: readonly MapObject[]): number {

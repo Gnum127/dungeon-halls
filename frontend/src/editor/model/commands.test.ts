@@ -167,6 +167,94 @@ describe('object commands', () => {
     )
   })
 
+  it('addObject with scale places a multi-cell object', () => {
+    const model = makeMap()
+    const next = applyCommand(model, {
+      kind: 'addObject',
+      x: 0,
+      y: 0,
+      kindId: DOOR_KIND,
+      scale: { w: 2, h: 2 },
+    })
+    expect(next.objects).toHaveLength(1)
+    expect(next.objects[0]).toMatchObject({ id: 1, x: 0, y: 0, scale: { w: 2, h: 2 } })
+  })
+
+  it('addObject with scale rejects if footprint exceeds map bounds', () => {
+    const model = makeMap() // 3×3
+    expect(() =>
+      applyCommand(model, {
+        kind: 'addObject',
+        x: 2,
+        y: 0,
+        kindId: DOOR_KIND,
+        scale: { w: 2, h: 1 },
+      }),
+    ).toThrow(RangeError)
+    expect(() =>
+      applyCommand(model, {
+        kind: 'addObject',
+        x: 0,
+        y: 2,
+        kindId: DOOR_KIND,
+        scale: { w: 1, h: 2 },
+      }),
+    ).toThrow(RangeError)
+  })
+
+  it('addObject with scale rejects if footprint overlaps another object', () => {
+    const model = withObject(makeMap(), 1, 1, 5) // 1×1 at (1,1)
+    expect(() =>
+      applyCommand(model, {
+        kind: 'addObject',
+        x: 0,
+        y: 0,
+        kindId: DOOR_KIND,
+        scale: { w: 2, h: 2 },
+      }),
+    ).toThrow(RangeError)
+  })
+
+  it('addObject with rotation stores rotation', () => {
+    const next = applyCommand(makeMap(), {
+      kind: 'addObject',
+      x: 0,
+      y: 0,
+      kindId: DOOR_KIND,
+      rotation: 90,
+    })
+    expect(next.objects[0]).toMatchObject({ rotation: 90 })
+  })
+
+  it('moveObject moves multi-cell object and validates footprint at destination', () => {
+    let model = makeMap()
+    model = applyCommand(model, {
+      kind: 'addObject',
+      x: 0,
+      y: 0,
+      kindId: DOOR_KIND,
+      scale: { w: 2, h: 2 },
+    })
+    model = withObject(model, 2, 0, 99) // 1×1 at (2,0)
+    const next = applyCommand(model, { kind: 'moveObject', id: 1, x: 0, y: 1 })
+    expect(next.objects.find((o) => o.id === 1)).toMatchObject({ x: 0, y: 1, scale: { w: 2, h: 2 } })
+  })
+
+  it('moveObject with scale rejects if destination footprint overlaps', () => {
+    let model = makeMap()
+    model = applyCommand(model, {
+      kind: 'addObject',
+      x: 0,
+      y: 0,
+      kindId: DOOR_KIND,
+      scale: { w: 2, h: 2 },
+    })
+    model = withObject(model, 2, 0, 99) // 1×1 at (2,0) — not overlapping (0,0,2,2)
+    expect(() =>
+      applyCommand(model, { kind: 'moveObject', id: 1, x: 1, y: 0 }),
+    ).toThrow(RangeError) // (1,0,2,2) overlaps (2,0,1,1)
+  })
+
   it('moveObject moves the object and keeps its id and order', () => {
     const model = withObject(withObject(makeMap(), 0, 0, 1), 2, 2, 2)
     const next = applyCommand(model, { kind: 'moveObject', id: 1, x: 1, y: 1 })

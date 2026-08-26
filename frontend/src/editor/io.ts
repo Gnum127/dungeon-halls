@@ -3,7 +3,7 @@ import { isKnownKind } from './model/objects'
 import { isValidLightColor, isValidLightRadius } from './model/lights'
 import type { MapLight } from './model/lights'
 import { MAP_VERSION, MAX_MAP_DIMENSION, TILE_TYPES } from './model/types'
-import type { MapModel, MapObject, TileValue } from './model/types'
+import type { MapModel, MapObject, ObjectRotation, ObjectScale, TileValue } from './model/types'
 import { edgeKey, hasWall, isCanonical, isWallSide } from './model/walls'
 import type { Door, WallEdge } from './model/walls'
 
@@ -58,7 +58,14 @@ export function serializeMap(model: MapModel): string {
     width: model.width,
     height: model.height,
     tiles: Array.from(model.tiles),
-    objects: model.objects.map((object) => ({ ...object })),
+    objects: model.objects.map((object) => ({
+      id: object.id,
+      kindId: object.kindId,
+      x: object.x,
+      y: object.y,
+      ...(object.rotation !== undefined && { rotation: object.rotation }),
+      ...(object.scale !== undefined && { scale: { ...object.scale } }),
+    })),
     walls: model.walls.map((wall) => ({ ...wall })),
     doors: model.doors.map((door) => ({
       id: door.id,
@@ -83,7 +90,7 @@ export function deserializeMap(json: string): MapModel {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     throw new MapLoadError('Map file must contain a JSON object')
   }
-  if (raw.version !== 1 && raw.version !== 2 && raw.version !== 3) {
+  if (raw.version !== 1 && raw.version !== 2 && raw.version !== 3 && raw.version !== 4) {
     throw new MapLoadError(
       `Unsupported map version: ${String(raw.version)}, supported: 1–${MAP_VERSION}`,
     )
@@ -114,7 +121,7 @@ export function deserializeMap(json: string): MapModel {
     if (typeof candidate !== 'object' || candidate === null) {
       throw new MapLoadError('Every object must be a JSON object')
     }
-    const { id, kindId, x, y } = candidate as Record<string, unknown>
+    const { id, kindId, x, y, rotation, scale } = candidate as Record<string, unknown>
     assertIntInRange(id, 'object id', 1, Number.MAX_SAFE_INTEGER)
     if (seenIds.has(id)) throw new MapLoadError(`Duplicate object id: ${id}`)
     seenIds.add(id)
@@ -123,17 +130,64 @@ export function deserializeMap(json: string): MapModel {
     }
     assertIntInRange(x, 'object x', 0, width)
     assertIntInRange(y, 'object y', 0, height)
-    const cellKey = `${x},${y}`
-    if (seenCells.has(cellKey)) throw new MapLoadError(`Duplicate cell for objects: ${cellKey}`)
-    seenCells.add(cellKey)
-    objects.push({ id, kindId, x, y })
+
+    // rotation: optional, 0|90|180|270
+    let parsedRotation: ObjectRotation | undefined
+    if (rotation !== undefined) {
+      if (rotation !== 0 && rotation !== 90 && rotation !== 180 && rotation !== 270) {
+        throw new MapLoadError(`Invalid object rotation: ${String(rotation)}`)
+      }
+      parsedRotation = rotation
+    }
+
+    // scale: optional { w, h } where w,h >= 1
+    let parsedScale: ObjectScale | undefined
+    if (scale !== undefined) {
+      if (typeof scale !== 'object' || scale === null || Array.isArray(scale)) {
+        throw new MapLoadError('Object scale must be an object { w, h }')
+      }
+      const { w: sw, h: sh } = scale as Record<string, unknown>
+      if (typeof sw !== 'number' || !Number.isInteger(sw) || sw < 1) {
+        throw new MapLoadError(`Object scale.w must be an integer >= 1, got ${String(sw)}`)
+      }
+      if (typeof sh !== 'number' || !Number.isInteger(sh) || sh < 1) {
+        throw new MapLoadError(`Object scale.h must be an integer >= 1, got ${String(sh)}`)
+      }
+      parsedScale = { w: sw, h: sh }
+    }
+
+    const obj: MapObject = {
+      id,
+      kindId,
+      x,
+      y,
+      ...(parsedRotation !== undefined && { rotation: parsedRotation }),
+      ...(parsedScale !== undefined && { scale: parsedScale }),
+    }
+
+    // Проверка footprint: все клетки в границах и уникальны
+    const fw = parsedScale?.w ?? 1
+    const fh = parsedScale?.h ?? 1
+    if (x + fw > width || y + fh > height) {
+      throw new MapLoadError(
+        `Object ${id} footprint [${x}..${x + fw}) × [${y}..${y + fh}) exceeds map bounds ${width}×${height}`,
+      )
+    }
+    for (let dx = 0; dx < fw; dx += 1) {
+      for (let dy = 0; dy < fh; dy += 1) {
+        const cellKey = `${x + dx},${y + dy}`
+        if (seenCells.has(cellKey)) throw new MapLoadError(`Duplicate cell for objects: ${cellKey}`)
+        seenCells.add(cellKey)
+      }
+    }
+    objects.push(obj)
   }
 
   // walls/doors/lights появились в v3; старые версии мигрируют пустыми коллекциями.
   let walls: WallEdge[] = []
   let doors: Door[] = []
   let lights: MapLight[] = []
-  if (raw.version === 3) {
+  if (raw.version === 3 || raw.version === 4) {
     // Стены-рёбра определены только для квадратной сетки (MVP этапа 5);
     // команды такую модель создать не позволяют — файл тоже отклоняем.
     const hasWalls = Array.isArray(raw.walls) && raw.walls.length > 0

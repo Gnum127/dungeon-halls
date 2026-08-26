@@ -17,6 +17,48 @@
   text-align: left;
 }
 
+.search {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.8rem;
+  min-height: 1.8rem;
+}
+
+.search::placeholder {
+  color: var(--text);
+  opacity: 0.5;
+}
+
+.categoryGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
+  min-height: 1.6rem;
+  text-align: left;
+}
+
+.categoryHeader:hover {
+  opacity: 1;
+}
+
 .kindList {
   display: flex;
   flex-direction: column;
@@ -57,4 +99,51 @@
 .name {
   font-size: 0.8rem;
   user-select: none;
+  flex: 1;
+}
+
+.scaleBadge {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  background: var(--border);
+  color: var(--text);
+  opacity: 0.7;
+  flex: 0 0 auto;
+}
+
+.rotationBar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+}
+
+.rotationLabel {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  min-width: 2.5rem;
+}
+
+.rotateButton {
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.rotateButton:hover {
+  background: var(--border);
+}
+
+.rotateButton:focus-visible {
+  outline: 2px solid var(--accent);
 }

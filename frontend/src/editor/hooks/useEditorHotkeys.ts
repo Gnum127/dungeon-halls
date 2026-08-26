@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+import { OBJECT_KINDS } from '../model/objects'
+import type { ObjectKindId } from '../model/objects'
 import { isEditableTarget } from '../dom/isEditableTarget'
 
 export interface HotkeysOptions {
@@ -9,6 +11,8 @@ export interface HotkeysOptions {
   onSelectWalls: () => void
   onSelectDoors: () => void
   onSelectLights: () => void
+  onSelectObjectKind: (kindId: ObjectKindId) => void
+  onRotateObject: () => void
 }
 
 /**
@@ -57,6 +61,16 @@ export function useEditorHotkeys(options: HotkeysOptions): void {
         } else if (event.code === 'KeyL') {
           event.preventDefault()
           handlers.onSelectLights()
+        } else if (event.code === 'KeyR') {
+          event.preventDefault()
+          handlers.onRotateObject()
+        } else {
+          // 1-9: выбор объекта из каталога
+          const digit = parseInt(event.code.replace('Digit', ''), 10)
+          if (digit >= 1 && digit <= OBJECT_KINDS.length) {
+            event.preventDefault()
+            handlers.onSelectObjectKind(OBJECT_KINDS[digit - 1])
+          }
         }
       }
     }

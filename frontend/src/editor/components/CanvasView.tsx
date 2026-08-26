@@ -13,6 +13,7 @@ import { renderMap } from '../render/renderMap'
 import type { SpriteRenderContext } from '../render/sprites/loader'
 import { drawStrokePreview } from '../render/strokePreview'
 import { drawCellHighlight } from '../render/cellHighlight'
+import { drawGhostPreview } from '../render/ghostPreview'
 import { drawEdgeHighlight } from '../render/edgeHighlight'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
@@ -166,7 +167,10 @@ export function CanvasView({
     drawStrokePreview(ctx, pendingCells, viewport, brushTile, model.gridType)
     if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport, model.gridType)
     if (hoverEdge && tool.type === 'door') drawEdgeHighlight(ctx, hoverEdge, viewport)
-  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites, hoverEdge, tool.type])
+    if (hoverCell && tool.type === 'object') {
+      drawGhostPreview(ctx, hoverCell, viewport, tool, model.gridType)
+    }
+  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites, hoverEdge, tool])
 
   const pointerHandlers = useMemo(
     () =>

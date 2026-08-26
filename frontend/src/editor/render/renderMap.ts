@@ -139,27 +139,42 @@ export function renderMap(
     const center = cellCenterAt(object.x, object.y, model.gridType, cellSize)
     const cx = center.x - offsetX
     const cy = center.y - offsetY
-    if (cx < -cellSize || cx > width + cellSize || cy < -cellSize || cy > height + cellSize) {
+    if (cx < -cellSize * 3 || cx > width + cellSize * 3 || cy < -cellSize * 3 || cy > height + cellSize * 3) {
       continue
     }
+    const scaleX = object.scale?.w ?? 1
+    const scaleY = object.scale?.h ?? 1
+    const rotation = object.rotation ?? 0
     const sprite =
       sprites && isKnownKind(object.kindId) ? sprites.objects[object.kindId] : undefined
-    if (sprite) {
-      // Размер бокса клетки той же сетки, что у полигона тайла.
-      const size = orientation === null ? cellSize : cellSize * 2
-      ctx.drawImage(sprite, cx - size / 2, cy - size / 2, size, size)
-      continue
+
+    ctx.save()
+    ctx.translate(cx, cy)
+    if (rotation !== 0) {
+      ctx.rotate((rotation * Math.PI) / 180)
     }
-    const radius = Math.max(3, cellSize * 0.3)
-    ctx.beginPath()
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2)
-    ctx.fillStyle = isKnownKind(object.kindId)
-      ? OBJECT_COLORS[object.kindId]
-      : FALLBACK_OBJECT_COLOR
-    ctx.fill()
-    ctx.lineWidth = 1
-    ctx.strokeStyle = OBJECT_OUTLINE_COLOR
-    ctx.stroke()
+
+    if (sprite) {
+      const baseSize = orientation === null ? cellSize : cellSize * 2
+      const w = baseSize * scaleX
+      const h = baseSize * scaleY
+      ctx.drawImage(sprite, -w / 2, -h / 2, w, h)
+    } else {
+      const baseRadius = Math.max(3, cellSize * 0.3)
+      const rx = baseRadius * scaleX
+      const ry = baseRadius * scaleY
+      ctx.beginPath()
+      ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
+      ctx.fillStyle = isKnownKind(object.kindId)
+        ? OBJECT_COLORS[object.kindId]
+        : FALLBACK_OBJECT_COLOR
+      ctx.fill()
+      ctx.lineWidth = 1
+      ctx.strokeStyle = OBJECT_OUTLINE_COLOR
+      ctx.stroke()
+    }
+
+    ctx.restore()
   }
 
   if (sprites) ctx.imageSmoothingEnabled = smoothingBefore

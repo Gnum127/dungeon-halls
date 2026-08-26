@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "tiles": {
+    "floor": "sprites/tiles/floor.png",
+    "grass": "sprites/tiles/grass.png",
+    "water": "sprites/tiles/water.png",
+    "stone": "sprites/tiles/stone.png",
+    "sand": "sprites/tiles/sand.png",
+    "wall": "sprites/tiles/wall.png"
+  },
+  "objects": {
+    "door": "sprites/objects/door.png",
+    "stairs": "sprites/objects/stairs.png",
+    "table": "sprites/objects/table.png",
+    "chair": "sprites/objects/chair.png",
+    "chest": "sprites/objects/chest.png",
+    "barrel": "sprites/objects/barrel.png",
+    "torch": "sprites/objects/torch.png",
+    "bush": "sprites/objects/bush.png",
+    "rock": "sprites/objects/rock.png"
+  }
+}

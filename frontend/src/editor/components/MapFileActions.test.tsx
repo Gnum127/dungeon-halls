@@ -41,7 +41,7 @@ describe('MapFileActions', () => {
     const [filename, content] = download.mock.calls[0] as [string, string]
     expect(filename).toMatch(/\.json$/)
     const parsed = JSON.parse(content) as { version: number; objects: unknown[] }
-    expect(parsed.version).toBe(3)
+    expect(parsed.version).toBe(4)
     expect(parsed.objects).toHaveLength(1)
     expect(onResult).toHaveBeenCalledWith('saved')
   })

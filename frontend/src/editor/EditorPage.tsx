@@ -15,8 +15,9 @@ import { WallTools } from './components/WallTools'
 import { useEditor } from './hooks/useEditor'
 import { useSpriteAtlas } from './hooks/useSpriteAtlas'
 import { createEmptyMap } from './model/createEmptyMap'
+import { OBJECT_KIND_ENTRIES } from './model/objects'
 import { EMPTY_TILE, TILE_TYPES } from './model/types'
-import type { TileValue } from './model/types'
+import type { ObjectRotation, ObjectScale, TileValue } from './model/types'
 import type { ObjectKindId } from './model/objects'
 import type { RenderMode } from './render/renderMode'
 import { loadRenderMode, saveRenderMode } from './render/renderMode'
@@ -31,6 +32,11 @@ const DEFAULT_MAP_HEIGHT = 30
 function defaultBrushTile(): TileValue {
   const floor = TILE_TYPES.indexOf('floor')
   return floor >= 0 ? floor : EMPTY_TILE
+}
+
+function defaultScaleForKind(kindId: ObjectKindId): ObjectScale {
+  const entry = OBJECT_KIND_ENTRIES.find((e) => e.id === kindId)
+  return entry?.defaultScale ?? { w: 1, h: 1 }
 }
 
 export function EditorPage() {
@@ -54,6 +60,10 @@ export function EditorPage() {
   const [lightRadius, setLightRadius] = useState(3)
   const [lightColor, setLightColor] = useState('#ffd682')
 
+  // Состояние объекта: rotation/scale для следующего размещения.
+  const [objectRotation, setObjectRotation] = useState<ObjectRotation>(0)
+  const [objectScale, setObjectScale] = useState<ObjectScale>({ w: 1, h: 1 })
+
   // Последний непустой тайл кисти — куда возвращает клавиша B.
   const lastBrushTileRef = useRef<TileValue>(defaultBrushTile())
 
@@ -65,7 +75,9 @@ export function EditorPage() {
 
   function selectObjectKind(kindId: ObjectKindId) {
     setSelectedObjectId(null)
-    setTool({ type: 'object', kindId })
+    const scale = defaultScaleForKind(kindId)
+    setObjectScale(scale)
+    setTool({ type: 'object', kindId, rotation: objectRotation, scale })
   }
 
   function selectMoveTool() {
@@ -76,6 +88,14 @@ export function EditorPage() {
   function selectWallTool(mode: 'wall' | 'wall-eraser' | 'door') {
     setSelectedObjectId(null)
     setTool({ type: mode })
+  }
+
+  function rotateObject() {
+    const next: ObjectRotation = ((objectRotation + 90) % 360) as ObjectRotation
+    setObjectRotation(next)
+    if (tool.type === 'object') {
+      setTool({ ...tool, rotation: next })
+    }
   }
 
   function changeRenderMode(mode: RenderMode) {
@@ -114,6 +134,8 @@ export function EditorPage() {
       setSelectedObjectId(null)
       setTool({ type: 'light' })
     },
+    onSelectObjectKind: (kindId) => selectObjectKind(kindId),
+    onRotateObject: rotateObject,
   })
 
   return (
@@ -174,6 +196,9 @@ export function EditorPage() {
           selectActive={tool.type === 'select'}
           onSelectKind={selectObjectKind}
           onSelectSelectTool={selectMoveTool}
+          objectRotation={objectRotation}
+          objectScale={objectScale}
+          onRotate={rotateObject}
         />
       </aside>
       <div className={styles.workspace}>

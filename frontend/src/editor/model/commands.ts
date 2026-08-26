@@ -1,4 +1,11 @@
-import { findObjectById, isCellOccupied, isKnownKind, nextObjectId } from './objects'
+import {
+  findObjectById,
+  footprintInBounds,
+  isFootprintFree,
+  isKnownKind,
+  nextObjectId,
+  objectFootprint,
+} from './objects'
 import { findLightById, isValidLightColor, isValidLightRadius, nextLightId } from './lights'
 import {
   doorAtEdge,
@@ -11,7 +18,7 @@ import {
 } from './walls'
 import type { Door, WallEdge } from './walls'
 import { MAX_MAP_DIMENSION, TILE_TYPES } from './types'
-import type { GridType, MapModel, TileGrid, TileValue } from './types'
+import type { GridType, MapModel, MapObject, ObjectRotation, ObjectScale, TileGrid, TileValue } from './types'
 export interface TileUpdate {
   readonly x: number
   readonly y: number
@@ -26,7 +33,14 @@ export interface WallUpdate {
 export type Command =
   | { readonly kind: 'setTile'; readonly x: number; readonly y: number; readonly tile: TileValue }
   | { readonly kind: 'setTiles'; readonly updates: readonly TileUpdate[] }
-  | { readonly kind: 'addObject'; readonly x: number; readonly y: number; readonly kindId: string }
+  | {
+      readonly kind: 'addObject'
+      readonly x: number
+      readonly y: number
+      readonly kindId: string
+      readonly rotation?: ObjectRotation
+      readonly scale?: ObjectScale
+    }
   | { readonly kind: 'moveObject'; readonly id: number; readonly x: number; readonly y: number }
   | { readonly kind: 'removeObject'; readonly id: number }
   | {
@@ -92,15 +106,33 @@ function applyTiles(model: MapModel, updates: readonly TileUpdate[]): MapModel {
   return { ...model, tiles }
 }
 
-function addObject(model: MapModel, x: number, y: number, kindId: string): MapModel {
+function addObject(
+  model: MapModel,
+  x: number,
+  y: number,
+  kindId: string,
+  rotation?: ObjectRotation,
+  scale?: ObjectScale,
+): MapModel {
   assertInside(model, x, y)
   if (!isKnownKind(kindId)) {
     throw new RangeError(`Unknown object kind: ${kindId}`)
   }
-  if (isCellOccupied(model.objects, x, y)) {
-    throw new RangeError(`Cell (${x}, ${y}) is already occupied`)
+  const object: MapObject = {
+    id: nextObjectId(model.objects),
+    kindId,
+    x,
+    y,
+    ...(rotation !== undefined && { rotation }),
+    ...(scale !== undefined && { scale }),
   }
-  const object = { id: nextObjectId(model.objects), kindId, x, y }
+  if (!footprintInBounds(object, model.width, model.height)) {
+    throw new RangeError(`Object footprint [${x}..${x + (scale?.w ?? 1)}) × [${y}..${y + (scale?.h ?? 1)}) is out of bounds ${model.width}×${model.height}`)
+  }
+  const { w, h } = objectFootprint(object)
+  if (!isFootprintFree(model.objects, x, y, w, h)) {
+    throw new RangeError(`Object footprint at (${x}, ${y}) overlaps with another object`)
+  }
   return { ...model, objects: [...model.objects, object] }
 }
 
@@ -113,10 +145,15 @@ function moveObject(model: MapModel, id: number, x: number, y: number): MapModel
   if (object.x === x && object.y === y) {
     return model
   }
-  if (isCellOccupied(model.objects, x, y)) {
-    throw new RangeError(`Cell (${x}, ${y}) is already occupied`)
-  }
   const moved = { ...object, x, y }
+  if (!footprintInBounds(moved, model.width, model.height)) {
+    throw new RangeError(`Object footprint at (${x}, ${y}) is out of bounds`)
+  }
+  const { w, h } = objectFootprint(moved)
+  const otherObjects = model.objects.filter((o) => o.id !== id)
+  if (!isFootprintFree(otherObjects, x, y, w, h)) {
+    throw new RangeError(`Object footprint at (${x}, ${y}) overlaps with another object`)
+  }
   return {
     ...model,
     objects: model.objects.map((candidate) => (candidate.id === id ? moved : candidate)),
@@ -315,7 +352,7 @@ export function applyCommand(model: MapModel, command: Command): MapModel {
     case 'setTiles':
       return applyTiles(model, command.updates)
     case 'addObject':
-      return addObject(model, command.x, command.y, command.kindId)
+      return addObject(model, command.x, command.y, command.kindId, command.rotation, command.scale)
     case 'moveObject':
       return moveObject(model, command.id, command.x, command.y)
     case 'removeObject':

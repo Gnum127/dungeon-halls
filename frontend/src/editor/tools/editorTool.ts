@@ -1,5 +1,5 @@
 import type { ObjectKindId } from '../model/objects'
-import type { TileValue } from '../model/types'
+import type { ObjectRotation, ObjectScale, TileValue } from '../model/types'
 
 /**
  * Активный инструмент редактора. Выбирается в панели слева:
@@ -8,7 +8,12 @@ import type { TileValue } from '../model/types'
  */
 export type EditorTool =
   | { readonly type: 'terrain'; readonly tile: TileValue }
-  | { readonly type: 'object'; readonly kindId: ObjectKindId }
+  | {
+      readonly type: 'object'
+      readonly kindId: ObjectKindId
+      readonly rotation: ObjectRotation
+      readonly scale: ObjectScale
+    }
   | { readonly type: 'select' }
   | { readonly type: 'wall' }
   | { readonly type: 'wall-eraser' }

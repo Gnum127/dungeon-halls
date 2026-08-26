@@ -3,41 +3,59 @@ import { describe, expect, it, vi } from 'vitest'
 import { OBJECT_KIND_ENTRIES } from '../model/objects'
 import { ObjectPalette } from './ObjectPalette'
 
+const defaultProps = {
+  activeKindId: null as null,
+  selectActive: false,
+  onSelectKind: vi.fn(),
+  onSelectSelectTool: vi.fn(),
+  objectRotation: 0 as const,
+  objectScale: { w: 1, h: 1 },
+  onRotate: vi.fn(),
+}
+
 describe('ObjectPalette', () => {
-  it('renders a swatch for every object kind with localized names', () => {
-    render(
-      <ObjectPalette
-        activeKindId={null}
-        selectActive
-        onSelectKind={vi.fn()}
-        onSelectSelectTool={vi.fn()}
-      />,
-    )
+  it('renders category headers and swatches for every object kind', () => {
+    render(<ObjectPalette {...defaultProps} selectActive />)
 
-    // +1 кнопка «выбрать объект» перед списком видов.
-    const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(OBJECT_KIND_ENTRIES.length + 1)
+    // Category headers
+    expect(screen.getByText('Structural')).toBeInTheDocument()
+    expect(screen.getByText('Furniture')).toBeInTheDocument()
+    expect(screen.getByText('Dungeon')).toBeInTheDocument()
 
-    // Язык зафиксирован в setup.ts как en.
+    // All object kinds are present
+    for (const kind of OBJECT_KIND_ENTRIES) {
+      expect(screen.getByTitle(kind.id.charAt(0).toUpperCase() + kind.id.slice(1))).toBeInTheDocument()
+    }
+  })
+
+  it('shows scale badge for multi-cell objects', () => {
+    render(<ObjectPalette {...defaultProps} />)
+
+    expect(screen.getByText('2×1')).toBeInTheDocument() // table
+    expect(screen.getByText('2×2')).toBeInTheDocument() // rock
+  })
+
+  it('filters objects by search', () => {
+    render(<ObjectPalette {...defaultProps} />)
+
+    fireEvent.change(screen.getByPlaceholderText('Search...'), { target: { value: 'door' } })
     expect(screen.getByTitle('Door')).toBeInTheDocument()
-    expect(screen.getByTitle('Stairs')).toBeInTheDocument()
-    expect(screen.getByTitle('Torch')).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Objects' })).toBeInTheDocument()
+    expect(screen.queryByTitle('Table')).not.toBeInTheDocument()
   })
 
   it('marks the active kind and the select tool with aria-pressed', () => {
-    render(
-      <ObjectPalette
-        activeKindId="chest"
-        selectActive={false}
-        onSelectKind={vi.fn()}
-        onSelectSelectTool={vi.fn()}
-      />,
-    )
+    render(<ObjectPalette {...defaultProps} activeKindId="chest" />)
 
     expect(screen.getByTitle('Chest')).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTitle('Door')).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByText('Select (Del to remove)')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('shows rotation bar when an object kind is active', () => {
+    render(<ObjectPalette {...defaultProps} activeKindId="door" objectRotation={90} />)
+
+    expect(screen.getByText('90°')).toBeInTheDocument()
+    expect(screen.getByTitle('Rotate (R)')).toBeInTheDocument()
   })
 
   it('reports the clicked kind id and select tool activation', () => {
@@ -45,7 +63,7 @@ describe('ObjectPalette', () => {
     const onSelectSelectTool = vi.fn()
     render(
       <ObjectPalette
-        activeKindId={null}
+        {...defaultProps}
         selectActive
         onSelectKind={onSelectKind}
         onSelectSelectTool={onSelectSelectTool}

@@ -43,10 +43,10 @@ describe('renderMap walls and doors', () => {
       [32, 0],
       [0, 32],
     ])
-    // Стены рисуются после объектов (кружок chest в (2,2)).
-    const arcIdx = calls.findIndex((c) => c.op === 'arc')
-    expect(arcIdx).toBeGreaterThanOrEqual(0)
-    expect(wallStrokeIdx).toBeGreaterThan(arcIdx)
+    // Стены рисуются после объектов (эллипс chest в (2,2)).
+    const ellipseIdx = calls.findIndex((c) => c.op === 'ellipse')
+    expect(ellipseIdx).toBeGreaterThanOrEqual(0)
+    expect(wallStrokeIdx).toBeGreaterThan(ellipseIdx)
   })
 
   it('draws a closed door as a panel centered on its edge', () => {

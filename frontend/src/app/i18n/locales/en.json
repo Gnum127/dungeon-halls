@@ -42,12 +42,22 @@
     "objects": {
       "label": "Objects",
       "select": "Select (Del to remove)",
+      "search": "Search...",
+      "categories": {
+        "structural": "Structural",
+        "furniture": "Furniture",
+        "dungeon": "Dungeon"
+      },
       "door": "Door",
       "stairs": "Stairs",
       "table": "Table",
       "chair": "Chair",
       "chest": "Chest",
-      "torch": "Torch"
+      "barrel": "Barrel",
+      "torch": "Torch",
+      "bush": "Bush",
+      "rock": "Rock",
+      "rotate": "Rotate (R)"
     },
     "files": {
       "save": "Save",

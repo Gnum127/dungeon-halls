@@ -10,6 +10,7 @@ export interface FakeCtx {
   fillRect(...args: unknown[]): void
   beginPath(): void
   arc(...args: unknown[]): void
+  ellipse(...args: unknown[]): void
   fill(): void
   closePath(): void
   moveTo(...args: unknown[]): void
@@ -21,6 +22,8 @@ export interface FakeCtx {
   save(): void
   restore(): void
   clip(...args: unknown[]): void
+  translate(...args: unknown[]): void
+  rotate(...args: unknown[]): void
 }
 
 /** Фейковый 2D-контекст, записывающий вызовы для ассертов в тестах рендера. */
@@ -48,6 +51,9 @@ export function makeFakeCtx(
     },
     arc(...args: unknown[]) {
       calls.push({ op: 'arc', args, fillStyle: this.fillStyle })
+    },
+    ellipse(...args: unknown[]) {
+      calls.push({ op: 'ellipse', args, fillStyle: this.fillStyle })
     },
     fill() {
       calls.push({ op: 'fill', args: [], fillStyle: this.fillStyle })
@@ -81,6 +87,12 @@ export function makeFakeCtx(
     },
     clip(...args: unknown[]) {
       calls.push({ op: 'clip', args, fillStyle: this.fillStyle })
+    },
+    translate(...args: unknown[]) {
+      calls.push({ op: 'translate', args, fillStyle: this.fillStyle })
+    },
+    rotate(...args: unknown[]) {
+      calls.push({ op: 'rotate', args, fillStyle: this.fillStyle })
     },
   }
   return { ctx: ctx as unknown as CanvasRenderingContext2D, calls, raw: ctx }

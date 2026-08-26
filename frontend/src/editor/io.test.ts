@@ -30,7 +30,7 @@ describe('serializeMap / deserializeMap roundtrip', () => {
     const json = serializeMap(model)
 
     const parsed = JSON.parse(json) as Record<string, unknown>
-    expect(parsed.version).toBe(3)
+    expect(parsed.version).toBe(4)
     expect(Array.isArray(parsed.tiles)).toBe(true)
 
     const restored = deserializeMap(json)
@@ -70,7 +70,7 @@ describe('deserializeMap validation', () => {
 
     const restored = deserializeMap(JSON.stringify(raw))
 
-    expect(restored.version).toBe(3)
+    expect(restored.version).toBe(4)
     expect(restored.gridType).toBe('square')
     expect([...restored.tiles]).toEqual([...makeRichModel().tiles])
   })
@@ -82,7 +82,7 @@ describe('deserializeMap validation', () => {
 
     const restored = deserializeMap(JSON.stringify(raw))
 
-    expect(restored.version).toBe(3)
+    expect(restored.version).toBe(4)
     expect(restored.walls).toEqual([])
     expect(restored.doors).toEqual([])
     expect(restored.objects).toEqual(makeRichModel().objects)
@@ -182,7 +182,7 @@ describe('walls and doors serialization (v3)', () => {
     const model = makeWalledModel()
     const restored = deserializeMap(serializeMap(model))
 
-    expect(restored.version).toBe(3)
+    expect(restored.version).toBe(4)
     expect(restored.walls).toEqual(model.walls)
     expect(restored.doors).toEqual(model.doors)
     expect(restored.doors[0]?.open).toBe(true)
@@ -287,5 +287,101 @@ describe('walls and doors serialization (v3)', () => {
         ],
       ),
     )
+  })
+})
+
+describe('v4 object rotation and scale', () => {
+  it('roundtrips objects with rotation and scale', () => {
+    let model = createEmptyMap(5, 5)
+    model = applyCommand(model, {
+      kind: 'addObject',
+      x: 1,
+      y: 1,
+      kindId: 'chest',
+      rotation: 90,
+      scale: { w: 2, h: 1 },
+    })
+    const json = serializeMap(model)
+    const restored = deserializeMap(json)
+    expect(restored.objects).toHaveLength(1)
+    expect(restored.objects[0]).toMatchObject({ rotation: 90, scale: { w: 2, h: 1 } })
+  })
+
+  it('v3 objects without rotation/scale deserialize with defaults', () => {
+    const raw = {
+      version: 3,
+      gridType: 'square',
+      width: 3,
+      height: 3,
+      tiles: Array(9).fill(0),
+      objects: [{ id: 1, kindId: 'door', x: 0, y: 0 }],
+      walls: [],
+      doors: [],
+      lights: [],
+    }
+    const restored = deserializeMap(JSON.stringify(raw))
+    expect(restored.version).toBe(4)
+    expect(restored.objects[0]).toEqual({ id: 1, kindId: 'door', x: 0, y: 0 })
+    expect(restored.objects[0].rotation).toBeUndefined()
+    expect(restored.objects[0].scale).toBeUndefined()
+  })
+
+  it('rejects objects with invalid rotation', () => {
+    const raw = {
+      version: 4,
+      gridType: 'square',
+      width: 3,
+      height: 3,
+      tiles: Array(9).fill(0),
+      objects: [{ id: 1, kindId: 'door', x: 0, y: 0, rotation: 45 }],
+      walls: [],
+      doors: [],
+    }
+    expectMapLoadError(raw)
+  })
+
+  it('rejects objects with invalid scale', () => {
+    const raw = {
+      version: 4,
+      gridType: 'square',
+      width: 3,
+      height: 3,
+      tiles: Array(9).fill(0),
+      objects: [{ id: 1, kindId: 'door', x: 0, y: 0, scale: { w: 0, h: 1 } }],
+      walls: [],
+      doors: [],
+    }
+    expectMapLoadError(raw)
+  })
+
+  it('rejects multi-cell objects that exceed map bounds', () => {
+    const raw = {
+      version: 4,
+      gridType: 'square',
+      width: 3,
+      height: 3,
+      tiles: Array(9).fill(0),
+      objects: [{ id: 1, kindId: 'door', x: 2, y: 0, scale: { w: 2, h: 1 } }],
+      walls: [],
+      doors: [],
+    }
+    expectMapLoadError(raw)
+  })
+
+  it('rejects overlapping multi-cell objects', () => {
+    const raw = {
+      version: 4,
+      gridType: 'square',
+      width: 4,
+      height: 4,
+      tiles: Array(16).fill(0),
+      objects: [
+        { id: 1, kindId: 'door', x: 0, y: 0, scale: { w: 2, h: 2 } },
+        { id: 2, kindId: 'chest', x: 1, y: 1 },
+      ],
+      walls: [],
+      doors: [],
+    }
+    expectMapLoadError(raw)
   })
 })

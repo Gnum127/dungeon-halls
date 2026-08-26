@@ -146,7 +146,7 @@ describe('buildSvg', () => {
     },
   )
 
-  it('draws objects as circles with registry colors in array order', () => {
+  it('draws objects as ellipses with registry colors in array order', () => {
     let model = applyCommand(createEmptyMap(3, 3), {
       kind: 'addObject',
       x: 1,
@@ -155,8 +155,8 @@ describe('buildSvg', () => {
     })
     model = applyCommand(model, { kind: 'addObject', x: 2, y: 2, kindId: 'torch' })
     const svg = buildSvg(model)
-    const circles = svg.match(/<circle /g) ?? []
-    expect(circles).toHaveLength(2)
+    const ellipses = svg.match(/<ellipse /g) ?? []
+    expect(ellipses).toHaveLength(2)
     expect(svg).toContain(`fill="${OBJECT_COLORS.chest}"`)
     expect(svg.indexOf(OBJECT_COLORS.chest)).toBeLessThan(svg.indexOf(OBJECT_COLORS.torch))
   })

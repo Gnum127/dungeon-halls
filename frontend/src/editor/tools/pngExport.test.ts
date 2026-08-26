@@ -187,10 +187,10 @@ describe('exportMapToPng', () => {
 
     const draws = calls.filter((c) => c.op === 'drawImage')
     expect(draws).toHaveLength(2)
-    // Тайл (0,0) при 64px/клетку; объект в центре клетки (1,1): 96−32=64.
+    // Тайл (0,0) при 64px/клетку; объект рисуется в (0,0) после translate к центру клетки.
     expect(draws[0]?.args).toEqual([floorSprite, 0, 0, 64, 64])
-    expect(draws[1]?.args).toEqual([doorSprite, 64, 64, 64, 64])
-    expect(calls.some((c) => c.op === 'arc')).toBe(false)
+    expect(draws[1]?.args).toEqual([doorSprite, -32, -32, 64, 64])
+    expect(calls.some((c) => c.op === 'ellipse')).toBe(false)
     // Размеры холста считаются до рендера и от атласа не зависят.
     expect(created[0]?.width).toBe(192)
     expect(created[0]?.height).toBe(192)
@@ -220,7 +220,7 @@ describe('exportMapToPng', () => {
 
     expect(toBlobSpy).toHaveBeenCalledTimes(1)
     expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
-    expect(calls.filter((c) => c.op === 'arc')).toHaveLength(1)
+    expect(calls.filter((c) => c.op === 'ellipse')).toHaveLength(1)
   })
 
   it('falls back per item on a partial atlas', async () => {
@@ -241,7 +241,7 @@ describe('exportMapToPng', () => {
     const draws = calls.filter((c) => c.op === 'drawImage')
     expect(draws).toHaveLength(1)
     expect(draws[0]?.args[0]).toBe(floorSprite)
-    expect(calls.filter((c) => c.op === 'arc')).toHaveLength(1)
+    expect(calls.filter((c) => c.op === 'ellipse')).toHaveLength(1)
   })
 })
 

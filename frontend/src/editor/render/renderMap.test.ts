@@ -83,7 +83,7 @@ describe('renderMap', () => {
     expect(verticalXs.every((x) => (x as number) <= 64.5)).toBe(true)
   })
 
-  it('draws each map object as a circle at its cell center', () => {
+  it('draws each map object as an ellipse at its cell center', () => {
     const { ctx, calls } = makeFakeCtx()
     const withDoor = applyCommand(createEmptyMap(3, 3), {
       kind: 'addObject',
@@ -94,14 +94,18 @@ describe('renderMap', () => {
 
     renderMap(ctx, withDoor, baseViewport())
 
-    const arcs = calls.filter((c) => c.op === 'arc')
-    expect(arcs).toHaveLength(1)
-    expect(arcs[0]?.args[0]).toBe(48)
-    expect(arcs[0]?.args[1]).toBe(48)
+    const ellipses = calls.filter((c) => c.op === 'ellipse')
+    expect(ellipses).toHaveLength(1)
+    expect(ellipses[0]?.args[0]).toBe(0)
+    expect(ellipses[0]?.args[1]).toBe(0)
 
-    const arcIndex = calls.indexOf(arcs[0]!)
-    const fillAfterArc = calls.slice(arcIndex).find((c) => c.op === 'fill')
-    expect(fillAfterArc?.fillStyle).toBe(OBJECT_COLORS.door)
+    const ellipseIndex = calls.indexOf(ellipses[0]!)
+    expect(calls[ellipseIndex - 2]?.op).toBe('translate')
+    expect(calls[ellipseIndex - 3]?.op).toBe('save')
+    const fillAfterEllipse = calls.slice(ellipseIndex).find((c) => c.op === 'fill')
+    expect(fillAfterEllipse?.fillStyle).toBe(OBJECT_COLORS.door)
+    const restoreAfter = calls.slice(ellipseIndex).find((c) => c.op === 'restore')
+    expect(restoreAfter).toBeDefined()
   })
 
   it('draws objects in array order so the later one lands on top', () => {
@@ -133,7 +137,7 @@ describe('renderMap', () => {
 
     renderMap(ctx, model, baseViewport()) // видно 3×3 клетки
 
-    expect(calls.filter((c) => c.op === 'arc')).toHaveLength(0)
+    expect(calls.filter((c) => c.op === 'ellipse')).toHaveLength(0)
   })
 
   it('falls back to a neutral color for an unknown object kind', () => {
@@ -145,10 +149,10 @@ describe('renderMap', () => {
 
     renderMap(ctx, model, baseViewport())
 
-    const arcIndex = calls.findIndex((c) => c.op === 'arc')
-    expect(arcIndex).toBeGreaterThanOrEqual(0)
-    const fillAfterArc = calls.slice(arcIndex).find((c) => c.op === 'fill')
-    expect(fillAfterArc?.fillStyle).toBe(FALLBACK_OBJECT_COLOR)
+    const ellipseIndex = calls.findIndex((c) => c.op === 'ellipse')
+    expect(ellipseIndex).toBeGreaterThanOrEqual(0)
+    const fillAfterEllipse = calls.slice(ellipseIndex).find((c) => c.op === 'fill')
+    expect(fillAfterEllipse?.fillStyle).toBe(FALLBACK_OBJECT_COLOR)
   })
 })
 
@@ -201,11 +205,17 @@ describe('renderMap (hex)', () => {
     const viewport = hexViewport('hex-pointy', 3, 3)
     renderMap(ctx, model, viewport)
 
-    const arcs = calls.filter((c) => c.op === 'arc')
-    expect(arcs).toHaveLength(1)
+    const ellipses = calls.filter((c) => c.op === 'ellipse')
+    expect(ellipses).toHaveLength(1)
     const center = cellCenterAt(1, 1, 'hex-pointy', SIZE)
-    expect(arcs[0]?.args[0]).toBeCloseTo(center.x, 6)
-    expect(arcs[0]?.args[1]).toBeCloseTo(center.y, 6)
+    // Object is drawn at (0,0) after translate to cell center.
+    expect(ellipses[0]?.args[0]).toBe(0)
+    expect(ellipses[0]?.args[1]).toBe(0)
+    const translateCall = calls.find(
+      (c, i) => c.op === 'translate' && i < calls.indexOf(ellipses[0]!),
+    )
+    expect(translateCall?.args[0]).toBeCloseTo(center.x, 6)
+    expect(translateCall?.args[1]).toBeCloseTo(center.y, 6)
   })
 
   it.each([
@@ -424,7 +434,7 @@ describe('renderMap (object sprites)', () => {
     })
   }
 
-  it('square: draws an object sprite over the cell instead of a circle', () => {
+  it('square: draws an object sprite over the cell instead of an ellipse', () => {
     const doorSprite = { width: 16 } as unknown as HTMLImageElement
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
@@ -434,9 +444,9 @@ describe('renderMap (object sprites)', () => {
 
     const draws = calls.filter((c) => c.op === 'drawImage')
     expect(draws).toHaveLength(1)
-    // Центр клетки (48, 48), сторона = cellSize.
-    expect(draws[0]?.args).toEqual([doorSprite, 32, 32, 32, 32])
-    expect(calls.some((c) => c.op === 'arc')).toBe(false)
+    // Object drawn at (0,0) after translate, size = cellSize.
+    expect(draws[0]?.args).toEqual([doorSprite, -16, -16, 32, 32])
+    expect(calls.some((c) => c.op === 'ellipse')).toBe(false)
   })
 
   it.each(['hex-pointy', 'hex-flat'] as const)(
@@ -449,21 +459,15 @@ describe('renderMap (object sprites)', () => {
         objects: { door: doorSprite },
       })
 
-      const center = cellCenterAt(1, 1, gridType, SIZE)
       const draws = calls.filter((c) => c.op === 'drawImage')
       expect(draws).toHaveLength(1)
-      expect(draws[0]?.args).toEqual([
-        doorSprite,
-        center.x - SIZE,
-        center.y - SIZE,
-        SIZE * 2,
-        SIZE * 2,
-      ])
-      expect(calls.some((c) => c.op === 'arc')).toBe(false)
+      // Object drawn at (0,0) after translate, size = 2*cellSize (hex bbox).
+      expect(draws[0]?.args).toEqual([doorSprite, -32, -32, 64, 64])
+      expect(calls.some((c) => c.op === 'ellipse')).toBe(false)
     },
   )
 
-  it('falls back to the color circle when the kind has no sprite', () => {
+  it('falls back to the color ellipse when the kind has no sprite', () => {
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
       tiles: {},
@@ -471,6 +475,52 @@ describe('renderMap (object sprites)', () => {
     })
 
     expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
-    expect(calls.some((c) => c.op === 'arc')).toBe(true)
+    expect(calls.some((c) => c.op === 'ellipse')).toBe(true)
+  })
+
+  it('applies rotation via ctx.rotate around the cell center', () => {
+    const { ctx, calls } = makeFakeCtx()
+    const model: MapModel = {
+      ...createEmptyMap(3, 3),
+      objects: [{ id: 1, kindId: 'door', x: 1, y: 1, rotation: 90 }],
+    }
+    renderMap(ctx, model, baseViewport())
+
+    const rotateCall = calls.find((c) => c.op === 'rotate')
+    expect(rotateCall).toBeDefined()
+    expect(rotateCall?.args[0]).toBeCloseTo(Math.PI / 2, 6)
+    // translate precedes rotate
+    const rotateIdx = calls.indexOf(rotateCall!)
+    expect(calls[rotateIdx - 1]?.op).toBe('translate')
+  })
+
+  it('applies scale to sprite dimensions', () => {
+    const doorSprite = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    const model: MapModel = {
+      ...createEmptyMap(3, 3),
+      objects: [{ id: 1, kindId: 'door', x: 1, y: 1, scale: { w: 2, h: 1 } }],
+    }
+    renderMap(ctx, model, baseViewport(), { tiles: {}, objects: { door: doorSprite } })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    // cellSize=32, scaleX=2 → width=64, scaleY=1 → height=32
+    expect(draws[0]?.args).toEqual([doorSprite, -32, -16, 64, 32])
+  })
+
+  it('applies scale to fallback ellipse dimensions', () => {
+    const { ctx, calls } = makeFakeCtx()
+    const model: MapModel = {
+      ...createEmptyMap(3, 3),
+      objects: [{ id: 1, kindId: 'chest', x: 1, y: 1, scale: { w: 2, h: 1 } }],
+    }
+    renderMap(ctx, model, baseViewport())
+
+    const ellipses = calls.filter((c) => c.op === 'ellipse')
+    expect(ellipses).toHaveLength(1)
+    // baseRadius = max(3, 32*0.3) = 9.6; rx = 9.6*2=19.2, ry = 9.6*1=9.6
+    expect(ellipses[0]?.args[2]).toBeCloseTo(19.2, 6)
+    expect(ellipses[0]?.args[3]).toBeCloseTo(9.6, 6)
   })
 })

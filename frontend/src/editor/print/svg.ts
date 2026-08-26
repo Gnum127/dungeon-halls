@@ -130,10 +130,15 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
   // Объекты в порядке массива, как в renderMap.
   for (const object of model.objects) {
     const center = cellCenterAt(object.x, object.y, model.gridType, s)
-    const radius = Math.max(3, s * 0.3)
+    const scaleX = object.scale?.w ?? 1
+    const scaleY = object.scale?.h ?? 1
+    const rotation = object.rotation ?? 0
     const fill = isKnownKind(object.kindId) ? OBJECT_COLORS[object.kindId] : FALLBACK_OBJECT_COLOR
+    const rx = fmt(Math.max(3, s * 0.3) * scaleX)
+    const ry = fmt(Math.max(3, s * 0.3) * scaleY)
+    const transform = rotation !== 0 ? ` transform="rotate(${rotation} ${fmt(center.x)} ${fmt(center.y)})"` : ''
     parts.push(
-      `<circle cx="${fmt(center.x)}" cy="${fmt(center.y)}" r="${fmt(radius)}" fill="${fill}" stroke="${OBJECT_OUTLINE_COLOR}" stroke-width="1"/>`,
+      `<ellipse cx="${fmt(center.x)}" cy="${fmt(center.y)}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${OBJECT_OUTLINE_COLOR}" stroke-width="1"${transform}/>`,
     )
   }
 

@@ -18,7 +18,7 @@ import {
 } from './walls'
 import type { Door, WallEdge } from './walls'
 import { MAX_MAP_DIMENSION, TILE_TYPES } from './types'
-import type { GridType, MapModel, ObjectRotation, ObjectScale, TileGrid, TileValue } from './types'
+import type { GridType, MapModel, MapObject, ObjectRotation, ObjectScale, TileGrid, TileValue } from './types'
 export interface TileUpdate {
   readonly x: number
   readonly y: number
@@ -118,7 +118,7 @@ function addObject(
   if (!isKnownKind(kindId)) {
     throw new RangeError(`Unknown object kind: ${kindId}`)
   }
-  const object: import('./types').MapObject = {
+  const object: MapObject = {
     id: nextObjectId(model.objects),
     kindId,
     x,

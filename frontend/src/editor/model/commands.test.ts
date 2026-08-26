@@ -237,7 +237,7 @@ describe('object commands', () => {
     })
     model = withObject(model, 2, 0, 99) // 1×1 at (2,0)
     const next = applyCommand(model, { kind: 'moveObject', id: 1, x: 0, y: 1 })
-    expect(next.objects.find((o) => o.id === 1)).toMatchObject({ x: 0, y: 1 })
+    expect(next.objects.find((o) => o.id === 1)).toMatchObject({ x: 0, y: 1, scale: { w: 2, h: 2 } })
   })
 
   it('moveObject with scale rejects if destination footprint overlaps', () => {

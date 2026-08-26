@@ -15,7 +15,10 @@ export interface ObjectScale {
   readonly h: number
 }
 
-/** Объект карты; footprint определяется scale (по умолчанию 1×1). */
+/**
+ * Объект карты; footprint определяется scale (по умолчанию 1×1).
+ * Rotation — косметическое свойство, влияет только на рендер, НЕ на footprint.
+ */
 export interface MapObject {
   readonly id: number
   readonly kindId: string

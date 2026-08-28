@@ -11,7 +11,10 @@ import { GeneratorPanel } from './components/GeneratorPanel'
 import { ObjectPalette } from './components/ObjectPalette'
 import { RenderModePicker } from './components/RenderModePicker'
 import { RoomTools } from './components/RoomTools'
+import { SectionPanel } from './components/SectionPanel'
 import { TerrainPalette } from './components/TerrainPalette'
+import { ToolRail } from './components/ToolRail'
+import type { EditorSectionId } from './components/ToolRail'
 import { WallTools } from './components/WallTools'
 import { useEditor } from './hooks/useEditor'
 import { useSpriteAtlas } from './hooks/useSpriteAtlas'
@@ -51,6 +54,11 @@ export function EditorPage() {
   }))
   const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null)
   const [fileStatus, setFileStatus] = useState<FileActionStatus | null>(null)
+  // Одна панель за раз; повторный клик по активной иконке прячет панель.
+  const [activeSection, setActiveSection] = useState<EditorSectionId | null>('landscape')
+  // Скрываемые панели: состояние свёрнутости (10.3 — персистентное).
+  const [landscapeCollapsed, setLandscapeCollapsed] = useState(false)
+  const [elementsCollapsed, setElementsCollapsed] = useState(false)
   // Реактивная модель: выбор типа сетки и дизейбл генератора живут в UI страницы.
   const model = useEditor(store)
 
@@ -109,6 +117,131 @@ export function EditorPage() {
     saveRenderMode(mode)
   }
 
+  function toggleSection(id: EditorSectionId) {
+    setActiveSection((current) => (current === id ? null : id))
+  }
+
+  function renderSection() {
+    switch (activeSection) {
+      case 'landscape':
+        return (
+          <SectionPanel
+            title={t('editor.sections.landscape')}
+            collapsible
+            collapsed={landscapeCollapsed}
+            onToggleCollapsed={() => setLandscapeCollapsed((value) => !value)}
+          >
+            <TerrainPalette
+              selected={tool.type === 'terrain' ? tool.tile : -1}
+              onSelect={selectTerrain}
+            />
+          </SectionPanel>
+        )
+      case 'elements':
+        return (
+          <SectionPanel
+            title={t('editor.sections.elements')}
+            collapsible
+            collapsed={elementsCollapsed}
+            onToggleCollapsed={() => setElementsCollapsed((value) => !value)}
+          >
+            <ObjectPalette
+              activeKindId={tool.type === 'object' ? tool.kindId : null}
+              selectActive={tool.type === 'select'}
+              onSelectKind={selectObjectKind}
+              onSelectSelectTool={selectMoveTool}
+              objectRotation={objectRotation}
+              objectScale={objectScale}
+              onRotate={rotateObject}
+            />
+          </SectionPanel>
+        )
+      case 'rooms':
+        return (
+          <SectionPanel title={t('editor.sections.rooms')}>
+            <WallTools
+              activeMode={
+                tool.type === 'wall' || tool.type === 'wall-eraser' || tool.type === 'door'
+                  ? tool.type
+                  : null
+              }
+              disabled={model.gridType !== 'square'}
+              onSelectWall={() => selectWallTool('wall')}
+              onSelectEraser={() => selectWallTool('wall-eraser')}
+              onSelectDoor={() => selectWallTool('door')}
+            />
+            <RoomTools
+              activeMode={tool.type === 'room-rect' || tool.type === 'room-polygon' ? tool.type : null}
+              disabled={model.gridType !== 'square'}
+              onSelectRect={() => selectRoomTool('room-rect')}
+              onSelectPolygon={() => selectRoomTool('room-polygon')}
+            />
+          </SectionPanel>
+        )
+      case 'light':
+        return (
+          <SectionPanel title={t('editor.sections.light')}>
+            <LightPanel
+              active={tool.type === 'light'}
+              radius={lightRadius}
+              color={lightColor}
+              onToggle={() => {
+                setSelectedObjectId(null)
+                setTool((current) =>
+                  current.type === 'light' ? { type: 'select' } : { type: 'light' },
+                )
+              }}
+              onRadiusChange={(radius) => {
+                if (radius >= 1 && radius <= 30) setLightRadius(radius)
+              }}
+              onColorChange={setLightColor}
+            />
+          </SectionPanel>
+        )
+      case 'view':
+        return (
+          <SectionPanel title={t('editor.sections.view')}>
+            <RenderModePicker
+              mode={renderMode}
+              atlasStatus={atlasStatus}
+              onChange={changeRenderMode}
+            />
+            <GridTypePicker
+              gridType={model.gridType}
+              disabled={model.walls.length > 0 || model.doors.length > 0}
+              onChange={(gridType) => store.dispatch({ kind: 'setGridType', gridType })}
+            />
+          </SectionPanel>
+        )
+      case 'generation':
+        return (
+          <SectionPanel title={t('editor.sections.generation')}>
+            <GeneratorPanel onGenerate={handleGenerate} gridDisabled={model.gridType !== 'square'} />
+          </SectionPanel>
+        )
+      case 'file':
+        return (
+          <SectionPanel title={t('editor.sections.file')}>
+            <MapFileActions
+              getModel={() => store.getModel()}
+              sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
+              uvttDisabled={model.gridType !== 'square'}
+              pdfDisabled={model.gridType !== 'square'}
+              onLoaded={(model) => store.reset(model)}
+              onResult={setFileStatus}
+            />
+            {fileStatus !== null && (
+              <p className={styles.fileStatus} role="status">
+                {t(`editor.files.${fileStatus}`)}
+              </p>
+            )}
+          </SectionPanel>
+        )
+      default:
+        return null
+    }
+  }
+
   function handleGenerate(params: GenerationParams) {
     // Выделение сбрасываем: id объектов не переживают replaceMap,
     // иначе Delete по несуществующему объекту бросит RangeError.
@@ -146,73 +279,8 @@ export function EditorPage() {
 
   return (
     <div className={styles.root}>
-      <aside className={styles.sidebar}>
-        <RenderModePicker mode={renderMode} atlasStatus={atlasStatus} onChange={changeRenderMode} />
-        <GridTypePicker
-          gridType={model.gridType}
-          disabled={model.walls.length > 0 || model.doors.length > 0}
-          onChange={(gridType) => store.dispatch({ kind: 'setGridType', gridType })}
-        />
-        <GeneratorPanel onGenerate={handleGenerate} gridDisabled={model.gridType !== 'square'} />
-        <MapFileActions
-          getModel={() => store.getModel()}
-          sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
-          uvttDisabled={model.gridType !== 'square'}
-          pdfDisabled={model.gridType !== 'square'}
-          onLoaded={(model) => store.reset(model)}
-          onResult={setFileStatus}
-        />
-        {fileStatus !== null && (
-          <p className={styles.fileStatus} role="status">
-            {t(`editor.files.${fileStatus}`)}
-          </p>
-        )}
-        <WallTools
-          activeMode={
-            tool.type === 'wall' || tool.type === 'wall-eraser' || tool.type === 'door'
-              ? tool.type
-              : null
-          }
-          disabled={model.gridType !== 'square'}
-          onSelectWall={() => selectWallTool('wall')}
-          onSelectEraser={() => selectWallTool('wall-eraser')}
-          onSelectDoor={() => selectWallTool('door')}
-        />
-        <RoomTools
-          activeMode={tool.type === 'room-rect' || tool.type === 'room-polygon' ? tool.type : null}
-          disabled={model.gridType !== 'square'}
-          onSelectRect={() => selectRoomTool('room-rect')}
-          onSelectPolygon={() => selectRoomTool('room-polygon')}
-        />
-        <LightPanel
-          active={tool.type === 'light'}
-          radius={lightRadius}
-          color={lightColor}
-          onToggle={() => {
-            setSelectedObjectId(null)
-            setTool((current) =>
-              current.type === 'light' ? { type: 'select' } : { type: 'light' },
-            )
-          }}
-          onRadiusChange={(radius) => {
-            if (radius >= 1 && radius <= 30) setLightRadius(radius)
-          }}
-          onColorChange={setLightColor}
-        />
-        <TerrainPalette
-          selected={tool.type === 'terrain' ? tool.tile : -1}
-          onSelect={selectTerrain}
-        />
-        <ObjectPalette
-          activeKindId={tool.type === 'object' ? tool.kindId : null}
-          selectActive={tool.type === 'select'}
-          onSelectKind={selectObjectKind}
-          onSelectSelectTool={selectMoveTool}
-          objectRotation={objectRotation}
-          objectScale={objectScale}
-          onRotate={rotateObject}
-        />
-      </aside>
+      <ToolRail active={activeSection} onSelect={toggleSection} />
+      {activeSection !== null && <aside className={styles.sidebar}>{renderSection()}</aside>}
       <div className={styles.workspace}>
         <CanvasView
           store={store}

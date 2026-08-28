@@ -55,6 +55,8 @@ export function EditorPage() {
   }))
   const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null)
   const [fileStatus, setFileStatus] = useState<FileActionStatus | null>(null)
+  // Единый источник заливки для кисти и инструментов комнат.
+  const [brushTile, setBrushTile] = useState<TileValue>(defaultBrushTile)
   // Одна панель за раз; повторный клик по активной иконке прячет панель.
   const [activeSection, setActiveSection] = useState<EditorSectionId | null>('landscape')
   // Скрываемые панели: состояние свёрнутости персистится в localStorage.
@@ -85,6 +87,7 @@ export function EditorPage() {
 
   function selectTerrain(tile: TileValue) {
     setSelectedObjectId(null)
+    setBrushTile(tile)
     if (tile !== EMPTY_TILE) lastBrushTileRef.current = tile
     setTool({ type: 'terrain', tile })
   }
@@ -180,6 +183,7 @@ export function EditorPage() {
             <RoomTools
               activeMode={tool.type === 'room-rect' || tool.type === 'room-polygon' ? tool.type : null}
               disabled={model.gridType !== 'square'}
+              tile={brushTile}
               onSelectRect={() => selectRoomTool('room-rect')}
               onSelectPolygon={() => selectRoomTool('room-polygon')}
             />
@@ -295,6 +299,7 @@ export function EditorPage() {
           selectedObjectId={selectedObjectId}
           onSelectObject={setSelectedObjectId}
           sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
+          roomTile={brushTile}
           lightRadius={lightRadius}
           lightColor={lightColor}
         />

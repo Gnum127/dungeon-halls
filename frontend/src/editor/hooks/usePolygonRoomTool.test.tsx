@@ -13,9 +13,10 @@ function makeViewport(): Viewport {
 interface ProbeProps {
   onCommit: (command: Command | null) => void
   active?: boolean
+  tile?: number
 }
 
-function Probe({ onCommit, active = true }: ProbeProps) {
+function Probe({ onCommit, active = true, tile = 1 }: ProbeProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = useRef<Viewport>(makeViewport())
   const model = createEmptyMap(8, 8)
@@ -23,6 +24,7 @@ function Probe({ onCommit, active = true }: ProbeProps) {
     canvasRef,
     active,
     model,
+    tile,
     viewportRef,
     onCommit,
   })

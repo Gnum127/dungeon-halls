@@ -1,22 +1,28 @@
 import { describe, expect, it } from 'vitest'
 import { polygonRoom, rectRoom } from './rooms'
 import type { RoomGeometry } from './rooms'
-import { TILE_TYPES } from './types'
+import { EMPTY_TILE, TILE_TYPES } from './types'
+import type { TileValue } from './types'
 import { edgeKey } from './walls'
 
 const FLOOR = TILE_TYPES.indexOf('floor')
+const STONE = TILE_TYPES.indexOf('stone')
 
 function tileMatrix(geometry: RoomGeometry, width: number, height: number): string[] {
   const rows: string[] = []
   for (let y = 0; y < height; y += 1) {
     let row = ''
     for (let x = 0; x < width; x += 1) {
-      const filled = geometry.tiles.some((t) => t.x === x && t.y === y && t.tile === FLOOR)
+      const filled = geometry.tiles.some((t) => t.x === x && t.y === y)
       row += filled ? '#' : '.'
     }
     rows.push(row)
   }
   return rows
+}
+
+function tileValues(geometry: RoomGeometry): Set<TileValue> {
+  return new Set(geometry.tiles.map(({ tile }) => tile))
 }
 
 function wallKeys(geometry: RoomGeometry): Set<string> {
@@ -25,9 +31,10 @@ function wallKeys(geometry: RoomGeometry): Set<string> {
 
 describe('rectRoom', () => {
   it('fills a floor rectangle and rings it with perimeter walls', () => {
-    const g = rectRoom(1, 1, 3, 2, 5, 4)
+    const g = rectRoom(1, 1, 3, 2, 5, 4, FLOOR)
 
     expect(tileMatrix(g, 5, 4)).toEqual(['.....', '.###.', '.###.', '.....'])
+    expect(tileValues(g)).toEqual(new Set([FLOOR]))
     expect(wallKeys(g)).toEqual(
       new Set([
         '1,1,N', '2,1,N', '3,1,N',
@@ -38,16 +45,33 @@ describe('rectRoom', () => {
     )
   })
 
+  it('fills the room with the selected tile', () => {
+    const g = rectRoom(1, 1, 3, 2, 5, 4, STONE)
+
+    expect(tileMatrix(g, 5, 4)).toEqual(['.....', '.###.', '.###.', '.....'])
+    expect(tileValues(g)).toEqual(new Set([STONE]))
+    // Периметровые стены строятся для любого конкретного покрытия.
+    expect(g.walls.length).toBeGreaterThan(0)
+  })
+
+  it('an eraser room clears the area without building walls', () => {
+    const g = rectRoom(1, 1, 3, 2, 5, 4, EMPTY_TILE)
+
+    expect(tileMatrix(g, 5, 4)).toEqual(['.....', '.###.', '.###.', '.....'])
+    expect(tileValues(g)).toEqual(new Set([EMPTY_TILE]))
+    expect(g.walls).toEqual([])
+  })
+
   it('normalizes dragged corners regardless of direction', () => {
-    const forward = rectRoom(2, 3, 0, 1, 5, 5)
-    const backward = rectRoom(0, 1, 2, 3, 5, 5)
+    const forward = rectRoom(2, 3, 0, 1, 5, 5, FLOOR)
+    const backward = rectRoom(0, 1, 2, 3, 5, 5, FLOOR)
 
     expect(forward.tiles).toEqual(backward.tiles)
     expect(forward.walls).toEqual(backward.walls)
   })
 
   it('clips floor and drops walls at the map border', () => {
-    const g = rectRoom(0, 0, 2, 1, 5, 4)
+    const g = rectRoom(0, 0, 2, 1, 5, 4, FLOOR)
 
     expect(tileMatrix(g, 5, 4)).toEqual(['###..', '###..', '.....', '.....'])
     const keys = wallKeys(g)
@@ -60,14 +84,14 @@ describe('rectRoom', () => {
   })
 
   it('returns empty geometry when clipping removes every cell', () => {
-    const g = rectRoom(-3, -2, -1, -1, 5, 5)
+    const g = rectRoom(-3, -2, -1, -1, 5, 5, FLOOR)
 
     expect(g.tiles).toEqual([])
     expect(g.walls).toEqual([])
   })
 
   it('rings a single-cell room in four walls', () => {
-    const g = rectRoom(2, 2, 2, 2, 5, 5)
+    const g = rectRoom(2, 2, 2, 2, 5, 5, FLOOR)
 
     expect(tileMatrix(g, 5, 5)).toEqual([
       '.....', '.....', '..#..', '.....', '.....',
@@ -76,7 +100,7 @@ describe('rectRoom', () => {
   })
 
   it('a single-row room has two horizontal walls', () => {
-    const g = rectRoom(1, 2, 3, 2, 5, 5)
+    const g = rectRoom(1, 2, 3, 2, 5, 5, FLOOR)
 
     expect(wallKeys(g)).toEqual(new Set([
       '1,2,N', '2,2,N', '3,2,N',
@@ -86,8 +110,8 @@ describe('rectRoom', () => {
   })
 
   it('produces deterministic (sorted) wall order', () => {
-    const forward = rectRoom(1, 1, 3, 2, 5, 4)
-    const reversed = rectRoom(3, 2, 1, 1, 5, 4)
+    const forward = rectRoom(1, 1, 3, 2, 5, 4, FLOOR)
+    const reversed = rectRoom(3, 2, 1, 1, 5, 4, FLOOR)
 
     expect(forward.walls.map(({ edge }) => edgeKey(edge))).toEqual(
       reversed.walls.map(({ edge }) => edgeKey(edge)),
@@ -106,6 +130,7 @@ describe('polygonRoom', () => {
       ],
       5,
       4,
+      FLOOR,
     )
 
     expect(tileMatrix(g, 5, 4)).toEqual(['.....', '.###.', '.###.', '.....'])
@@ -117,6 +142,41 @@ describe('polygonRoom', () => {
         '3,1,E', '3,2,E',
       ]),
     )
+  })
+
+  it('fills the room with the selected tile', () => {
+    const g = polygonRoom(
+      [
+        { x: 1, y: 1 },
+        { x: 3, y: 1 },
+        { x: 3, y: 2 },
+        { x: 1, y: 2 },
+      ],
+      5,
+      4,
+      STONE,
+    )
+
+    expect(tileValues(g)).toEqual(new Set([STONE]))
+    expect(g.walls.length).toBeGreaterThan(0)
+  })
+
+  it('an eraser polygon clears interior cells without walls', () => {
+    const g = polygonRoom(
+      [
+        { x: 1, y: 1 },
+        { x: 3, y: 1 },
+        { x: 3, y: 2 },
+        { x: 1, y: 2 },
+      ],
+      5,
+      4,
+      EMPTY_TILE,
+    )
+
+    expect(tileMatrix(g, 5, 4)).toEqual(['.....', '.###.', '.###.', '.....'])
+    expect(tileValues(g)).toEqual(new Set([EMPTY_TILE]))
+    expect(g.walls).toEqual([])
   })
 
   it('fills a concave L-shape and walls its outer boundary', () => {
@@ -133,6 +193,7 @@ describe('polygonRoom', () => {
       ],
       5,
       5,
+      FLOOR,
     )
 
     expect(tileMatrix(g, 5, 5)).toEqual([
@@ -154,8 +215,8 @@ describe('polygonRoom', () => {
   })
 
   it('treats an empty polygon as no-op geometry', () => {
-    expect(polygonRoom([], 5, 5)).toEqual({ tiles: [], walls: [] })
-    expect(polygonRoom([{ x: 1, y: 1 }], 5, 5)).toEqual({ tiles: [], walls: [] })
+    expect(polygonRoom([], 5, 5, FLOOR)).toEqual({ tiles: [], walls: [] })
+    expect(polygonRoom([{ x: 1, y: 1 }], 5, 5, FLOOR)).toEqual({ tiles: [], walls: [] })
     expect(
       polygonRoom(
         [
@@ -164,6 +225,7 @@ describe('polygonRoom', () => {
         ],
         5,
         5,
+        FLOOR,
       ),
     ).toEqual({ tiles: [], walls: [] })
   })
@@ -178,6 +240,7 @@ describe('polygonRoom', () => {
       ],
       5,
       4,
+      FLOOR,
     )
     const withDuplicates = polygonRoom(
       [
@@ -190,6 +253,7 @@ describe('polygonRoom', () => {
       ],
       5,
       4,
+      FLOOR,
     )
 
     expect(withDuplicates.tiles).toEqual(clean.tiles)
@@ -206,6 +270,7 @@ describe('polygonRoom', () => {
       ],
       4,
       3,
+      FLOOR,
     )
 
     expect(tileMatrix(g, 4, 3)).toEqual(['###.', '###.', '###.'])
@@ -223,6 +288,7 @@ describe('polygonRoom', () => {
       ],
       4,
       4,
+      FLOOR,
     )
 
     expect(wallKeys(g)).toEqual(
@@ -245,6 +311,7 @@ describe('polygonRoom', () => {
       ],
       5,
       4,
+      FLOOR,
     )
     const b = polygonRoom(
       [
@@ -255,6 +322,7 @@ describe('polygonRoom', () => {
       ],
       5,
       4,
+      FLOOR,
     )
 
     expect(a.walls.map(({ edge }) => edgeKey(edge))).toEqual(

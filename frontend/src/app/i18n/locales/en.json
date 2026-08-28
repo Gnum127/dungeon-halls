@@ -32,6 +32,10 @@
       "roomHint": "Polygon: click vertices, Enter or double-click to finish, Esc to cancel",
       "roomSquareOnly": "Rooms support square grids only"
     },
+    "rooms": {
+      "fill": "Room fill",
+      "clearsArea": "clears the area"
+    },
     "light": {
       "label": "Light",
       "radius": "Radius (cells)",

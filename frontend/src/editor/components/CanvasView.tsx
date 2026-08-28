@@ -27,6 +27,7 @@ import { useRectRoomTool } from '../hooks/useRectRoomTool'
 import type { EditorTool } from '../tools/editorTool'
 import { mergePointerHandlers } from './pointerHandlers'
 import { formatCoords } from './formatCoords'
+import type { TileValue } from '../model/types'
 import styles from './CanvasView.module.css'
 
 interface CanvasViewProps {
@@ -36,6 +37,8 @@ interface CanvasViewProps {
   onSelectObject: (id: number | null) => void
   /** Атлас спрайтов; undefined = цветной режим (fallback на плитки). */
   sprites?: SpriteRenderContext
+  /** Заливка комнат: текущая кисть; EMPTY_TILE = ластик области. */
+  roomTile: TileValue
   /** Свойства инструмента света. */
   lightRadius: number
   lightColor: string
@@ -47,6 +50,7 @@ export function CanvasView({
   selectedObjectId,
   onSelectObject,
   sprites,
+  roomTile,
   lightRadius,
   lightColor,
 }: CanvasViewProps) {
@@ -138,6 +142,7 @@ export function CanvasView({
     canvasRef,
     active: tool.type === 'room-rect',
     model,
+    tile: roomTile,
     viewportRef,
     onCommit: handleBrushCommit,
   })
@@ -146,6 +151,7 @@ export function CanvasView({
     canvasRef,
     active: tool.type === 'room-polygon',
     model,
+    tile: roomTile,
     viewportRef,
     onCommit: handleBrushCommit,
   })
@@ -198,6 +204,7 @@ export function CanvasView({
         rectRoomPreview.current.y,
         model.width,
         model.height,
+        roomTile,
       )
       drawRoomPreview(
         ctx,
@@ -210,7 +217,7 @@ export function CanvasView({
       )
     }
     if (tool.type === 'room-polygon' && polygonVertices && polygonVertices.length > 0) {
-      const geometry = polygonRoom(polygonVertices, model.width, model.height)
+      const geometry = polygonRoom(polygonVertices, model.width, model.height, roomTile)
       drawRoomPreview(
         ctx,
         {
@@ -221,7 +228,7 @@ export function CanvasView({
         viewport,
       )
     }
-  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites, hoverEdge, tool, rectRoomPreview, polygonVertices])
+  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites, hoverEdge, tool, rectRoomPreview, polygonVertices, roomTile])
 
   const pointerHandlers = useMemo(
     () =>

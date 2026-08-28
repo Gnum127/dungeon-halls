@@ -4,7 +4,7 @@ import type { RefObject } from 'react'
 import { isEditableTarget } from '../dom/isEditableTarget'
 import type { Command } from '../model/commands'
 import { polygonRoom } from '../model/rooms'
-import type { MapModel } from '../model/types'
+import type { MapModel, TileValue } from '../model/types'
 import type { Viewport } from '../render/viewport'
 import { isInsideMap } from '../tools/brush'
 import type { Cell } from '../tools/brush'
@@ -16,6 +16,8 @@ interface PolygonRoomToolOptions {
   /** false — инструмент неактивен, события игнорируются. */
   active: boolean
   model: MapModel
+  /** Чем заливается комната; `EMPTY_TILE` = ластик области без стен. */
+  tile: TileValue
   viewportRef: RefObject<Viewport>
   onCommit: (command: Command | null) => void
 }
@@ -35,7 +37,7 @@ handlers: {
     onDoubleClick: (event: ReactMouseEvent<HTMLCanvasElement>) => void
   }
 } {
-  const { canvasRef, active, model, viewportRef, onCommit } = options
+  const { canvasRef, active, model, tile, viewportRef, onCommit } = options
   const [vertices, setVertices] = useState<readonly Cell[] | null>(null)
   const verticesRef = useRef<readonly Cell[] | null>(null)
 
@@ -81,10 +83,10 @@ handlers: {
 
   const commitPolygon = useCallback(
     (points: readonly Cell[]) => {
-      onCommit(commitRoom(polygonRoom(points, model.width, model.height)))
+      onCommit(commitRoom(polygonRoom(points, model.width, model.height, tile)))
       applyVertices(null)
     },
-    [model.width, model.height, onCommit],
+    [model.width, model.height, onCommit, tile],
   )
 
   useEffect(() => {

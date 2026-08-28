@@ -1,6 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { TILE_TYPES } from '../model/types'
+import { EMPTY_TILE } from '../model/types'
 import { RoomTools } from './RoomTools'
+
+const STONE = TILE_TYPES.indexOf('stone')
 
 describe('RoomTools', () => {
   it('renders two tool buttons with pressed state', () => {
@@ -8,6 +12,7 @@ describe('RoomTools', () => {
       <RoomTools
         activeMode="room-rect"
         disabled={false}
+        tile={1}
         onSelectRect={vi.fn()}
         onSelectPolygon={vi.fn()}
       />,
@@ -31,6 +36,7 @@ describe('RoomTools', () => {
       <RoomTools
         activeMode={null}
         disabled={false}
+        tile={1}
         onSelectRect={onSelectRect}
         onSelectPolygon={onSelectPolygon}
       />,
@@ -44,11 +50,40 @@ describe('RoomTools', () => {
     expect(onSelectPolygon).toHaveBeenCalledTimes(1)
   })
 
+  it('shows what tile will fill the room', () => {
+    render(
+      <RoomTools
+        activeMode={null}
+        disabled={false}
+        tile={STONE}
+        onSelectRect={vi.fn()}
+        onSelectPolygon={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('group', { name: 'Room fill' })).toHaveTextContent('Stone')
+  })
+
+  it('shows the eraser label for the empty fill', () => {
+    render(
+      <RoomTools
+        activeMode={null}
+        disabled={false}
+        tile={EMPTY_TILE}
+        onSelectRect={vi.fn()}
+        onSelectPolygon={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('group', { name: 'Room fill' })).toHaveTextContent('clears the area')
+  })
+
   it('disables all tools with a hint on non-square grids', () => {
     render(
       <RoomTools
         activeMode={null}
         disabled
+        tile={1}
         onSelectRect={vi.fn()}
         onSelectPolygon={vi.fn()}
       />,
@@ -64,6 +99,7 @@ describe('RoomTools', () => {
       <RoomTools
         activeMode="room-polygon"
         disabled={false}
+        tile={1}
         onSelectRect={vi.fn()}
         onSelectPolygon={vi.fn()}
       />,
@@ -74,6 +110,7 @@ describe('RoomTools', () => {
       <RoomTools
         activeMode="room-rect"
         disabled={false}
+        tile={1}
         onSelectRect={vi.fn()}
         onSelectPolygon={vi.fn()}
       />,

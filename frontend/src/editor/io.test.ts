@@ -3,9 +3,12 @@ import { applyCommand } from './model/commands'
 import { createEmptyMap } from './model/createEmptyMap'
 import { MAX_MAP_DIMENSION, TILE_TYPES } from './model/types'
 import type { MapModel } from './model/types'
+import { rectRoom } from './model/rooms'
+import { commitRoom } from './tools/rooms'
 import { deserializeMap, MapLoadError, serializeMap } from './io'
 
 const FLOOR = TILE_TYPES.indexOf('floor')
+const STONE = TILE_TYPES.indexOf('stone')
 
 function makeRichModel(): MapModel {
   let model = applyCommand(createEmptyMap(4, 3), {
@@ -45,6 +48,23 @@ describe('serializeMap / deserializeMap roundtrip', () => {
     const model = createEmptyMap(MAX_MAP_DIMENSION, 1)
     const restored = deserializeMap(serializeMap(model))
     expect(restored.width).toBe(MAX_MAP_DIMENSION)
+  })
+
+  it('roundtrips a v4 file with room fills (tiles + perimeter walls)', () => {
+    // Комната = команда addRoom из геометрии rectRoom: тайлы пола и стены.
+    let model = createEmptyMap(6, 4)
+    const geometry = rectRoom(1, 1, 4, 2, model.width, model.height, STONE)
+    const command = commitRoom(geometry)
+    expect(command?.kind).toBe('addRoom')
+    if (command?.kind === 'addRoom') model = applyCommand(model, command)
+
+    expect(model.walls.length).toBeGreaterThan(0)
+    const restored = deserializeMap(serializeMap(model))
+
+    expect(restored.version).toBe(4)
+    expect([...restored.tiles]).toEqual([...model.tiles])
+    expect(restored.tiles[1 + 1 * restored.width]).toBe(STONE)
+    expect(restored.walls).toEqual(model.walls)
   })
 })
 

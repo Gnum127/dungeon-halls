@@ -3,7 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react'
 import type { Command } from '../model/commands'
 import { rectRoom } from '../model/rooms'
-import type { MapModel } from '../model/types'
+import type { MapModel, TileValue } from '../model/types'
 import type { Viewport } from '../render/viewport'
 import { isInsideMap } from '../tools/brush'
 import type { Cell } from '../tools/brush'
@@ -15,6 +15,8 @@ interface RectRoomToolOptions {
   /** false — инструмент неактивен, события игнорируются. */
   active: boolean
   model: MapModel
+  /** Чем заливается комната; `EMPTY_TILE` = ластик области без стен. */
+  tile: TileValue
   viewportRef: RefObject<Viewport>
   onCommit: (command: Command | null) => void
 }
@@ -46,7 +48,7 @@ export function useRectRoomTool(options: RectRoomToolOptions): {
     onPointerCancel: (event: ReactPointerEvent<HTMLCanvasElement>) => void
   }
 } {
-  const { canvasRef, active, model, viewportRef, onCommit } = options
+  const { canvasRef, active, model, tile, viewportRef, onCommit } = options
   const dragRef = useRef<DragState | null>(null)
   const [preview, setPreview] = useState<RectPreview | null>(null)
 
@@ -97,7 +99,15 @@ export function useRectRoomTool(options: RectRoomToolOptions): {
     // Геометрия сама обрезается по границам карты (rectRoom).
     onCommit(
       commitRoom(
-        rectRoom(drag.start.x, drag.start.y, drag.current.x, drag.current.y, model.width, model.height),
+        rectRoom(
+          drag.start.x,
+          drag.start.y,
+          drag.current.x,
+          drag.current.y,
+          model.width,
+          model.height,
+          tile,
+        ),
       ),
     )
   }

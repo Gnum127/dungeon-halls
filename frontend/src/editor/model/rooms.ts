@@ -1,9 +1,8 @@
 import type { TileUpdate, WallUpdate } from './commands'
 import type { WallEdge } from './walls'
-import { TILE_TYPES } from './types'
+import { EMPTY_TILE } from './types'
+import type { TileValue } from './types'
 import type { Cell } from '../tools/brush'
-
-const FLOOR_TILE = TILE_TYPES.indexOf('floor')
 
 export interface RoomGeometry {
   readonly tiles: readonly TileUpdate[]
@@ -19,10 +18,11 @@ function compareWalls(a: WallEdge, b: WallEdge): number {
 }
 
 /**
- * Прямоугольная комната: заливка пола по диапазону и стены по периметру.
- * Диапазон обрезается границами карты — стены на самой границе опускаются
- * (у карты уже есть край). Возвращает пустую геометрию, если после обрезки
- * не осталось ни одной клетки.
+ * Прямоугольная комната: заливка выбранным тайлом по диапазону и стены по
+ * периметру. Диапазон обрезается границами карты — стены на самой границе
+ * опускаются (у карты уже есть край). При `EMPTY_TILE` комната работает как
+ * ластик области: чистит тайлы без построения стен. Возвращает пустую
+ * геометрию, если после обрезки не осталось ни одной клетки.
  */
 export function rectRoom(
   ax: number,
@@ -31,6 +31,7 @@ export function rectRoom(
   by: number,
   width: number,
   height: number,
+  tile: TileValue,
 ): RoomGeometry {
   const x1 = Math.max(0, Math.min(ax, bx))
   const y1 = Math.max(0, Math.min(ay, by))
@@ -41,9 +42,11 @@ export function rectRoom(
   const tiles: TileUpdate[] = []
   for (let y = y1; y <= y2; y += 1) {
     for (let x = x1; x <= x2; x += 1) {
-      tiles.push({ x, y, tile: FLOOR_TILE })
+      tiles.push({ x, y, tile })
     }
   }
+  // Ластик-комната только чистит область, стены не строит.
+  if (tile === EMPTY_TILE) return { tiles, walls: [] }
 
   const walls: WallEdge[] = []
   // Верх и низ комнаты — горизонтальные рёбра её крайних рядов.
@@ -72,11 +75,13 @@ export function rectRoom(
  * вершины и обводка прямоугольников всегда попадают в комнату.
  * Правило границы корректно работает на вогнутых полигонах; стены на границе
  * карты опускаются. Меньше трёх (после снятия дублей) вершин — пустая геометрия.
+ * При `EMPTY_TILE` полигон чистит внутренние тайлы и НЕ строит стен (ластик).
  */
 export function polygonRoom(
   vertices: readonly Cell[],
   width: number,
   height: number,
+  tile: TileValue,
 ): RoomGeometry {
   const points = vertices.map((v) => ({
     x: Math.max(0, Math.min(width - 1, v.x)) + 0.5,
@@ -94,11 +99,13 @@ export function polygonRoom(
     for (let x = 0; x < width; x += 1) {
       if (pointInPolygon(unique, x + 0.5, y + 0.5)) {
         inside.add(y * width + x)
-        tiles.push({ x, y, tile: FLOOR_TILE })
+        tiles.push({ x, y, tile })
       }
     }
   }
   if (inside.size === 0) return { tiles, walls: [] }
+  // Ластик-комната только чистит область, стены не строит.
+  if (tile === EMPTY_TILE) return { tiles, walls: [] }
 
   const walls: WallEdge[] = []
   for (const key of inside) {
@@ -112,6 +119,49 @@ export function polygonRoom(
   walls.sort(compareWalls)
 
   return { tiles, walls: walls.map((edge) => ({ edge, present: true })) }
+}
+
+export const MAX_POLYGON_VERTICES = 12
+
+/**
+ * Вершины правильного N-угольника «центр + радиусная точка»: первая вершина
+ * направлена от центра к радиальной точке (задаёт поворот), остальные — по
+ * окружности с шагом 2π/count. Точки округляются к центрам клеток (вершина
+ * живёт в клетке, чей центр ближе), индексы клампируются в границы карты.
+ * Клампинг меняет только координаты вершин, углы не трогает — прижатый к
+ * краю многоугольник может стать нерегулярным (осознанное поведение).
+ * Возвращает вершины БЕЗ дублей вообще (нужен уникальный периметр для стены);
+ * если после снятия дублей осталось меньше 3 вершин — пустой массив.
+ */
+export function regularPolygonVertices(
+  center: Cell,
+  radial: Cell,
+  count: number,
+  width: number,
+  height: number,
+): Cell[] {
+  if (count < 3) return []
+  // Контракт 3..12 самосогласован: завышенный счёт ведёт себя как максимум.
+  const steps = Math.min(count, MAX_POLYGON_VERTICES)
+  const dx = radial.x - center.x
+  const dy = radial.y - center.y
+  const radius = Math.hypot(dx, dy)
+  if (radius === 0) return []
+  const phase = Math.atan2(dy, dx)
+
+  const unique = new Map<string, Cell>()
+  for (let k = 0; k < steps; k += 1) {
+    const angle = phase + (k * Math.PI * 2) / steps
+    const px = center.x + radius * Math.cos(angle)
+    const py = center.y + radius * Math.sin(angle)
+    // Ближайший клеточный центр: индекс = round(позиция − 0.5).
+    const x = Math.max(0, Math.min(width - 1, Math.round(px - 0.5)))
+    const y = Math.max(0, Math.min(height - 1, Math.round(py - 0.5)))
+    unique.set(`${x},${y}`, { x, y })
+  }
+
+  const vertices = [...unique.values()]
+  return vertices.length >= 3 ? vertices : []
 }
 
 /** Точка на контуре полигона (в пределах отрезка) или внутри по even-odd. */

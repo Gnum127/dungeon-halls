@@ -2,6 +2,7 @@ import { fireEvent, render } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { useRef } from 'react'
 import { createEmptyMap } from '../model/createEmptyMap'
+import { EMPTY_TILE } from '../model/types'
 import type { Command } from '../model/commands'
 import type { Viewport } from '../render/viewport'
 import { useRectRoomTool } from './useRectRoomTool'
@@ -13,9 +14,10 @@ function makeViewport(): Viewport {
 interface ProbeProps {
   onCommit: (command: Command | null) => void
   active?: boolean
+  tile?: number
 }
 
-function Probe({ onCommit, active = true }: ProbeProps) {
+function Probe({ onCommit, active = true, tile = 1 }: ProbeProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = useRef<Viewport>(makeViewport())
   const model = createEmptyMap(8, 8)
@@ -23,6 +25,7 @@ function Probe({ onCommit, active = true }: ProbeProps) {
     canvasRef,
     active,
     model,
+    tile,
     viewportRef,
     onCommit,
   })
@@ -98,6 +101,24 @@ describe('useRectRoomTool', () => {
     if (command.kind === 'addRoom') {
       expect(command.tiles).toEqual([{ x: 3, y: 2, tile: 1 }])
       expect(command.walls).toHaveLength(4)
+    }
+  })
+
+  it('an eraser room clears the area without building walls', () => {
+    const onCommit = vi.fn()
+    const { getByTestId } = render(<Probe onCommit={onCommit} tile={EMPTY_TILE} />)
+    const canvas = getByTestId('canvas')
+
+    pointer(canvas, 'pointerdown', { clientX: 2 * CELL + 16, clientY: 2 * CELL + 16 })
+    pointer(canvas, 'pointermove', { clientX: 4 * CELL + 16, clientY: 4 * CELL + 16 })
+    pointer(canvas, 'pointerup', { buttons: 0 })
+
+    const command = onCommit.mock.calls[0][0] as Command
+    expect(command.kind).toBe('addRoom')
+    if (command.kind === 'addRoom') {
+      expect(command.tiles).toHaveLength(9)
+      expect(command.tiles.every(({ tile }) => tile === EMPTY_TILE)).toBe(true)
+      expect(command.walls).toEqual([])
     }
   })
 

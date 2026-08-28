@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react'
 import { isEditableTarget } from '../dom/isEditableTarget'
 import type { Command } from '../model/commands'
-import { polygonRoom } from '../model/rooms'
-import type { MapModel } from '../model/types'
+import { polygonRoom, regularPolygonVertices } from '../model/rooms'
+import type { MapModel, TileValue } from '../model/types'
 import type { Viewport } from '../render/viewport'
 import { isInsideMap } from '../tools/brush'
 import type { Cell } from '../tools/brush'
@@ -16,99 +16,121 @@ interface PolygonRoomToolOptions {
   /** false — инструмент неактивен, события игнорируются. */
   active: boolean
   model: MapModel
+  /** Чем заливается комната; `EMPTY_TILE` = ластик области без стен. */
+  tile: TileValue
+  /** Количество вершин правильного многоугольника (3..12). */
+  vertexCount: number
   viewportRef: RefObject<Viewport>
   onCommit: (command: Command | null) => void
+}
+
+export interface PolygonRoomPreview {
+  readonly center: Cell
+  /** Радиусная точка; null, пока курсор ещё не задал радиус (или ушёл за карту). */
+  readonly radial: Cell | null
+  /** Вершины готового многоугольника; пусто при нулевом радиусе. */
+  readonly vertices: readonly Cell[]
+}
+
+/** Размещение в процессе: центр поставлен, радиус тянется курсором. */
+interface Placement {
+  readonly center: Cell
+  readonly radial: Cell | null
 }
 
 const LEFT_BUTTON = 0
 
 /**
- * Инструмент «Комната-полигон»: клики ставят вершины (snap к центрам клеток).
- * Enter или двойной клик завершают и коммитят комнату (нужно ≥3 вершин),
- * Esc отменяет незавершённый полигон. Живое превью рёбер и заливки.
+ * Инструмент «Комната-полигон» (старый покликовый ввод удалён): первый клик
+ * ставит центр, курсор тянет вторую (радиальную) точку с живым превью
+ * правильного N-угольника, клик №2 фиксирует радиус и коммитит. Esc отменяет.
+ * Клик в ту же клетку, что и центр (радиус 0), не коммитит — размещение
+ * остаётся активным, можно ткнуть в другую клетку.
  */
 export function usePolygonRoomTool(options: PolygonRoomToolOptions): {
-  vertices: readonly Cell[] | null
-handlers: {
+  preview: PolygonRoomPreview | null
+  handlers: {
     onPointerDown: (event: ReactPointerEvent<HTMLCanvasElement>) => void
-    onPointerCancel: () => void
-    onDoubleClick: (event: ReactMouseEvent<HTMLCanvasElement>) => void
+    onPointerMove: (event: ReactPointerEvent<HTMLCanvasElement>) => void
   }
 } {
-  const { canvasRef, active, model, viewportRef, onCommit } = options
-  const [vertices, setVertices] = useState<readonly Cell[] | null>(null)
-  const verticesRef = useRef<readonly Cell[] | null>(null)
+  const { canvasRef, active, model, tile, vertexCount, viewportRef, onCommit } = options
+  const [placement, setPlacement] = useState<Placement | null>(null)
+  const placementRef = useRef<Placement | null>(null)
 
   const cellFromEvent = useCellFromEvent(canvasRef, viewportRef, model.gridType)
 
-  function applyVertices(next: readonly Cell[] | null) {
-    verticesRef.current = next
-    setVertices(next)
+  function applyPlacement(next: Placement | null) {
+    placementRef.current = next
+    setPlacement(next)
   }
 
-  function addVertex(event: ReactPointerEvent<HTMLCanvasElement>) {
-    const cell = cellFromEvent(event)
-    if (!isInsideMap(model, cell.x, cell.y)) return
-    const current = verticesRef.current
-    if (current) {
-      const last = current[current.length - 1]
-      if (last.x === cell.x && last.y === cell.y) return
-      applyVertices([...current, cell])
-    } else {
-      applyVertices([cell])
-    }
+  function tryCommit(center: Cell, radial: Cell): boolean {
+    const vertices = regularPolygonVertices(center, radial, vertexCount, model.width, model.height)
+    if (vertices.length === 0) return false
+    onCommit(commitRoom(polygonRoom(vertices, model.width, model.height, tile)))
+    return true
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
-    if (!active || event.button !== LEFT_BUTTON) return
-    event.preventDefault()
-    addVertex(event)
-  }
-
-  function onPointerCancel() {
-    if (!active) return
-    applyVertices(null)
-  }
-
-  function onDoubleClick(event: ReactMouseEvent<HTMLCanvasElement>) {
-    if (!active) return
-    const current = verticesRef.current
-    if (current && current.length >= 3) {
-      event.preventDefault()
-      commitPolygon(current)
+    if (event.button !== LEFT_BUTTON) return
+    if (!active) {
+      // Смена инструмента оставила незавершённое размещение — сбрасываем.
+      applyPlacement(null)
+      return
     }
+    const cell = cellFromEvent(event)
+    if (!isInsideMap(model, cell.x, cell.y)) return
+    event.preventDefault()
+    const current = placementRef.current
+    if (!current) {
+      applyPlacement({ center: cell, radial: null })
+      return
+    }
+    // Клик №2: радиус. Нулевой радиус не коммитит — остаёмся в размещении.
+    const next = { center: current.center, radial: cell }
+    applyPlacement(next)
+    if (tryCommit(current.center, cell)) applyPlacement(null)
   }
 
-  const commitPolygon = useCallback(
-    (points: readonly Cell[]) => {
-      onCommit(commitRoom(polygonRoom(points, model.width, model.height)))
-      applyVertices(null)
-    },
-    [model.width, model.height, onCommit],
-  )
+  function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (!active) return
+    const current = placementRef.current
+    if (!current) return
+    const cell = cellFromEvent(event)
+    if (!isInsideMap(model, cell.x, cell.y)) {
+      applyPlacement({ center: current.center, radial: null })
+      return
+    }
+    applyPlacement({ center: current.center, radial: cell })
+  }
+
+  const preview = useMemo<PolygonRoomPreview | null>(() => {
+    if (!active) return null
+    if (!placement) return null
+    const vertices = placement.radial
+      ? regularPolygonVertices(placement.center, placement.radial, vertexCount, model.width, model.height)
+      : []
+    return { center: placement.center, radial: placement.radial, vertices }
+  }, [placement, active, vertexCount, model.width, model.height])
 
   useEffect(() => {
     if (!active) return
     const onKeyDown = (event: KeyboardEvent) => {
       // Не перехватываем клавиши у полей ввода (единый guard с хоткеями).
       if (isEditableTarget(event.target)) return
-      if (verticesRef.current === null) return
-      if (event.code === 'Enter' || event.code === 'NumpadEnter') {
-        if (verticesRef.current.length >= 3) {
-          event.preventDefault()
-          commitPolygon(verticesRef.current)
-        }
-      } else if (event.code === 'Escape') {
+      if (placementRef.current === null) return
+      if (event.code === 'Escape') {
         event.preventDefault()
-        applyVertices(null)
+        applyPlacement(null)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [active, commitPolygon])
+  }, [active])
 
   return {
-    vertices,
-    handlers: { onPointerDown, onPointerCancel, onDoubleClick },
+    preview,
+    handlers: { onPointerDown, onPointerMove },
   }
 }

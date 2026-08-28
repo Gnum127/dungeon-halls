@@ -52,6 +52,11 @@ export type Command =
     }
   | { readonly kind: 'setGridType'; readonly gridType: GridType }
   | { readonly kind: 'setWalls'; readonly updates: readonly WallUpdate[] }
+  | {
+      readonly kind: 'addRoom'
+      readonly tiles: readonly TileUpdate[]
+      readonly walls: readonly WallUpdate[]
+    }
   | { readonly kind: 'toggleWall'; readonly edge: WallEdge }
   | { readonly kind: 'addDoor'; readonly edge: WallEdge }
   | { readonly kind: 'removeDoor'; readonly id: number }
@@ -369,6 +374,9 @@ export function applyCommand(model: MapModel, command: Command): MapModel {
       return setGridType(model, command.gridType)
     case 'setWalls':
       return setWalls(model, command.updates)
+    case 'addRoom':
+      // Пол и стены одной записью истории: undo возвращает и то, и другое.
+      return setWalls(applyTiles(model, command.tiles), command.walls)
     case 'toggleWall': {
       const edge = normalizeEdge(command.edge, model.width, model.height)
       return setWalls(model, [{ edge, present: !hasWall(model.walls, edge) }])

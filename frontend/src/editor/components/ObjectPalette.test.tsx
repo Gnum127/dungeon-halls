@@ -11,6 +11,7 @@ const defaultProps = {
   objectRotation: 0 as const,
   objectScale: { w: 1, h: 1 },
   onRotate: vi.fn(),
+  onResize: vi.fn(),
 }
 
 describe('ObjectPalette', () => {
@@ -56,6 +57,34 @@ describe('ObjectPalette', () => {
 
     expect(screen.getByText('90°')).toBeInTheDocument()
     expect(screen.getByTitle('Rotate (R)')).toBeInTheDocument()
+  })
+
+  it('shows the size button and badge only for kinds with a scale list', () => {
+    const { rerender } = render(<ObjectPalette {...defaultProps} activeKindId="table" />)
+    expect(screen.getByTitle('Size')).toBeInTheDocument()
+    expect(screen.getByText('1×1')).toBeInTheDocument()
+
+    rerender(<ObjectPalette {...defaultProps} activeKindId="rock" objectScale={{ w: 1, h: 1 }} />)
+    expect(screen.getByTitle('Size')).toBeInTheDocument()
+    expect(screen.getByText('1×1')).toBeInTheDocument() // bar badge; rock swatch badge is 2×2
+
+    rerender(<ObjectPalette {...defaultProps} activeKindId="stairs" />)
+    expect(screen.getByTitle('Size')).toBeInTheDocument()
+    expect(screen.getByText('1×1')).toBeInTheDocument() // stairs: без defaultScale, бейдж = текущий 1×1
+  })
+
+  it('hides the size button for kinds without a scale list', () => {
+    render(<ObjectPalette {...defaultProps} activeKindId="chair" />)
+
+    expect(screen.queryByTitle('Size')).not.toBeInTheDocument()
+  })
+
+  it('reports the resize button click', () => {
+    const onResize = vi.fn()
+    render(<ObjectPalette {...defaultProps} activeKindId="table" onResize={onResize} />)
+
+    fireEvent.click(screen.getByTitle('Size'))
+    expect(onResize).toHaveBeenCalledTimes(1)
   })
 
   it('reports the clicked kind id and select tool activation', () => {

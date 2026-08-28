@@ -128,7 +128,8 @@
   min-width: 2.5rem;
 }
 
-.rotateButton {
+.rotateButton,
+.sizeButton {
   padding: 0.15rem 0.4rem;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -139,10 +140,12 @@
   line-height: 1;
 }
 
-.rotateButton:hover {
+.rotateButton:hover,
+.sizeButton:hover {
   background: var(--border);
 }
 
-.rotateButton:focus-visible {
+.rotateButton:focus-visible,
+.sizeButton:focus-visible {
   outline: 2px solid var(--accent);
 }

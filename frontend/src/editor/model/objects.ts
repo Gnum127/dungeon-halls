@@ -1,4 +1,4 @@
-import type { MapObject } from './types'
+import type { MapObject, ObjectScale } from './types'
 
 export type ObjectCategory = 'structural' | 'furniture' | 'dungeon'
 
@@ -16,12 +16,23 @@ export const OBJECT_KIND_REGISTRY = {
     labelKey: 'editor.objects.stairs',
     color: '#7a7f8c',
     category: 'structural' as const,
+    scales: [
+      { w: 1, h: 1 },
+      { w: 1, h: 2 },
+      { w: 2, h: 1 },
+    ],
   },
   table: {
     labelKey: 'editor.objects.table',
     color: '#8a5a2b',
     category: 'furniture' as const,
     defaultScale: { w: 2, h: 1 },
+    scales: [
+      { w: 1, h: 1 },
+      { w: 1, h: 2 },
+      { w: 2, h: 1 },
+      { w: 2, h: 2 },
+    ],
   },
   chair: {
     labelKey: 'editor.objects.chair',
@@ -54,6 +65,10 @@ export const OBJECT_KIND_REGISTRY = {
     color: '#6e6e78',
     category: 'dungeon' as const,
     defaultScale: { w: 2, h: 2 },
+    scales: [
+      { w: 1, h: 1 },
+      { w: 2, h: 2 },
+    ],
   },
 } as const
 
@@ -64,11 +79,16 @@ export interface ObjectKindEntry {
   readonly labelKey: string
   readonly color: string
   readonly category: ObjectCategory
-  readonly defaultScale?: { readonly w: number; readonly h: number }
+  readonly defaultScale?: ObjectScale
+  /** Доступные размеры фигуры; отсутствует = одноклеточный вид без кнопки «Размер». */
+  readonly scales?: ReadonlyArray<ObjectScale>
   readonly gridRestriction?: 'square'
 }
 
-/** Порядок видов в UI фиксируется порядком записей реестра. */
+/**
+ * Порядок видов в UI фиксируется порядком записей реестра.
+ * Всегда должен содержать `defaultScale` (или 1×1) внутри `scales`.
+ */
 export const OBJECT_KIND_ENTRIES: readonly ObjectKindEntry[] = (
   Object.keys(OBJECT_KIND_REGISTRY) as ObjectKindId[]
 ).map((id) => {
@@ -79,6 +99,7 @@ export const OBJECT_KIND_ENTRIES: readonly ObjectKindEntry[] = (
     color: entry.color,
     category: entry.category,
     ...('defaultScale' in entry && { defaultScale: entry.defaultScale }),
+    ...('scales' in entry && { scales: entry.scales }),
     ...('gridRestriction' in entry && { gridRestriction: entry.gridRestriction }),
   }
 })
@@ -93,6 +114,21 @@ export const OBJECT_COLORS = Object.fromEntries(
 
 export function isKnownKind(kindId: string): kindId is ObjectKindId {
   return Object.hasOwn(OBJECT_KIND_REGISTRY, kindId)
+}
+
+/**
+ * Следующий размер вида по списку `scales` (с заворотом в конец списка).
+ * Холостого цикла нет: повторный вызов всегда двигает вперёд.
+ * Для вида без `scales` возвращает текущее значение без изменений
+ * (кнопка «Размер» для таких видов не показывается).
+ */
+export function cycleScale(kindId: ObjectKindId, current: ObjectScale): ObjectScale {
+  const scales = (
+    OBJECT_KIND_REGISTRY[kindId] as { readonly scales?: ReadonlyArray<ObjectScale> }
+  ).scales
+  if (!scales || scales.length === 0) return current
+  const index = scales.findIndex((scale) => scale.w === current.w && scale.h === current.h)
+  return scales[(index + 1) % scales.length]
 }
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import {
   OBJECT_KIND_ENTRIES,
   OBJECT_KIND_REGISTRY,
   OBJECT_KINDS,
+  cycleScale,
   footprintCells,
   footprintInBounds,
   isCellOccupied,
@@ -80,6 +81,34 @@ describe('OBJECT_KIND_REGISTRY', () => {
     expect(door?.gridRestriction).toBeUndefined()
   })
 
+  it('keeps the default scale inside the available scales when scales are present', () => {
+    for (const entry of OBJECT_KIND_ENTRIES) {
+      if (!entry.scales) continue
+      const effectiveDefault = entry.defaultScale ?? { w: 1, h: 1 }
+      expect(entry.scales).toContainEqual(effectiveDefault)
+    }
+  })
+
+  it('gives multi-cell objects a scale list to cycle through', () => {
+    expect(OBJECT_KIND_ENTRIES.find((e) => e.id === 'table')?.scales).toEqual([
+      { w: 1, h: 1 },
+      { w: 1, h: 2 },
+      { w: 2, h: 1 },
+      { w: 2, h: 2 },
+    ])
+    expect(OBJECT_KIND_ENTRIES.find((e) => e.id === 'rock')?.scales).toEqual([
+      { w: 1, h: 1 },
+      { w: 2, h: 2 },
+    ])
+    expect(OBJECT_KIND_ENTRIES.find((e) => e.id === 'stairs')?.scales).toEqual([
+      { w: 1, h: 1 },
+      { w: 1, h: 2 },
+      { w: 2, h: 1 },
+    ])
+    // Одноклеточные виды — без списка (кнопки «Размер» нет).
+    expect(OBJECT_KIND_ENTRIES.find((e) => e.id === 'chair')?.scales).toBeUndefined()
+  })
+
   it('recognizes only registered kinds', () => {
     expect(isKnownKind('door')).toBe(true)
     expect(isKnownKind('torch')).toBe(true)
@@ -88,6 +117,35 @@ describe('OBJECT_KIND_REGISTRY', () => {
     expect(isKnownKind('toString')).toBe(false)
     expect(isKnownKind('constructor')).toBe(false)
     expect(isKnownKind('')).toBe(false)
+  })
+})
+
+describe('cycleScale', () => {
+  it('cycles through the table sizes and wraps to the start', () => {
+    expect(cycleScale('table', { w: 1, h: 1 })).toEqual({ w: 1, h: 2 })
+    expect(cycleScale('table', { w: 1, h: 2 })).toEqual({ w: 2, h: 1 })
+    expect(cycleScale('table', { w: 2, h: 1 })).toEqual({ w: 2, h: 2 })
+    expect(cycleScale('table', { w: 2, h: 2 })).toEqual({ w: 1, h: 1 })
+  })
+
+  it('cycles through the rock sizes', () => {
+    expect(cycleScale('rock', { w: 1, h: 1 })).toEqual({ w: 2, h: 2 })
+    expect(cycleScale('rock', { w: 2, h: 2 })).toEqual({ w: 1, h: 1 })
+  })
+
+  it('cycles through the stairs sizes', () => {
+    expect(cycleScale('stairs', { w: 1, h: 1 })).toEqual({ w: 1, h: 2 })
+    expect(cycleScale('stairs', { w: 1, h: 2 })).toEqual({ w: 2, h: 1 })
+    expect(cycleScale('stairs', { w: 2, h: 1 })).toEqual({ w: 1, h: 1 })
+  })
+
+  it('wraps an unknown current scale to the start of the list', () => {
+    expect(cycleScale('rock', { w: 3, h: 3 })).toEqual({ w: 1, h: 1 })
+  })
+
+  it('returns the current scale unchanged for kinds without a size list', () => {
+    expect(cycleScale('chair', { w: 2, h: 2 })).toEqual({ w: 2, h: 2 })
+    expect(cycleScale('door', { w: 1, h: 1 })).toEqual({ w: 1, h: 1 })
   })
 })
 

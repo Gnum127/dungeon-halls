@@ -22,6 +22,8 @@ interface ObjectPaletteProps {
   objectRotation: ObjectRotation
   objectScale: ObjectScale
   onRotate: () => void
+  /** Цикл по доступным размерам активного вида («Размер»). */
+  onResize: () => void
 }
 
 export function ObjectPalette({
@@ -32,6 +34,7 @@ export function ObjectPalette({
   objectRotation,
   objectScale,
   onRotate,
+  onResize,
 }: ObjectPaletteProps) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
@@ -49,6 +52,10 @@ export function ObjectPalette({
   }, [search, t])
 
   const isActive = activeKindId !== null
+  const activeKind = activeKindId
+    ? OBJECT_KIND_ENTRIES.find((entry) => entry.id === activeKindId)
+    : undefined
+  const hasSizes = activeKind?.scales !== undefined
 
   return (
     <div className={styles.palette}>
@@ -80,10 +87,20 @@ export function ObjectPalette({
           >
             ↻
           </button>
-          {(objectScale.w !== 1 || objectScale.h !== 1) && (
-            <span className={styles.scaleBadge}>
-              {objectScale.w}×{objectScale.h}
-            </span>
+          {hasSizes && (
+            <>
+              <button
+                type="button"
+                className={styles.sizeButton}
+                onClick={onResize}
+                title={t('editor.objects.resize')}
+              >
+                ▦
+              </button>
+              <span className={styles.scaleBadge}>
+                {objectScale.w}×{objectScale.h}
+              </span>
+            </>
           )}
         </div>
       )}

@@ -509,6 +509,40 @@ describe('renderMap (object sprites)', () => {
     expect(draws[0]?.args).toEqual([doorSprite, -32, -16, 64, 32])
   })
 
+  it('renders a 2×1 object rotated 90° with the visual size of a 1×2 object', () => {
+    const doorSprite = { width: 16 } as unknown as HTMLImageElement
+    const rotated: MapModel = {
+      ...createEmptyMap(3, 3),
+      objects: [{ id: 1, kindId: 'door', x: 1, y: 1, rotation: 90, scale: { w: 2, h: 1 } }],
+    }
+    const upright: MapModel = {
+      ...createEmptyMap(3, 3),
+      objects: [{ id: 1, kindId: 'door', x: 1, y: 1, rotation: 0, scale: { w: 1, h: 2 } }],
+    }
+
+    const rotatedCtx = makeFakeCtx()
+    renderMap(rotatedCtx.ctx, rotated, baseViewport(), {
+      tiles: {},
+      objects: { door: doorSprite },
+    })
+    const rotatedRotate = rotatedCtx.calls.find((c) => c.op === 'rotate')
+    expect(rotatedRotate?.args[0]).toBeCloseTo(Math.PI / 2, 6)
+    // Нарисованный прямоугольник 64×32 повёрнут на 90°, т.е. визуально 32×64.
+    const rotatedDraws = rotatedCtx.calls.filter((c) => c.op === 'drawImage')
+    expect(rotatedDraws[0]?.args).toEqual([doorSprite, -32, -16, 64, 32])
+
+    const uprightCtx = makeFakeCtx()
+    renderMap(uprightCtx.ctx, upright, baseViewport(), {
+      tiles: {},
+      objects: { door: doorSprite },
+    })
+    // Тот же видимый размер, но без поворота: 1×2 = 32×64.
+    const uprightDraws = uprightCtx.calls.filter((c) => c.op === 'drawImage')
+    expect(uprightDraws[0]?.args).toEqual([doorSprite, -16, -32, 32, 64])
+    // Для полноты симметрии: у неповёрнутого объекта нет вызова rotate.
+    expect(uprightCtx.calls.filter((c) => c.op === 'rotate')).toHaveLength(0)
+  })
+
   it('applies scale to fallback ellipse dimensions', () => {
     const { ctx, calls } = makeFakeCtx()
     const model: MapModel = {

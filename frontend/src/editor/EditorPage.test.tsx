@@ -53,6 +53,30 @@ describe('EditorPage section navigation', () => {
     expect(screen.getByTitle('Floor')).toBeInTheDocument()
   })
 
+  it('exposes section and panel state to assistive tech', () => {
+    render(<EditorPage />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Elements' }))
+    expect(screen.getByRole('button', { name: 'Elements' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Landscape' })).toHaveAttribute('aria-pressed', 'false')
+
+    // Повторный клик по активному разделу закрывает панель целиком.
+    fireEvent.click(screen.getByRole('button', { name: 'Elements' }))
+    expect(screen.queryByPlaceholderText('Search...')).not.toBeInTheDocument()
+
+    // Панель «Ландшафт» скрываемая: aria-expanded отражает свёрнутость.
+    fireEvent.click(screen.getByRole('button', { name: 'Landscape' }))
+    const collapse = screen.getByRole('button', { name: 'Collapse' })
+    expect(collapse).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(collapse)
+    const expand = screen.getByRole('button', { name: 'Expand' })
+    expect(expand).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTitle('Floor')).not.toBeInTheDocument()
+
+    // Восстанавливаем состояние для последующих тестов файла.
+    fireEvent.click(expand)
+  })
+
   it('persists the collapsed state across remounts', () => {
     const first = render(<EditorPage />)
     fireEvent.click(first.getByRole('button', { name: 'Collapse' }))

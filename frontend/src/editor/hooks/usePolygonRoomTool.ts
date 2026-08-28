@@ -29,10 +29,9 @@ const LEFT_BUTTON = 0
  */
 export function usePolygonRoomTool(options: PolygonRoomToolOptions): {
   vertices: readonly Cell[] | null
-  handlers: {
+handlers: {
     onPointerDown: (event: ReactPointerEvent<HTMLCanvasElement>) => void
-    onPointerUp: (event: ReactPointerEvent<HTMLCanvasElement>) => void
-    onPointerCancel: (event: ReactPointerEvent<HTMLCanvasElement>) => void
+    onPointerCancel: () => void
     onDoubleClick: (event: ReactMouseEvent<HTMLCanvasElement>) => void
   }
 } {

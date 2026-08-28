@@ -28,7 +28,13 @@ export interface SpriteAtlas {
  * приоритет override → defaultImage → спрайт-ассет → цвет.
  */
 export interface SpriteRenderContext extends SpriteAtlas {
-  readonly imageOverrides?: Readonly<Partial<Record<ObjectKindId, string>>>
+  /**
+   * Выбранные пользователем изображения видов пула; null = «по умолчанию»
+   * (defaultImage вида), отсутствующий ключ = ничего не выбрано. Слой страницы,
+   * накладываемый на атлас; в renderMap резолвится по приоритету
+   * override → defaultImage → спрайт-ассет → цветной свотч.
+   */
+  readonly imageOverrides?: Readonly<Partial<Record<ObjectKindId, string | null>>>
 }
 
 // Пути в манифесте относительны базовому URL статики Vite ('/' по умолчанию).

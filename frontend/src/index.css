@@ -6,6 +6,7 @@
   --text: #e8e6f0;
   --text-muted: #9a97b0;
   --accent: #8b5cf6;
+  --rail-width: 3rem;
   font-family:
     system-ui,
     -apple-system,

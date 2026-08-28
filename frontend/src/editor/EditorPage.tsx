@@ -20,7 +20,7 @@ import { useEditor } from './hooks/useEditor'
 import { usePersistentBoolean } from './hooks/usePersistentBoolean'
 import { useSpriteAtlas } from './hooks/useSpriteAtlas'
 import { createEmptyMap } from './model/createEmptyMap'
-import { OBJECT_KIND_ENTRIES } from './model/objects'
+import { OBJECT_KIND_ENTRIES, cycleScale } from './model/objects'
 import { EMPTY_TILE, TILE_TYPES } from './model/types'
 import type { ObjectRotation, ObjectScale, TileValue } from './model/types'
 import type { ObjectKindId } from './model/objects'
@@ -123,6 +123,13 @@ export function EditorPage() {
     }
   }
 
+  function resizeObject() {
+    if (tool.type !== 'object') return
+    const next = cycleScale(tool.kindId, objectScale)
+    setObjectScale(next)
+    setTool({ ...tool, scale: next })
+  }
+
   function changeRenderMode(mode: RenderMode) {
     setRenderMode(mode)
     saveRenderMode(mode)
@@ -164,6 +171,7 @@ export function EditorPage() {
               objectRotation={objectRotation}
               objectScale={objectScale}
               onRotate={rotateObject}
+              onResize={resizeObject}
             />
           </SectionPanel>
         )

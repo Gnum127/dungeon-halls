@@ -79,7 +79,8 @@
       "torch": "Torch",
       "bush": "Bush",
       "rock": "Rock",
-      "rotate": "Rotate (R)"
+      "rotate": "Rotate (R)",
+      "resize": "Size"
     },
     "files": {
       "save": "Save",

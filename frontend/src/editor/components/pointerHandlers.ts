@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 
 export interface PointerHandlers {
   onPointerDown?: (event: ReactPointerEvent<HTMLCanvasElement>) => void
@@ -6,6 +6,7 @@ export interface PointerHandlers {
   onPointerUp?: (event: ReactPointerEvent<HTMLCanvasElement>) => void
   onPointerCancel?: (event: ReactPointerEvent<HTMLCanvasElement>) => void
   onPointerLeave?: (event: ReactPointerEvent<HTMLCanvasElement>) => void
+  onDoubleClick?: (event: ReactMouseEvent<HTMLCanvasElement>) => void
 }
 
 /**
@@ -19,5 +20,6 @@ export function mergePointerHandlers(...sets: PointerHandlers[]): Required<Point
     onPointerUp: (event) => sets.forEach((set) => set.onPointerUp?.(event)),
     onPointerCancel: (event) => sets.forEach((set) => set.onPointerCancel?.(event)),
     onPointerLeave: (event) => sets.forEach((set) => set.onPointerLeave?.(event)),
+    onDoubleClick: (event) => sets.forEach((set) => set.onDoubleClick?.(event)),
   }
 }

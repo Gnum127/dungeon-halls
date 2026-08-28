@@ -47,4 +47,19 @@ describe('mergePointerHandlers', () => {
     expect(panMove).toHaveBeenCalledTimes(1)
     expect(brushMove).toHaveBeenCalledTimes(1)
   })
+
+  it('forwards double clicks to every set with a handler', () => {
+    const a = vi.fn()
+    const b = vi.fn()
+    const merged = mergePointerHandlers(
+      { onDoubleClick: a },
+      { onDoubleClick: b },
+      {},
+    )
+
+    merged.onDoubleClick({} as never)
+
+    expect(a).toHaveBeenCalledTimes(1)
+    expect(b).toHaveBeenCalledTimes(1)
+  })
 })

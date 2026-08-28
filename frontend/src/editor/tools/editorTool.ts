@@ -19,3 +19,5 @@ export type EditorTool =
   | { readonly type: 'wall-eraser' }
   | { readonly type: 'door' }
   | { readonly type: 'light' }
+  | { readonly type: 'room-rect' }
+  | { readonly type: 'room-polygon' }

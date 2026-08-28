@@ -1,7 +1,12 @@
 import type { ObjectKindId } from '../../model/objects'
 import type { TileTypeName } from '@/shared/tiles'
-import type { SpriteManifest } from './manifest'
-import { SPRITE_MANIFEST_PATH, validateManifest } from './manifest'
+import type { ElementImageManifest, SpriteManifest } from './manifest'
+import {
+  ELEMENT_IMAGE_MANIFEST_PATH,
+  SPRITE_MANIFEST_PATH,
+  validateElementManifest,
+  validateManifest,
+} from './manifest'
 
 /** Таймаут ожидания одной картинки. */
 export const SPRITE_LOAD_TIMEOUT_MS = 10_000
@@ -13,10 +18,24 @@ export const SPRITE_LOAD_TIMEOUT_MS = 10_000
 export interface SpriteAtlas {
   readonly tiles: Partial<Record<TileTypeName, HTMLImageElement>>
   readonly objects: Partial<Record<ObjectKindId, HTMLImageElement>>
+  /** Пул готовых изображений элементов по imageId (см. ElementImageManifest). */
+  readonly elementImages: Readonly<Partial<Record<string, HTMLImageElement>>>
 }
 
-/** Атлас под именем контракта рендера (renderMap, pngExport). */
-export type SpriteRenderContext = SpriteAtlas
+/**
+ * Контекст рендера (renderMap, pngExport): атлас + выбор изображения для вида.
+ * imageOverrides — настройка просмотра (localStorage), не данные модели:
+ * приоритет override → defaultImage → спрайт-ассет → цвет.
+ */
+export interface SpriteRenderContext extends SpriteAtlas {
+  /**
+   * Выбранные пользователем изображения видов пула; null = «по умолчанию»
+   * (defaultImage вида), отсутствующий ключ = ничего не выбрано. Слой страницы,
+   * накладываемый на атлас; в renderMap резолвится по приоритету
+   * override → defaultImage → спрайт-ассет → цветной свотч.
+   */
+  readonly imageOverrides?: Readonly<Partial<Record<ObjectKindId, string | null>>>
+}
 
 // Пути в манифесте относительны базовому URL статики Vite ('/' по умолчанию).
 export function resolveSpriteUrl(path: string): string {
@@ -78,22 +97,40 @@ function requestImage(url: string): Promise<HTMLImageElement | null> {
 export async function loadManifest(
   path: string = SPRITE_MANIFEST_PATH,
 ): Promise<SpriteManifest | null> {
+  return loadJson(path, validateManifest)
+}
+
+/** То же для пула готовых изображений элементов. */
+export async function loadElementManifest(
+  path: string = ELEMENT_IMAGE_MANIFEST_PATH,
+): Promise<ElementImageManifest | null> {
+  return loadJson(path, validateElementManifest)
+}
+
+async function loadJson<T>(
+  path: string,
+  validate: (data: unknown) => T | null,
+): Promise<T | null> {
   try {
     const response = await fetch(resolveSpriteUrl(path))
     if (!response.ok) return null
-    return validateManifest(await response.json())
+    return validate(await response.json())
   } catch {
     return null
   }
 }
 
 /** Отказ одного файла не валит пайплайн: этот спрайт просто отсутствует. */
-export async function loadSprites(manifest: SpriteManifest): Promise<SpriteAtlas> {
-  const [tiles, objects] = await Promise.all([
+export async function loadSprites(
+  manifest: SpriteManifest,
+  elementManifest?: ElementImageManifest | null,
+): Promise<SpriteAtlas> {
+  const [tiles, objects, elementImages] = await Promise.all([
     resolveGroup(manifest.tiles),
     resolveGroup(manifest.objects),
+    elementManifest ? resolveGroup(elementManifest.items) : Promise.resolve({}),
   ])
-  return { tiles, objects }
+  return { tiles, objects, elementImages }
 }
 
 async function resolveGroup(

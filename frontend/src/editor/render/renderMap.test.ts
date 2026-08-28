@@ -324,7 +324,7 @@ describe('renderMap (hex)', () => {
 describe('renderMap (sprites)', () => {
   const SIZE = 32
   const floorSprite = { width: 16 } as unknown as HTMLImageElement
-  const atlas = { tiles: { floor: floorSprite }, objects: {} }
+  const atlas = { tiles: { floor: floorSprite }, objects: {}, elementImages: {} }
 
   function hexViewport(gridType: 'hex-pointy' | 'hex-flat', cols: number, rows: number): Viewport {
     const bounds = mapPixelBounds(cols, rows, gridType, SIZE)
@@ -356,7 +356,11 @@ describe('renderMap (sprites)', () => {
 
   it('square: falls back to color fill when the tile has no sprite', () => {
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, makeModel(), baseViewport(), { tiles: {}, objects: {} })
+    renderMap(ctx, makeModel(), baseViewport(), {
+      tiles: {},
+      objects: {},
+      elementImages: {},
+    })
 
     // Ни одного drawImage: у 'empty' и 'floor' нет записей в атласе.
     expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
@@ -407,6 +411,7 @@ describe('renderMap (sprites)', () => {
       renderMap(ctx, makeHexModel(gridType), hexViewport(gridType, 3, 3), {
         tiles: {},
         objects: {},
+        elementImages: {},
       })
 
       // 9 клеток цветом, ни одного drawImage/save.
@@ -440,6 +445,7 @@ describe('renderMap (object sprites)', () => {
     renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
       tiles: {},
       objects: { door: doorSprite },
+      elementImages: {},
     })
 
     const draws = calls.filter((c) => c.op === 'drawImage')
@@ -457,6 +463,7 @@ describe('renderMap (object sprites)', () => {
       renderMap(ctx, makeModelWithDoor(gridType), hexViewport(gridType, 3, 3), {
         tiles: {},
         objects: { door: doorSprite },
+        elementImages: {},
       })
 
       const draws = calls.filter((c) => c.op === 'drawImage')
@@ -472,10 +479,93 @@ describe('renderMap (object sprites)', () => {
     renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
       tiles: {},
       objects: {},
+      elementImages: {},
     })
 
     expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
     expect(calls.some((c) => c.op === 'ellipse')).toBe(true)
+  })
+
+  it('draws the pool defaultImage when the kind has no sprite asset', () => {
+    const poolDoor = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
+      tiles: {},
+      objects: {},
+      elementImages: { 'door-wooden': poolDoor },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    // Объект в (0,0) после translate к центру клетки, размер = cellSize.
+    expect(draws[0]?.args).toEqual([poolDoor, -16, -16, 32, 32])
+    expect(calls.some((c) => c.op === 'ellipse')).toBe(false)
+  })
+
+  it('prefers the imageOverrides over the defaultImage', () => {
+    const poolWooden = { width: 16 } as unknown as HTMLImageElement
+    const poolIron = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
+      tiles: {},
+      objects: {},
+      elementImages: { 'door-wooden': poolWooden, 'door-iron': poolIron },
+      imageOverrides: { door: 'door-iron' },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    expect(draws[0]?.args[0]).toBe(poolIron)
+  })
+
+  it('ignores an override pointing at a missing pool entry and uses the defaultImage', () => {
+    const poolWooden = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
+      tiles: {},
+      objects: {},
+      elementImages: { 'door-wooden': poolWooden },
+      imageOverrides: { door: 'door-iron' },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    expect(draws[0]?.args[0]).toBe(poolWooden)
+  })
+
+  it('falls through an unavailable pool entry to the sprite asset', () => {
+    const doorSprite = { width: 16 } as unknown as HTMLImageElement
+    const poolTable = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
+      tiles: {},
+      // Пул не содержит defaultImage двери, но есть непустая запись чужого вида.
+      objects: { door: doorSprite },
+      elementImages: { 'table-wooden': poolTable },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    expect(draws[0]?.args[0]).toBe(doorSprite)
+  })
+
+  it('stretches an element image over the scaled footprint', () => {
+    const poolDoor = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    const model: MapModel = {
+      ...createEmptyMap(3, 3),
+      objects: [{ id: 1, kindId: 'door', x: 1, y: 1, scale: { w: 2, h: 1 } }],
+    }
+    renderMap(ctx, model, baseViewport(), {
+      tiles: {},
+      objects: {},
+      elementImages: { 'door-wooden': poolDoor },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    // cellSize=32, scaleX=2 → width=64, scaleY=1 → height=32.
+    expect(draws[0]?.args).toEqual([poolDoor, -32, -16, 64, 32])
   })
 
   it('applies rotation via ctx.rotate around the cell center', () => {
@@ -501,7 +591,11 @@ describe('renderMap (object sprites)', () => {
       ...createEmptyMap(3, 3),
       objects: [{ id: 1, kindId: 'door', x: 1, y: 1, scale: { w: 2, h: 1 } }],
     }
-    renderMap(ctx, model, baseViewport(), { tiles: {}, objects: { door: doorSprite } })
+    renderMap(ctx, model, baseViewport(), {
+      tiles: {},
+      objects: { door: doorSprite },
+      elementImages: {},
+    })
 
     const draws = calls.filter((c) => c.op === 'drawImage')
     expect(draws).toHaveLength(1)
@@ -524,6 +618,7 @@ describe('renderMap (object sprites)', () => {
     renderMap(rotatedCtx.ctx, rotated, baseViewport(), {
       tiles: {},
       objects: { door: doorSprite },
+      elementImages: {},
     })
     const rotatedRotate = rotatedCtx.calls.find((c) => c.op === 'rotate')
     expect(rotatedRotate?.args[0]).toBeCloseTo(Math.PI / 2, 6)
@@ -535,6 +630,7 @@ describe('renderMap (object sprites)', () => {
     renderMap(uprightCtx.ctx, upright, baseViewport(), {
       tiles: {},
       objects: { door: doorSprite },
+      elementImages: {},
     })
     // Тот же видимый размер, но без поворота: 1×2 = 32×64.
     const uprightDraws = uprightCtx.calls.filter((c) => c.op === 'drawImage')

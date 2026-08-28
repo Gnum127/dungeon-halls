@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ElementImageManifest } from './manifest'
 import type { SpriteManifest } from './manifest'
-import { SPRITE_LOAD_TIMEOUT_MS, loadManifest, loadSprites, resetSpriteCache } from './loader'
+import {
+  SPRITE_LOAD_TIMEOUT_MS,
+  loadElementManifest,
+  loadManifest,
+  loadSprites,
+  resetSpriteCache,
+} from './loader'
 
 type Behavior = 'ok' | 'error' | 'stall'
 
@@ -82,6 +89,44 @@ describe('loadManifest', () => {
       json: async () => ({ version: 99, tiles: {}, objects: {} }),
     })
     expect(await loadManifest()).toBeNull()
+  })
+})
+
+describe('loadElementManifest', () => {
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    fetchMock.mockClear()
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('parses a valid pool manifest', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ version: 1, items: { 'table-wooden': 'element-images/t.png' } }),
+    })
+    expect(await loadElementManifest()).toEqual({
+      version: 1,
+      items: { 'table-wooden': 'element-images/t.png' },
+    })
+  })
+
+  it('returns null on http error, broken json, network failure and bad schema', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 404 })
+    expect(await loadElementManifest()).toBeNull()
+
+    fetchMock.mockResolvedValue({ ok: true, json: async () => '{broken' })
+    expect(await loadElementManifest()).toBeNull()
+
+    fetchMock.mockRejectedValue(new Error('offline'))
+    expect(await loadElementManifest()).toBeNull()
+
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ version: 2, items: {} }) })
+    expect(await loadElementManifest()).toBeNull()
   })
 })
 
@@ -181,5 +226,54 @@ describe('loadSprites', () => {
 
     await vi.advanceTimersByTimeAsync(SPRITE_LOAD_TIMEOUT_MS)
     expect((await pending).tiles.floor).toBeUndefined()
+  })
+
+  it('loads the element images pool when the element manifest is given', async () => {
+    script = ['ok', 'ok', 'ok', 'ok']
+    const elementManifest: ElementImageManifest = {
+      version: 1,
+      items: { 'door-iron': 'element-images/door-iron.png' },
+    }
+    const atlas = await loadSprites(MANIFEST, elementManifest)
+
+    expect(atlas.elementImages['door-iron']).toBeDefined()
+    expect(createdImages.map((image) => image.src)).toEqual([
+      '/tiles/floor.png',
+      '/tiles/wall.png',
+      '/objects/door.png',
+      '/element-images/door-iron.png',
+    ])
+  })
+
+  it('deduplicates a pool path shared with sprite groups', async () => {
+    script = ['ok', 'ok', 'ok']
+    const elementManifest: ElementImageManifest = {
+      version: 1,
+      items: { 'door-iron': 'objects/door.png' },
+    }
+    const atlas = await loadSprites(MANIFEST, elementManifest)
+
+    // objects.door и elementImages['door-iron'] — один файл, одна картинка.
+    expect(createdImages).toHaveLength(3)
+    expect(atlas.elementImages['door-iron']).toBe(atlas.objects.door)
+  })
+
+  it('drops a failing pool file instead of breaking the pipeline', async () => {
+    script = ['ok', 'ok', 'ok', 'error']
+    const elementManifest: ElementImageManifest = {
+      version: 1,
+      items: { 'table-wooden': 'element-images/table-wooden.png' },
+    }
+    const atlas = await loadSprites(MANIFEST, elementManifest)
+
+    expect(atlas.elementImages['table-wooden']).toBeUndefined()
+    expect(atlas.tiles.floor).toBeDefined()
+    expect(atlas.objects.door).toBeDefined()
+  })
+
+  it('exposes an empty pool when no element manifest is given', async () => {
+    script = ['ok', 'ok', 'ok']
+    const atlas = await loadSprites(MANIFEST)
+    expect(atlas.elementImages).toEqual({})
   })
 })

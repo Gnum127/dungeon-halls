@@ -11,11 +11,15 @@ export const OBJECT_KIND_REGISTRY = {
     labelKey: 'editor.objects.door',
     color: '#b0762f',
     category: 'structural' as const,
+    defaultImage: 'door-wooden',
+    imagePool: ['door-wooden', 'door-iron'],
   },
   stairs: {
     labelKey: 'editor.objects.stairs',
     color: '#7a7f8c',
     category: 'structural' as const,
+    defaultImage: 'stairs-wooden',
+    imagePool: ['stairs-wooden', 'stairs-stone'],
     scales: [
       { w: 1, h: 1 },
       { w: 1, h: 2 },
@@ -27,6 +31,8 @@ export const OBJECT_KIND_REGISTRY = {
     color: '#8a5a2b',
     category: 'furniture' as const,
     defaultScale: { w: 2, h: 1 },
+    defaultImage: 'table-wooden',
+    imagePool: ['table-wooden', 'table-round'],
     scales: [
       { w: 1, h: 1 },
       { w: 1, h: 2 },
@@ -38,33 +44,45 @@ export const OBJECT_KIND_REGISTRY = {
     labelKey: 'editor.objects.chair',
     color: '#6b4423',
     category: 'furniture' as const,
+    defaultImage: 'chair-wooden',
+    imagePool: ['chair-wooden', 'chair-stool'],
   },
   chest: {
     labelKey: 'editor.objects.chest',
     color: '#9c6b30',
     category: 'furniture' as const,
+    defaultImage: 'chest-wooden',
+    imagePool: ['chest-wooden', 'chest-mimic'],
   },
   barrel: {
     labelKey: 'editor.objects.barrel',
     color: '#7a5a2b',
     category: 'furniture' as const,
+    defaultImage: 'barrel-wooden',
+    imagePool: ['barrel-wooden', 'barrel-crate'],
   },
   torch: {
     labelKey: 'editor.objects.torch',
     color: '#e08a2d',
     category: 'dungeon' as const,
     gridRestriction: 'square' as const,
+    defaultImage: 'torch-wall',
+    imagePool: ['torch-wall', 'torch-stand'],
   },
   bush: {
     labelKey: 'editor.objects.bush',
     color: '#2d6b2d',
     category: 'dungeon' as const,
+    defaultImage: 'bush-green',
+    imagePool: ['bush-green', 'bush-barren'],
   },
   rock: {
     labelKey: 'editor.objects.rock',
     color: '#6e6e78',
     category: 'dungeon' as const,
     defaultScale: { w: 2, h: 2 },
+    defaultImage: 'rock-boulder',
+    imagePool: ['rock-boulder', 'rock-cave'],
     scales: [
       { w: 1, h: 1 },
       { w: 2, h: 2 },
@@ -83,6 +101,10 @@ export interface ObjectKindEntry {
   /** Доступные размеры фигуры; отсутствует = одноклеточный вид без кнопки «Размер». */
   readonly scales?: ReadonlyArray<ObjectScale>
   readonly gridRestriction?: 'square'
+  /** Изображение вида по умолчанию: стабильный imageId из пула element-images. */
+  readonly defaultImage?: string
+  /** Доступные для пикера imageId пула; defaultImage обязан быть одним из них. */
+  readonly imagePool?: ReadonlyArray<string>
 }
 
 /**
@@ -101,6 +123,8 @@ export const OBJECT_KIND_ENTRIES: readonly ObjectKindEntry[] = (
     ...('defaultScale' in entry && { defaultScale: entry.defaultScale }),
     ...('scales' in entry && { scales: entry.scales }),
     ...('gridRestriction' in entry && { gridRestriction: entry.gridRestriction }),
+    ...('defaultImage' in entry && { defaultImage: entry.defaultImage }),
+    ...('imagePool' in entry && { imagePool: entry.imagePool }),
   }
 })
 

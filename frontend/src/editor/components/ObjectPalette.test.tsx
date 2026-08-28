@@ -12,6 +12,8 @@ const defaultProps = {
   objectScale: { w: 1, h: 1 },
   onRotate: vi.fn(),
   onResize: vi.fn(),
+  elementImageOverrides: {},
+  onSelectElementImage: vi.fn(),
 }
 
 describe('ObjectPalette', () => {
@@ -85,6 +87,59 @@ describe('ObjectPalette', () => {
 
     fireEvent.click(screen.getByTitle('Size'))
     expect(onResize).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers the image pool dropdown with a default option for the active kind', () => {
+    render(<ObjectPalette {...defaultProps} activeKindId="table" />)
+
+    const picker = screen.getByLabelText('Image') as HTMLSelectElement
+    expect(picker).toBeInTheDocument()
+    expect(Array.from(picker.options).map((o) => o.value)).toEqual([
+      '',
+      'table-wooden',
+      'table-round',
+    ])
+    expect(Array.from(picker.options).map((o) => o.textContent)).toEqual([
+      'Default',
+      'table-wooden',
+      'table-round',
+    ])
+    expect(picker.value).toBe('')
+  })
+
+  it('reflects the persisted override in the picker value', () => {
+    render(
+      <ObjectPalette
+        {...defaultProps}
+        activeKindId="door"
+        elementImageOverrides={{ door: 'door-iron' }}
+      />,
+    )
+
+    expect((screen.getByLabelText('Image') as HTMLSelectElement).value).toBe('door-iron')
+  })
+
+  it('reports image selection and a reset to default', () => {
+    const onSelectElementImage = vi.fn()
+    render(
+      <ObjectPalette
+        {...defaultProps}
+        activeKindId="rock"
+        onSelectElementImage={onSelectElementImage}
+      />,
+    )
+    const picker = screen.getByLabelText('Image')
+
+    fireEvent.change(picker, { target: { value: 'rock-cave' } })
+    expect(onSelectElementImage).toHaveBeenCalledWith('rock', 'rock-cave')
+
+    fireEvent.change(picker, { target: { value: '' } })
+    expect(onSelectElementImage).toHaveBeenCalledWith('rock', null)
+  })
+
+  it('hides the image picker when no active object kind is selected', () => {
+    render(<ObjectPalette {...defaultProps} />)
+    expect(screen.queryByLabelText('Image')).not.toBeInTheDocument()
   })
 
   it('reports the clicked kind id and select tool activation', () => {

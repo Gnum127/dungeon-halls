@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "items": {
+    "door-wooden": "element-images/door-wooden.png",
+    "door-iron": "element-images/door-iron.png",
+    "stairs-wooden": "element-images/stairs-wooden.png",
+    "stairs-stone": "element-images/stairs-stone.png",
+    "table-wooden": "element-images/table-wooden.png",
+    "table-round": "element-images/table-round.png",
+    "chair-wooden": "element-images/chair-wooden.png",
+    "chair-stool": "element-images/chair-stool.png",
+    "chest-wooden": "element-images/chest-wooden.png",
+    "chest-mimic": "element-images/chest-mimic.png",
+    "barrel-wooden": "element-images/barrel-wooden.png",
+    "barrel-crate": "element-images/barrel-crate.png",
+    "torch-wall": "element-images/torch-wall.png",
+    "torch-stand": "element-images/torch-stand.png",
+    "bush-green": "element-images/bush-green.png",
+    "bush-barren": "element-images/bush-barren.png",
+    "rock-boulder": "element-images/rock-boulder.png",
+    "rock-cave": "element-images/rock-cave.png"
+  }
+}

@@ -80,7 +80,9 @@
       "bush": "Bush",
       "rock": "Rock",
       "rotate": "Rotate (R)",
-      "resize": "Size"
+      "resize": "Size",
+      "image": "Image",
+      "imageDefault": "Default"
     },
     "files": {
       "save": "Save",

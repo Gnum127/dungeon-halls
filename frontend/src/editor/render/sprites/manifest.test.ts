@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { SPRITE_MANIFEST_PATH, SPRITE_MANIFEST_VERSION, validateManifest } from './manifest'
+import {
+  ELEMENT_IMAGE_MANIFEST_PATH,
+  ELEMENT_IMAGE_MANIFEST_VERSION,
+  SPRITE_MANIFEST_PATH,
+  SPRITE_MANIFEST_VERSION,
+  validateElementManifest,
+  validateManifest,
+} from './manifest'
 
 const VALID = {
   version: 1,
   tiles: { floor: 'tiles/floor.png', wall: 'tiles/wall.png' },
   objects: { door: 'objects/door.png' },
+}
+
+const VALID_ELEMENT = {
+  version: 1,
+  items: { 'table-wooden': 'element-images/table-wooden.png', 'door-iron': 'element-images/door-iron.png' },
 }
 
 describe('validateManifest', () => {
@@ -51,5 +63,43 @@ describe('validateManifest', () => {
   it('exposes the manifest path and schema version constants', () => {
     expect(SPRITE_MANIFEST_PATH).toBe('sprites/manifest.json')
     expect(SPRITE_MANIFEST_VERSION).toBe(1)
+  })
+})
+
+describe('validateElementManifest', () => {
+  it('accepts a valid pool manifest and an empty one', () => {
+    expect(validateElementManifest(VALID_ELEMENT)).toEqual({
+      version: 1,
+      items: {
+        'table-wooden': 'element-images/table-wooden.png',
+        'door-iron': 'element-images/door-iron.png',
+      },
+    })
+    expect(validateElementManifest({ version: 1, items: {} })).toEqual({ version: 1, items: {} })
+  })
+
+  it('accepts arbitrary imageIds (slugs not bound to the kind registry)', () => {
+    expect(
+      validateElementManifest({ version: 1, items: { 'very-unique-workbench-v1': 'a.png' } }),
+    ).toEqual({ version: 1, items: { 'very-unique-workbench-v1': 'a.png' } })
+  })
+
+  it('rejects non-objects, null, arrays and wrong versions', () => {
+    expect(validateElementManifest(null)).toBeNull()
+    expect(validateElementManifest([])).toBeNull()
+    expect(validateElementManifest({ version: 2, items: {} })).toBeNull()
+    expect(validateElementManifest({ items: {} })).toBeNull()
+  })
+
+  it('rejects missing items and non-string paths', () => {
+    expect(validateElementManifest({ version: 1 })).toBeNull()
+    expect(validateElementManifest({ version: 1, items: { 'table-wooden': '' } })).toBeNull()
+    expect(validateElementManifest({ version: 1, items: { 'table-wooden': 42 } })).toBeNull()
+    expect(validateElementManifest({ version: 1, items: [] })).toBeNull()
+  })
+
+  it('exposes the pool manifest path and schema version constants', () => {
+    expect(ELEMENT_IMAGE_MANIFEST_PATH).toBe('element-images/manifest.json')
+    expect(ELEMENT_IMAGE_MANIFEST_VERSION).toBe(1)
   })
 })

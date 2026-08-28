@@ -161,6 +161,19 @@ describe('buildSvg', () => {
     expect(svg.indexOf(OBJECT_COLORS.chest)).toBeLessThan(svg.indexOf(OBJECT_COLORS.torch))
   })
 
+  it('stays vector: never embeds raster pool images', () => {
+    const model = applyCommand(createEmptyMap(3, 3), {
+      kind: 'addObject',
+      x: 1,
+      y: 1,
+      kindId: 'door',
+    })
+    const svg = buildSvg(model)
+    // Печать/экспорт SVG структурно не принимают атлас: изображений нет вообще.
+    expect(svg).not.toContain('<image')
+    expect(svg.match(/<ellipse /g)).toHaveLength(1)
+  })
+
   it('renders walls and doors only on square grids (defense-in-depth)', () => {
     const hexWithWalls: MapModel = {
       ...createEmptyMap(2, 2, 'hex-pointy'),

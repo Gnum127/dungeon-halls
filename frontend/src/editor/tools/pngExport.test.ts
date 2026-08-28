@@ -197,6 +197,55 @@ describe('exportMapToPng', () => {
     expect(created[0]?.height).toBe(192)
   })
 
+  it('exports the pool default image for a kind without a sprite asset', async () => {
+    const { calls } = stubCanvasRenderingContext()
+    stubToBlobWithPng()
+
+    const poolDoor = { width: 16 } as unknown as HTMLImageElement
+    const model = applyCommand(createEmptyMap(3, 3), {
+      kind: 'addObject',
+      x: 1,
+      y: 1,
+      kindId: 'door',
+    })
+
+    await exportMapToPng(model, EXPORT_CELL_SIZE, {
+      tiles: {},
+      objects: {},
+      elementImages: { 'door-wooden': poolDoor },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    expect(draws[0]?.args).toEqual([poolDoor, -32, -32, 64, 64])
+    expect(calls.some((c) => c.op === 'ellipse')).toBe(false)
+  })
+
+  it('applies the view override to exports via imageOverrides', async () => {
+    const { calls } = stubCanvasRenderingContext()
+    stubToBlobWithPng()
+
+    const poolWooden = { width: 16 } as unknown as HTMLImageElement
+    const poolIron = { width: 16 } as unknown as HTMLImageElement
+    const model = applyCommand(createEmptyMap(3, 3), {
+      kind: 'addObject',
+      x: 1,
+      y: 1,
+      kindId: 'door',
+    })
+
+    await exportMapToPng(model, EXPORT_CELL_SIZE, {
+      tiles: {},
+      objects: {},
+      elementImages: { 'door-wooden': poolWooden, 'door-iron': poolIron },
+      imageOverrides: { door: 'door-iron' },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    expect(draws[0]?.args[0]).toBe(poolIron)
+  })
+
   function stubToBlobWithPng(): void {
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (
       this: HTMLCanvasElement,

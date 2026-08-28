@@ -486,6 +486,88 @@ describe('renderMap (object sprites)', () => {
     expect(calls.some((c) => c.op === 'ellipse')).toBe(true)
   })
 
+  it('draws the pool defaultImage when the kind has no sprite asset', () => {
+    const poolDoor = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
+      tiles: {},
+      objects: {},
+      elementImages: { 'door-wooden': poolDoor },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    // Объект в (0,0) после translate к центру клетки, размер = cellSize.
+    expect(draws[0]?.args).toEqual([poolDoor, -16, -16, 32, 32])
+    expect(calls.some((c) => c.op === 'ellipse')).toBe(false)
+  })
+
+  it('prefers the imageOverrides over the defaultImage', () => {
+    const poolWooden = { width: 16 } as unknown as HTMLImageElement
+    const poolIron = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
+      tiles: {},
+      objects: {},
+      elementImages: { 'door-wooden': poolWooden, 'door-iron': poolIron },
+      imageOverrides: { door: 'door-iron' },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    expect(draws[0]?.args[0]).toBe(poolIron)
+  })
+
+  it('ignores an override pointing at a missing pool entry and uses the defaultImage', () => {
+    const poolWooden = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
+      tiles: {},
+      objects: {},
+      elementImages: { 'door-wooden': poolWooden },
+      imageOverrides: { door: 'door-iron' },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    expect(draws[0]?.args[0]).toBe(poolWooden)
+  })
+
+  it('falls through an unavailable pool entry to the sprite asset', () => {
+    const doorSprite = { width: 16 } as unknown as HTMLImageElement
+    const poolTable = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, makeModelWithDoor('square'), baseViewport(), {
+      tiles: {},
+      // Пул не содержит defaultImage двери, но есть непустая запись чужого вида.
+      objects: { door: doorSprite },
+      elementImages: { 'table-wooden': poolTable },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    expect(draws[0]?.args[0]).toBe(doorSprite)
+  })
+
+  it('stretches an element image over the scaled footprint', () => {
+    const poolDoor = { width: 16 } as unknown as HTMLImageElement
+    const { ctx, calls } = makeFakeCtx()
+    const model: MapModel = {
+      ...createEmptyMap(3, 3),
+      objects: [{ id: 1, kindId: 'door', x: 1, y: 1, scale: { w: 2, h: 1 } }],
+    }
+    renderMap(ctx, model, baseViewport(), {
+      tiles: {},
+      objects: {},
+      elementImages: { 'door-wooden': poolDoor },
+    })
+
+    const draws = calls.filter((c) => c.op === 'drawImage')
+    expect(draws).toHaveLength(1)
+    // cellSize=32, scaleX=2 → width=64, scaleY=1 → height=32.
+    expect(draws[0]?.args).toEqual([poolDoor, -32, -16, 64, 32])
+  })
+
   it('applies rotation via ctx.rotate around the cell center', () => {
     const { ctx, calls } = makeFakeCtx()
     const model: MapModel = {

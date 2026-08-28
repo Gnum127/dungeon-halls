@@ -17,6 +17,7 @@ import { ToolRail } from './components/ToolRail'
 import type { EditorSectionId } from './components/ToolRail'
 import { WallTools } from './components/WallTools'
 import { useEditor } from './hooks/useEditor'
+import { usePersistentBoolean } from './hooks/usePersistentBoolean'
 import { useSpriteAtlas } from './hooks/useSpriteAtlas'
 import { createEmptyMap } from './model/createEmptyMap'
 import { OBJECT_KIND_ENTRIES } from './model/objects'
@@ -56,9 +57,15 @@ export function EditorPage() {
   const [fileStatus, setFileStatus] = useState<FileActionStatus | null>(null)
   // Одна панель за раз; повторный клик по активной иконке прячет панель.
   const [activeSection, setActiveSection] = useState<EditorSectionId | null>('landscape')
-  // Скрываемые панели: состояние свёрнутости (10.3 — персистентное).
-  const [landscapeCollapsed, setLandscapeCollapsed] = useState(false)
-  const [elementsCollapsed, setElementsCollapsed] = useState(false)
+  // Скрываемые панели: состояние свёрнутости персистится в localStorage.
+  const [landscapeCollapsed, toggleLandscapeCollapsed] = usePersistentBoolean(
+    'dungeon-halls.editor.panels.collapsed.v1.landscape',
+    false,
+  )
+  const [elementsCollapsed, toggleElementsCollapsed] = usePersistentBoolean(
+    'dungeon-halls.editor.panels.collapsed.v1.elements',
+    false,
+  )
   // Реактивная модель: выбор типа сетки и дизейбл генератора живут в UI страницы.
   const model = useEditor(store)
 
@@ -129,7 +136,7 @@ export function EditorPage() {
             title={t('editor.sections.landscape')}
             collapsible
             collapsed={landscapeCollapsed}
-            onToggleCollapsed={() => setLandscapeCollapsed((value) => !value)}
+            onToggleCollapsed={toggleLandscapeCollapsed}
           >
             <TerrainPalette
               selected={tool.type === 'terrain' ? tool.tile : -1}
@@ -143,7 +150,7 @@ export function EditorPage() {
             title={t('editor.sections.elements')}
             collapsible
             collapsed={elementsCollapsed}
-            onToggleCollapsed={() => setElementsCollapsed((value) => !value)}
+            onToggleCollapsed={toggleElementsCollapsed}
           >
             <ObjectPalette
               activeKindId={tool.type === 'object' ? tool.kindId : null}

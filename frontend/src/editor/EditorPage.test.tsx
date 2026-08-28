@@ -52,4 +52,16 @@ describe('EditorPage section navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
     expect(screen.getByTitle('Floor')).toBeInTheDocument()
   })
+
+  it('persists the collapsed state across remounts', () => {
+    const first = render(<EditorPage />)
+    fireEvent.click(first.getByRole('button', { name: 'Collapse' }))
+    expect(screen.queryByTitle('Floor')).not.toBeInTheDocument()
+
+    first.unmount()
+    render(<EditorPage />)
+    // Состояние прочитано из localStorage при старте — панель остаётся свёрнутой.
+    expect(screen.queryByTitle('Floor')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand' })).toBeInTheDocument()
+  })
 })

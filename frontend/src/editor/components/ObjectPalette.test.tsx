@@ -70,6 +70,7 @@ describe('ObjectPalette', () => {
 
     rerender(<ObjectPalette {...defaultProps} activeKindId="stairs" />)
     expect(screen.getByTitle('Size')).toBeInTheDocument()
+    expect(screen.getByText('1×1')).toBeInTheDocument() // stairs: без defaultScale, бейдж = текущий 1×1
   })
 
   it('hides the size button for kinds without a scale list', () => {

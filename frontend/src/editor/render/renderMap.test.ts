@@ -539,6 +539,8 @@ describe('renderMap (object sprites)', () => {
     // Тот же видимый размер, но без поворота: 1×2 = 32×64.
     const uprightDraws = uprightCtx.calls.filter((c) => c.op === 'drawImage')
     expect(uprightDraws[0]?.args).toEqual([doorSprite, -16, -32, 32, 64])
+    // Для полноты симметрии: у неповёрнутого объекта нет вызова rotate.
+    expect(uprightCtx.calls.filter((c) => c.op === 'rotate')).toHaveLength(0)
   })
 
   it('applies scale to fallback ellipse dimensions', () => {

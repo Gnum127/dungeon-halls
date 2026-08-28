@@ -126,7 +126,7 @@ export function cycleScale(kindId: ObjectKindId, current: ObjectScale): ObjectSc
   const scales = (
     OBJECT_KIND_REGISTRY[kindId] as { readonly scales?: ReadonlyArray<ObjectScale> }
   ).scales
-  if (!scales) return current
+  if (!scales || scales.length === 0) return current
   const index = scales.findIndex((scale) => scale.w === current.w && scale.h === current.h)
   return scales[(index + 1) % scales.length]
 }

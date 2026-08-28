@@ -91,7 +91,7 @@ export function ObjectPalette({
             <>
               <button
                 type="button"
-                className={styles.rotateButton}
+                className={styles.sizeButton}
                 onClick={onResize}
                 title={t('editor.objects.resize')}
               >

@@ -183,6 +183,7 @@ describe('exportMapToPng', () => {
     await exportMapToPng(model, EXPORT_CELL_SIZE, {
       tiles: { floor: floorSprite },
       objects: { door: doorSprite },
+      elementImages: {},
     })
 
     const draws = calls.filter((c) => c.op === 'drawImage')
@@ -236,6 +237,7 @@ describe('exportMapToPng', () => {
     await exportMapToPng(model, EXPORT_CELL_SIZE, {
       tiles: { floor: floorSprite },
       objects: {},
+      elementImages: {},
     })
 
     const draws = calls.filter((c) => c.op === 'drawImage')

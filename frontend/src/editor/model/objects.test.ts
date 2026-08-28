@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import en from '../../app/i18n/locales/en.json'
 import ru from '../../app/i18n/locales/ru.json'
+import elementManifest from '../../../public/element-images/manifest.json'
 import {
   OBJECT_COLORS,
   OBJECT_KIND_ENTRIES,
@@ -117,6 +118,34 @@ describe('OBJECT_KIND_REGISTRY', () => {
     expect(isKnownKind('toString')).toBe(false)
     expect(isKnownKind('constructor')).toBe(false)
     expect(isKnownKind('')).toBe(false)
+  })
+})
+
+describe('element images pool', () => {
+  const poolIds = new Set<string>(Object.keys(elementManifest.items))
+
+  it('gives every kind a default image that belongs to its pool', () => {
+    for (const entry of OBJECT_KIND_ENTRIES) {
+      expect(entry.imagePool?.length).toBeGreaterThan(0)
+      expect(entry.defaultImage).toBeDefined()
+      expect(entry.imagePool).toContain(entry.defaultImage)
+    }
+  })
+
+  it('keeps the pool and the default image in sync with the manifest items', () => {
+    for (const entry of OBJECT_KIND_ENTRIES) {
+      // Пулы ссылаются только на существующие записи манифеста.
+      for (const imageId of entry.imagePool ?? []) {
+        expect(poolIds.has(imageId)).toBe(true)
+      }
+    }
+    // Обратная связь: каждый элемент манифеста обязан быть в пуле какого-то
+    // вида (иначе пикер не сможет его предложить).
+    for (const imageId of poolIds) {
+      expect(
+        OBJECT_KIND_ENTRIES.some((entry) => (entry.imagePool ?? []).includes(imageId)),
+      ).toBe(true)
+    }
   })
 })
 

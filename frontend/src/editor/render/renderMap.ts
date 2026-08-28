@@ -1,4 +1,4 @@
-import { isKnownKind, OBJECT_COLORS } from '../model/objects'
+import { isKnownKind, OBJECT_COLORS, OBJECT_KIND_ENTRIES } from '../model/objects'
 import { TILE_TYPES } from '../model/types'
 import type { MapModel } from '../model/types'
 import { cellCorners } from '@/shared/hex'
@@ -25,7 +25,30 @@ export interface RenderMapOptions {
 }
 
 /**
- * Единственная точка рендера карты: чистая функция от модели и вьюпорта.
+ * Изображение объекта по приоритету:
+ * override изображения для вида → defaultImage вида → спрайт-ассет → undefined
+ * (= цветной свотч). Отсутствие записи пула или нарушение дефолта молча
+ * уходит ниже по цепочке, без лога — как в спрайт-пайплайне.
+ */
+function resolveObjectImage(
+  sprites: SpriteRenderContext | undefined,
+  kindId: string,
+): HTMLImageElement | undefined {
+  if (!sprites || !isKnownKind(kindId)) return undefined
+
+  const overrideId = sprites.imageOverrides?.[kindId]
+  const overrideImage = overrideId ? sprites.elementImages[overrideId] : undefined
+  if (overrideImage) return overrideImage
+
+  const entry = OBJECT_KIND_ENTRIES.find((e) => e.id === kindId)
+  const defaultId = entry?.defaultImage
+  const defaultImage = defaultId ? sprites.elementImages[defaultId] : undefined
+  if (defaultImage) return defaultImage
+
+  return sprites.objects[kindId]
+}
+
+/** Единственная точка рендера карты: чистая функция от модели и вьюпорта.
  * Спрайтовый режим включается опциональным атласом готовых картинок;
  * отсутствующий атлас или спрайт = fallback на цветную плитку.
  *
@@ -145,8 +168,7 @@ export function renderMap(
     const scaleX = object.scale?.w ?? 1
     const scaleY = object.scale?.h ?? 1
     const rotation = object.rotation ?? 0
-    const sprite =
-      sprites && isKnownKind(object.kindId) ? sprites.objects[object.kindId] : undefined
+    const sprite = resolveObjectImage(sprites, object.kindId)
 
     ctx.save()
     ctx.translate(cx, cy)

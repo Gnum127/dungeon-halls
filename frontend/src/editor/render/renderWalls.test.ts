@@ -79,7 +79,11 @@ describe('renderMap walls and doors', () => {
 
   it('keeps drawing walls in sprite mode (both display modes)', () => {
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, walledModel(), viewport(), { tiles: {}, objects: {} })
+    renderMap(ctx, walledModel(), viewport(), {
+      tiles: {},
+      objects: {},
+      elementImages: {},
+    })
 
     expect(calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_LINE_COLOR)).toHaveLength(
       1,

@@ -376,20 +376,33 @@ describe('regularPolygonVertices', () => {
   })
 
   it('dedups vertices globally when rounding/clamping merge them', () => {
-    // Радиус между центрами соседних клеток: часть вершин уходит за карту
-    // и клампится к границе, сливаясь с соседними — дубли должны сняться.
+    // Радиус 1 клетка у края: из 12 запрошенных вершин многие ложатся в одни
+    // и те же клетки (не-соседние повторы), остаётся 4 уникальных — глобальная
+    // дедупликация до возврата реально срабатывает.
     const center: Cell = { x: 0, y: 3 }
-    const radial: Cell = { x: 4, y: 3 }
-    const vertices = regularPolygonVertices(center, radial, 6, 8, 8)
+    const radial: Cell = { x: 1, y: 3 }
+    const vertices = regularPolygonVertices(center, radial, 12, 8, 8)
     const keys = vertices.map((v) => `${v.x},${v.y}`)
     expect(new Set(keys).size).toBe(keys.length)
-    expect(vertices.length).toBeGreaterThanOrEqual(3)
+    expect(vertices.length).toBe(4)
+    expect(vertices.length).toBeLessThan(12)
+    expect(vertices).toEqual([
+      { x: 1, y: 3 },
+      { x: 0, y: 3 },
+      { x: 0, y: 4 },
+      { x: 0, y: 2 },
+    ])
   })
 
-  it('drops the polygon below 3 vertices after dedup', () => {
-    // Радиус меньше пол-клетки: все вершины сползаются в одну клетку → <3.
-    const vertices = regularPolygonVertices({ x: 4, y: 4 }, { x: 4, y: 4 }, 12, 8, 8)
-    expect(vertices).toEqual([])
+  it('returns an empty array for a zero radius (same cell as the center)', () => {
+    // Второй клик в ту же клетку, что и центр: радиус 0 — инструмент не коммитит.
+    expect(regularPolygonVertices({ x: 4, y: 4 }, { x: 4, y: 4 }, 6, 8, 8)).toEqual([])
+  })
+
+  it('treats an over-large vertex count as MAX_POLYGON_VERTICES', () => {
+    const clamped = regularPolygonVertices({ x: 0, y: 3 }, { x: 1, y: 3 }, 20, 8, 8)
+    const max = regularPolygonVertices({ x: 0, y: 3 }, { x: 1, y: 3 }, 12, 8, 8)
+    expect(clamped).toEqual(max)
   })
 
   it('clamps vertices into the map bounds', () => {

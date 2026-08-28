@@ -141,6 +141,8 @@ export function regularPolygonVertices(
   height: number,
 ): Cell[] {
   if (count < 3) return []
+  // Контракт 3..12 самосогласован: завышенный счёт ведёт себя как максимум.
+  const steps = Math.min(count, MAX_POLYGON_VERTICES)
   const dx = radial.x - center.x
   const dy = radial.y - center.y
   const radius = Math.hypot(dx, dy)
@@ -148,8 +150,8 @@ export function regularPolygonVertices(
   const phase = Math.atan2(dy, dx)
 
   const unique = new Map<string, Cell>()
-  for (let k = 0; k < count; k += 1) {
-    const angle = phase + (k * Math.PI * 2) / count
+  for (let k = 0; k < steps; k += 1) {
+    const angle = phase + (k * Math.PI * 2) / steps
     const px = center.x + radius * Math.cos(angle)
     const py = center.y + radius * Math.sin(angle)
     // Ближайший клеточный центр: индекс = round(позиция − 0.5).

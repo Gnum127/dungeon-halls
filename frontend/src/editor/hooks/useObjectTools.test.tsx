@@ -85,6 +85,30 @@ describe('useObjectTools', () => {
     expect(store.getModel().objects).toHaveLength(1)
   })
 
+  it('places a scaled and rotated object preserving its properties', () => {
+    const store = new EditorStore(createEmptyMap(8, 8))
+    const tool: EditorTool = {
+      type: 'object',
+      kindId: 'table',
+      rotation: 90,
+      scale: { w: 2, h: 1 },
+    }
+    const { getByTestId } = render(
+      <Probe store={store} tool={tool} selectedId={null} onSelect={vi.fn()} />,
+    )
+
+    leftPointer(getByTestId('canvas'), 'pointerdown', { clientX: 16, clientY: 16 })
+    const objects = store.getModel().objects
+    expect(objects).toHaveLength(1)
+    expect(objects[0]).toMatchObject({
+      kindId: 'table',
+      x: 0,
+      y: 0,
+      rotation: 90,
+      scale: { w: 2, h: 1 },
+    })
+  })
+
   it('selects on click and drags with a single move command', () => {
     const store = new EditorStore(createEmptyMap(8, 8))
     store.dispatch({ kind: 'addObject', x: 1, y: 1, kindId: 'chair' })

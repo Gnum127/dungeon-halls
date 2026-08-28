@@ -43,7 +43,17 @@ describe('element image persistence', () => {
     })
     expect(loadElementImage('door', storage)).toBe('door-iron')
     expect(loadElementImage('table', storage)).toBeNull()
-    expect(loadElementImage('door', makeStorage({ [`${ELEMENT_IMAGE_STORAGE_KEY_PREFIX}door`]: '' }))).toBeNull()
+    expect(
+      loadElementImage('door', makeStorage({ [`${ELEMENT_IMAGE_STORAGE_KEY_PREFIX}door`]: '' })),
+    ).toBeNull()
+    // Не-пустой неизвестный imageId читается как есть; отсутствие записи пула
+    // в рендере терпимо и резолвится ниже по приоритету (покрыто в renderMap).
+    expect(
+      loadElementImage(
+        'rock',
+        makeStorage({ [`${ELEMENT_IMAGE_STORAGE_KEY_PREFIX}rock`]: 'missing-id' }),
+      ),
+    ).toBe('missing-id')
   })
 
   it('saves an imageId and removes it when reset to default', () => {

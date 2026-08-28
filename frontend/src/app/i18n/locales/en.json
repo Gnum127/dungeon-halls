@@ -8,6 +8,18 @@
     }
   },
   "editor": {
+    "sections": {
+      "label": "Toolbar",
+      "landscape": "Landscape",
+      "elements": "Elements",
+      "rooms": "Rooms & walls",
+      "light": "Light",
+      "view": "View",
+      "generation": "Generation",
+      "file": "File & export",
+      "expand": "Expand",
+      "collapse": "Collapse"
+    },
     "tools": {
       "walls": "Walls and doors",
       "wall": "Wall",

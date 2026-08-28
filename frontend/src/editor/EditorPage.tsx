@@ -26,6 +26,7 @@ import type { ObjectRotation, ObjectScale, TileValue } from './model/types'
 import type { ObjectKindId } from './model/objects'
 import type { RenderMode } from './render/renderMode'
 import { loadRenderMode, saveRenderMode } from './render/renderMode'
+import { loadElementImage, saveElementImage } from './render/elementImage'
 import { EditorStore } from './store/EditorStore'
 import type { EditorTool } from './tools/editorTool'
 import { useEditorHotkeys } from './hooks/useEditorHotkeys'
@@ -83,6 +84,21 @@ export function EditorPage() {
   const [objectRotation, setObjectRotation] = useState<ObjectRotation>(0)
   const [objectScale, setObjectScale] = useState<ObjectScale>({ w: 1, h: 1 })
 
+  // Персист выбора изображения вида: null = «по умолчанию» (defaultImage).
+  const [elementImageOverrides, setElementImageOverrides] = useState<
+    Partial<Record<ObjectKindId, string | null>>
+  >(() => {
+    const initial: Partial<Record<ObjectKindId, string | null>> = {}
+    for (const entry of OBJECT_KIND_ENTRIES) initial[entry.id] = loadElementImage(entry.id)
+    return initial
+  })
+
+  // Атлас + выбор изображений — единый контекст рендера (канвас, PNG/UVTT).
+  const spriteContext =
+    renderMode === 'sprites' && atlas
+      ? { ...atlas, imageOverrides: elementImageOverrides }
+      : undefined
+
   // Последний непустой тайл кисти — куда возвращает клавиша B.
   const lastBrushTileRef = useRef<TileValue>(defaultBrushTile())
 
@@ -130,6 +146,11 @@ export function EditorPage() {
     setTool({ ...tool, scale: next })
   }
 
+  function selectElementImage(kindId: ObjectKindId, imageId: string | null) {
+    saveElementImage(kindId, imageId)
+    setElementImageOverrides((prev) => ({ ...prev, [kindId]: imageId }))
+  }
+
   function changeRenderMode(mode: RenderMode) {
     setRenderMode(mode)
     saveRenderMode(mode)
@@ -172,6 +193,8 @@ export function EditorPage() {
               objectScale={objectScale}
               onRotate={rotateObject}
               onResize={resizeObject}
+              elementImageOverrides={elementImageOverrides}
+              onSelectElementImage={selectElementImage}
             />
           </SectionPanel>
         )
@@ -246,7 +269,7 @@ export function EditorPage() {
           <SectionPanel title={t('editor.sections.file')}>
             <MapFileActions
               getModel={() => store.getModel()}
-              sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
+              sprites={spriteContext}
               uvttDisabled={model.gridType !== 'square'}
               pdfDisabled={model.gridType !== 'square'}
               onLoaded={(model) => store.reset(model)}
@@ -309,7 +332,7 @@ export function EditorPage() {
           tool={tool}
           selectedObjectId={selectedObjectId}
           onSelectObject={setSelectedObjectId}
-          sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
+          sprites={spriteContext}
           roomTile={brushTile}
           polygonVertexCount={polygonVertexCount}
           lightRadius={lightRadius}

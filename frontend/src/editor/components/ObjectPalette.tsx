@@ -24,6 +24,9 @@ interface ObjectPaletteProps {
   onRotate: () => void
   /** Цикл по доступным размерам активного вида («Размер»). */
   onResize: () => void
+  /** Выбранные изображения видов; null = «по умолчанию». */
+  elementImageOverrides: Readonly<Partial<Record<ObjectKindId, string | null>>>
+  onSelectElementImage: (kindId: ObjectKindId, imageId: string | null) => void
 }
 
 export function ObjectPalette({
@@ -35,6 +38,8 @@ export function ObjectPalette({
   objectScale,
   onRotate,
   onResize,
+  elementImageOverrides,
+  onSelectElementImage,
 }: ObjectPaletteProps) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
@@ -56,6 +61,7 @@ export function ObjectPalette({
     ? OBJECT_KIND_ENTRIES.find((entry) => entry.id === activeKindId)
     : undefined
   const hasSizes = activeKind?.scales !== undefined
+  const hasImagePool = activeKind?.imagePool !== undefined
 
   return (
     <div className={styles.palette}>
@@ -101,6 +107,24 @@ export function ObjectPalette({
                 {objectScale.w}×{objectScale.h}
               </span>
             </>
+          )}
+          {hasImagePool && activeKindId && activeKind && (
+            <select
+              className={styles.imagePick}
+              aria-label={t('editor.objects.image')}
+              title={t('editor.objects.image')}
+              value={elementImageOverrides[activeKindId] ?? ''}
+              onChange={(e) =>
+                onSelectElementImage(activeKindId, e.target.value === '' ? null : e.target.value)
+              }
+            >
+              <option value="">{t('editor.objects.imageDefault')}</option>
+              {activeKind.imagePool?.map((imageId) => (
+                <option key={imageId} value={imageId}>
+                  {imageId}
+                </option>
+              ))}
+            </select>
           )}
         </div>
       )}

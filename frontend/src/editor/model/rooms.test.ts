@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { polygonRoom, rectRoom, regularPolygonVertices } from './rooms'
+import { MAX_POLYGON_VERTICES, polygonRoom, rectRoom, regularPolygonVertices } from './rooms'
 import type { RoomGeometry } from './rooms'
 import { EMPTY_TILE, TILE_TYPES } from './types'
 import type { TileValue } from './types'
@@ -371,7 +371,8 @@ describe('regularPolygonVertices', () => {
     expect(regularPolygonVertices({ x: 4, y: 4 }, { x: 6, y: 4 }, 2, 8, 8)).toEqual([])
   })
 
-  it('returns an empty array when the radius collapses to the center cell', () => {
+  it('returns an empty array for a zero radius (same cell as the center)', () => {
+    // Второй клик в ту же клетку, что и центр: радиус 0 — инструмент не коммитит.
     expect(regularPolygonVertices({ x: 4, y: 4 }, { x: 4, y: 4 }, 6, 8, 8)).toEqual([])
   })
 
@@ -394,15 +395,12 @@ describe('regularPolygonVertices', () => {
     ])
   })
 
-  it('returns an empty array for a zero radius (same cell as the center)', () => {
-    // Второй клик в ту же клетку, что и центр: радиус 0 — инструмент не коммитит.
-    expect(regularPolygonVertices({ x: 4, y: 4 }, { x: 4, y: 4 }, 6, 8, 8)).toEqual([])
-  })
-
   it('treats an over-large vertex count as MAX_POLYGON_VERTICES', () => {
-    const clamped = regularPolygonVertices({ x: 0, y: 3 }, { x: 1, y: 3 }, 20, 8, 8)
-    const max = regularPolygonVertices({ x: 0, y: 3 }, { x: 1, y: 3 }, 12, 8, 8)
-    expect(clamped).toEqual(max)
+    const center: Cell = { x: 4, y: 4 }
+    const radial: Cell = { x: 9, y: 5 }
+    const clamped = regularPolygonVertices(center, radial, 20, 16, 10)
+    expect(clamped).toHaveLength(MAX_POLYGON_VERTICES)
+    expect(clamped).toEqual(regularPolygonVertices(center, radial, 12, 16, 10))
   })
 
   it('clamps vertices into the map bounds', () => {

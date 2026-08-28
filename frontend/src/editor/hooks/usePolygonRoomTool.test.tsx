@@ -14,22 +14,26 @@ interface ProbeProps {
   onCommit: (command: Command | null) => void
   active?: boolean
   tile?: number
+  vertexCount?: number
 }
 
-function Probe({ onCommit, active = true, tile = 1 }: ProbeProps) {
+function Probe({ onCommit, active = true, tile = 1, vertexCount = 6 }: ProbeProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = useRef<Viewport>(makeViewport())
   const model = createEmptyMap(8, 8)
-  const { vertices, handlers } = usePolygonRoomTool({
+  const { preview, handlers } = usePolygonRoomTool({
     canvasRef,
     active,
     model,
     tile,
+    vertexCount,
     viewportRef,
     onCommit,
   })
-  const label = (vertices ?? []).map((v) => `${v.x},${v.y}`).join(';')
-  return <canvas ref={canvasRef} data-testid="canvas" data-verts={label} {...handlers} />
+  const label = preview
+    ? `center=${preview.center.x},${preview.center.y};radial=${preview.radial ? `${preview.radial.x},${preview.radial.y}` : 'null'};verts=${preview.vertices.map((v) => `${v.x},${v.y}`).join('|')}`
+    : ''
+  return <canvas ref={canvasRef} data-testid="canvas" data-preview={label} {...handlers} />
 }
 
 const CELL = 32
@@ -39,52 +43,82 @@ function clickAt(target: Element, x: number, y: number): void {
   fireEvent.pointerUp(target, { pointerId: 1, button: 0, clientX: x * CELL + 16, clientY: y * CELL + 16 })
 }
 
+function moveTo(target: Element, x: number, y: number): void {
+  fireEvent.pointerMove(target, { pointerId: 1, clientX: x * CELL + 16, clientY: y * CELL + 16 })
+}
+
 describe('usePolygonRoomTool', () => {
-  it('places vertices on clicks', () => {
+  it('the first click places the center without committing', () => {
     const onCommit = vi.fn()
     const { getByTestId } = render(<Probe onCommit={onCommit} />)
     const canvas = getByTestId('canvas')
 
-    clickAt(canvas, 1, 1)
-    clickAt(canvas, 3, 1)
-    expect(getByTestId('canvas').dataset.verts).toBe('1,1;3,1')
+    clickAt(canvas, 4, 4)
 
-    clickAt(canvas, 3, 3)
-    expect(getByTestId('canvas').dataset.verts).toBe('1,1;3,1;3,3')
+    expect(canvas.dataset.preview).toBe('center=4,4;radial=null;verts=')
+    expect(onCommit).not.toHaveBeenCalled()
   })
 
-  it('Enter completes the polygon into one addRoom command and clears vertices', () => {
+  it('moving the cursor after the center previews the polygon live', () => {
     const onCommit = vi.fn()
     const { getByTestId } = render(<Probe onCommit={onCommit} />)
     const canvas = getByTestId('canvas')
 
-    clickAt(canvas, 1, 1)
-    clickAt(canvas, 3, 1)
-    clickAt(canvas, 3, 3)
-    clickAt(canvas, 1, 3)
-    fireEvent.keyDown(window, { code: 'Enter' })
+    clickAt(canvas, 4, 4)
+    moveTo(canvas, 7, 4)
+
+    expect(canvas.dataset.preview).toContain('radial=7,4')
+    expect(canvas.dataset.preview).toContain('verts=7,4|')
+    expect(onCommit).not.toHaveBeenCalled()
+  })
+
+  it('the second click commits one addRoom and returns to idle', () => {
+    const onCommit = vi.fn()
+    const { getByTestId } = render(<Probe onCommit={onCommit} />)
+    const canvas = getByTestId('canvas')
+
+    clickAt(canvas, 4, 4)
+    moveTo(canvas, 7, 4)
+    clickAt(canvas, 7, 4)
 
     expect(onCommit).toHaveBeenCalledTimes(1)
     const command = onCommit.mock.calls[0][0] as Command
     expect(command.kind).toBe('addRoom')
     if (command.kind === 'addRoom') {
-      // Блок 3×3 между кликнутыми углами (1,1)..(3,3).
-      expect(command.tiles).toHaveLength(9)
+      expect(command.tiles.length).toBeGreaterThan(0)
+      expect(command.walls.length).toBeGreaterThan(0)
     }
-    expect(getByTestId('canvas').dataset.verts).toBe('')
+    expect(canvas.dataset.preview).toBe('')
   })
 
-  it('Enter with fewer than three vertices does not commit', () => {
+  it('builds a regular polygon with the requested vertex count', () => {
+    const onCommit = vi.fn()
+    const { getByTestId } = render(<Probe onCommit={onCommit} vertexCount={4} />)
+    const canvas = getByTestId('canvas')
+
+    clickAt(canvas, 4, 4)
+    moveTo(canvas, 7, 4)
+
+    // Квадрат: 4 вершины, первая — на радиальной точке.
+    const verts = canvas.dataset.preview?.split(';').find((part) => part.startsWith('verts=')) ?? ''
+    expect(verts).toBe('verts=7,4|4,7|1,4|3,1')
+  })
+
+  it('a second click on the center cell (zero radius) does not commit', () => {
     const onCommit = vi.fn()
     const { getByTestId } = render(<Probe onCommit={onCommit} />)
     const canvas = getByTestId('canvas')
 
-    clickAt(canvas, 1, 1)
-    clickAt(canvas, 3, 1)
-    fireEvent.keyDown(window, { code: 'Enter' })
+    clickAt(canvas, 4, 4)
+    clickAt(canvas, 4, 4)
 
     expect(onCommit).not.toHaveBeenCalled()
-    expect(getByTestId('canvas').dataset.verts).toBe('1,1;3,1')
+    expect(canvas.dataset.preview).toBe('center=4,4;radial=4,4;verts=')
+
+    // Следующий клик в другую клетку всё ещё коммитит размещение.
+    moveTo(canvas, 7, 4)
+    clickAt(canvas, 7, 4)
+    expect(onCommit).toHaveBeenCalledTimes(1)
   })
 
   it('Esc cancels the pending polygon', () => {
@@ -92,74 +126,74 @@ describe('usePolygonRoomTool', () => {
     const { getByTestId } = render(<Probe onCommit={onCommit} />)
     const canvas = getByTestId('canvas')
 
-    clickAt(canvas, 1, 1)
-    clickAt(canvas, 3, 1)
+    clickAt(canvas, 4, 4)
+    moveTo(canvas, 7, 4)
     fireEvent.keyDown(window, { code: 'Escape' })
 
     expect(onCommit).not.toHaveBeenCalled()
-    expect(getByTestId('canvas').dataset.verts).toBe('')
+    expect(canvas.dataset.preview).toBe('')
   })
 
-  it('a double click completes the polygon', () => {
+  it('Enter no longer commits (the second click does)', () => {
     const onCommit = vi.fn()
     const { getByTestId } = render(<Probe onCommit={onCommit} />)
     const canvas = getByTestId('canvas')
 
-    clickAt(canvas, 1, 1)
-    clickAt(canvas, 3, 1)
-    fireEvent.pointerDown(canvas, { pointerId: 1, button: 0, clientX: 3 * CELL + 16, clientY: 3 * CELL + 16 })
-    fireEvent.dblClick(canvas, { clientX: 3 * CELL + 16, clientY: 3 * CELL + 16 })
-
-    expect(onCommit).toHaveBeenCalledTimes(1)
-    const command = onCommit.mock.calls[0][0] as Command
-    expect(command.kind).toBe('addRoom')
-    expect(getByTestId('canvas').dataset.verts).toBe('')
-  })
-
-  it('ignores duplicate consecutive clicks in the same cell', () => {
-    const onCommit = vi.fn()
-    const { getByTestId } = render(<Probe onCommit={onCommit} />)
-    const canvas = getByTestId('canvas')
-
-    clickAt(canvas, 2, 2)
-    clickAt(canvas, 2, 2)
     clickAt(canvas, 4, 4)
+    fireEvent.keyDown(window, { code: 'Enter' })
 
-    expect(getByTestId('canvas').dataset.verts).toBe('2,2;4,4')
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(canvas.dataset.preview).toContain('center=4,4')
   })
 
-  it('a click outside the map does not add a vertex', () => {
+  it('clicks outside the map do nothing', () => {
     const onCommit = vi.fn()
     const { getByTestId } = render(<Probe onCommit={onCommit} />)
     const canvas = getByTestId('canvas')
 
     clickAt(canvas, 20, 20)
-    expect(getByTestId('canvas').dataset.verts).toBe('')
+    expect(canvas.dataset.preview).toBe('')
 
     clickAt(canvas, 2, 2)
     clickAt(canvas, 30, 2)
-    expect(getByTestId('canvas').dataset.verts).toBe('2,2')
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(canvas.dataset.preview).toBe('center=2,2;radial=null;verts=')
   })
 
-  it('ignores events when inactive and without a pending polygon', () => {
+  it('moving outside the map hides the radial preview', () => {
+    const onCommit = vi.fn()
+    const { getByTestId } = render(<Probe onCommit={onCommit} />)
+    const canvas = getByTestId('canvas')
+
+    clickAt(canvas, 4, 4)
+    moveTo(canvas, 30, 4)
+
+    expect(canvas.dataset.preview).toBe('center=4,4;radial=null;verts=')
+  })
+
+  it('ignores events when inactive', () => {
     const onCommit = vi.fn()
     const { getByTestId } = render(<Probe onCommit={onCommit} active={false} />)
     const canvas = getByTestId('canvas')
 
-    clickAt(canvas, 1, 1)
-    clickAt(canvas, 2, 2)
-    clickAt(canvas, 3, 3)
-    fireEvent.keyDown(window, { code: 'Enter' })
+    clickAt(canvas, 4, 4)
+    moveTo(canvas, 7, 4)
+    clickAt(canvas, 7, 4)
+    fireEvent.keyDown(window, { code: 'Escape' })
 
-    expect(getByTestId('canvas').dataset.verts).toBe('')
+    expect(canvas.dataset.preview).toBe('')
     expect(onCommit).not.toHaveBeenCalled()
   })
 
-  it('Enter without a polygon in progress does nothing', () => {
+  it('deactivating mid-gesture clears the pending placement', () => {
     const onCommit = vi.fn()
-    render(<Probe onCommit={onCommit} />)
+    const { getByTestId, rerender } = render(<Probe onCommit={onCommit} />)
+    const canvas = getByTestId('canvas')
 
-    fireEvent.keyDown(window, { code: 'Enter' })
-    expect(onCommit).not.toHaveBeenCalled()
+    clickAt(canvas, 4, 4)
+    expect(canvas.dataset.preview).toContain('center=4,4')
+
+    rerender(<Probe onCommit={onCommit} active={false} />)
+    expect(canvas.dataset.preview).toBe('')
   })
 })

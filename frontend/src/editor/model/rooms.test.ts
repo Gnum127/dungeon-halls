@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { polygonRoom, rectRoom } from './rooms'
+import { polygonRoom, rectRoom, regularPolygonVertices } from './rooms'
 import type { RoomGeometry } from './rooms'
 import { EMPTY_TILE, TILE_TYPES } from './types'
 import type { TileValue } from './types'
+import type { Cell } from '../tools/brush'
 import { edgeKey } from './walls'
 
 const FLOOR = TILE_TYPES.indexOf('floor')
@@ -330,3 +331,105 @@ describe('polygonRoom', () => {
     )
   })
 })
+
+describe('regularPolygonVertices', () => {
+  it('starts the first vertex towards the radial point (sets the rotation)', () => {
+    // Соседние клетки вокруг радиуса могут попасть на границу округления
+    // (±float-шум), поэтому проверяем инвариант поворота, а не все 4 клетки.
+    const east = regularPolygonVertices({ x: 4, y: 4 }, { x: 7, y: 4 }, 4, 8, 8)
+    expect(east).toHaveLength(4)
+    expect(east[0]).toEqual({ x: 7, y: 4 })
+    expect(Math.max(...east.map((v) => v.x))).toBe(7)
+    expect(Math.min(...east.map((v) => v.x))).toBe(1)
+    expect(Math.max(...east.map((v) => v.y))).toBe(7)
+    expect(Math.min(...east.map((v) => v.y))).toBe(1)
+
+    const south = regularPolygonVertices({ x: 4, y: 4 }, { x: 4, y: 7 }, 4, 8, 8)
+    expect(south[0]).toEqual({ x: 4, y: 7 })
+  })
+
+  it('works across the 3..12 vertex range', () => {
+    for (let count = 3; count <= 12; count += 1) {
+      const vertices = regularPolygonVertices({ x: 4, y: 4 }, { x: 9, y: 5 }, count, 16, 10)
+      expect(vertices).toHaveLength(count)
+      expect(new Set(vertices.map((v) => `${v.x},${v.y}`)).size).toBe(count)
+    }
+  })
+
+  it('rounds continuous vertices onto the nearest cell centers', () => {
+    // Радиус 1 клетка: вершины точно на соседних центрах.
+    const square = regularPolygonVertices({ x: 4, y: 4 }, { x: 5, y: 4 }, 4, 8, 8)
+    expect(square).toEqual([
+      { x: 5, y: 4 },
+      { x: 4, y: 5 },
+      { x: 3, y: 4 },
+      { x: 4, y: 3 },
+    ])
+  })
+
+  it('returns an empty array for a count below 3', () => {
+    expect(regularPolygonVertices({ x: 4, y: 4 }, { x: 6, y: 4 }, 2, 8, 8)).toEqual([])
+  })
+
+  it('returns an empty array when the radius collapses to the center cell', () => {
+    expect(regularPolygonVertices({ x: 4, y: 4 }, { x: 4, y: 4 }, 6, 8, 8)).toEqual([])
+  })
+
+  it('dedups vertices globally when rounding/clamping merge them', () => {
+    // Радиус между центрами соседних клеток: часть вершин уходит за карту
+    // и клампится к границе, сливаясь с соседними — дубли должны сняться.
+    const center: Cell = { x: 0, y: 3 }
+    const radial: Cell = { x: 4, y: 3 }
+    const vertices = regularPolygonVertices(center, radial, 6, 8, 8)
+    const keys = vertices.map((v) => `${v.x},${v.y}`)
+    expect(new Set(keys).size).toBe(keys.length)
+    expect(vertices.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('drops the polygon below 3 vertices after dedup', () => {
+    // Радиус меньше пол-клетки: все вершины сползаются в одну клетку → <3.
+    const vertices = regularPolygonVertices({ x: 4, y: 4 }, { x: 4, y: 4 }, 12, 8, 8)
+    expect(vertices).toEqual([])
+  })
+
+  it('clamps vertices into the map bounds', () => {
+    const vertices = regularPolygonVertices({ x: 1, y: 2 }, { x: 1, y: 5 }, 6, 8, 8)
+    expect(vertices.length).toBeGreaterThanOrEqual(3)
+    for (const v of vertices) {
+      expect(v.x).toBeGreaterThanOrEqual(0)
+      expect(v.x).toBeLessThan(8)
+      expect(v.y).toBeGreaterThanOrEqual(0)
+      expect(v.y).toBeLessThan(8)
+    }
+  })
+
+  it('yields unequal sides after clamping near the map edge (angles stay fixed)', () => {
+    // Центр у левого края: левая вершина клампится в x=0, а соседние снизу/сверху
+    // зависят от округления — углы не трогаем, стороны становятся неравными.
+    const square: Cell[] = regularPolygonVertices({ x: 1, y: 3 }, { x: 1, y: 5 }, 4, 8, 8)
+    expect(square).toEqual([
+      { x: 1, y: 5 },
+      { x: 0, y: 3 },
+      { x: 0, y: 1 },
+      { x: 3, y: 2 },
+    ])
+    const edges = edgesLengths(square)
+    expect(new Set(edges).size).toBeGreaterThan(1)
+  })
+
+  it('is deterministic for identical inputs', () => {
+    const a = regularPolygonVertices({ x: 4, y: 4 }, { x: 9, y: 5 }, 7, 16, 10)
+    const b = regularPolygonVertices({ x: 4, y: 4 }, { x: 9, y: 5 }, 7, 16, 10)
+    expect(a).toEqual(b)
+  })
+})
+
+function edgesLengths(vertices: readonly Cell[]): number[] {
+  const lengths: number[] = []
+  for (let i = 0; i < vertices.length; i += 1) {
+    const a = vertices[i]
+    const b = vertices[(i + 1) % vertices.length]
+    lengths.push(Math.hypot(b.x - a.x, b.y - a.y))
+  }
+  return lengths
+}

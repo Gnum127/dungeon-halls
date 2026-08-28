@@ -16,6 +16,7 @@ function renderView(tool: EditorTool = TERRAIN_TOOL) {
       selectedObjectId={null}
       onSelectObject={vi.fn()}
       roomTile={1}
+      polygonVertexCount={6}
       lightRadius={3}
       lightColor="#ffd682"
     />,

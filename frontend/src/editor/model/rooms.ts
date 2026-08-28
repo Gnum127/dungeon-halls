@@ -121,6 +121,47 @@ export function polygonRoom(
   return { tiles, walls: walls.map((edge) => ({ edge, present: true })) }
 }
 
+export const MAX_POLYGON_VERTICES = 12
+
+/**
+ * Вершины правильного N-угольника «центр + радиусная точка»: первая вершина
+ * направлена от центра к радиальной точке (задаёт поворот), остальные — по
+ * окружности с шагом 2π/count. Точки округляются к центрам клеток (вершина
+ * живёт в клетке, чей центр ближе), индексы клампируются в границы карты.
+ * Клампинг меняет только координаты вершин, углы не трогает — прижатый к
+ * краю многоугольник может стать нерегулярным (осознанное поведение).
+ * Возвращает вершины БЕЗ дублей вообще (нужен уникальный периметр для стены);
+ * если после снятия дублей осталось меньше 3 вершин — пустой массив.
+ */
+export function regularPolygonVertices(
+  center: Cell,
+  radial: Cell,
+  count: number,
+  width: number,
+  height: number,
+): Cell[] {
+  if (count < 3) return []
+  const dx = radial.x - center.x
+  const dy = radial.y - center.y
+  const radius = Math.hypot(dx, dy)
+  if (radius === 0) return []
+  const phase = Math.atan2(dy, dx)
+
+  const unique = new Map<string, Cell>()
+  for (let k = 0; k < count; k += 1) {
+    const angle = phase + (k * Math.PI * 2) / count
+    const px = center.x + radius * Math.cos(angle)
+    const py = center.y + radius * Math.sin(angle)
+    // Ближайший клеточный центр: индекс = round(позиция − 0.5).
+    const x = Math.max(0, Math.min(width - 1, Math.round(px - 0.5)))
+    const y = Math.max(0, Math.min(height - 1, Math.round(py - 0.5)))
+    unique.set(`${x},${y}`, { x, y })
+  }
+
+  const vertices = [...unique.values()]
+  return vertices.length >= 3 ? vertices : []
+}
+
 /** Точка на контуре полигона (в пределах отрезка) или внутри по even-odd. */
 function pointInPolygon(
   polygon: ReadonlyArray<{ x: number; y: number }>,

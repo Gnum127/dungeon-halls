@@ -1,6 +1,7 @@
+import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
-import { TILE_TYPES } from '../model/types'
-import { EMPTY_TILE } from '../model/types'
+import { MAX_POLYGON_VERTICES } from '../model/rooms'
+import { EMPTY_TILE, TILE_TYPES } from '../model/types'
 import type { TileValue } from '../model/types'
 import { TILE_COLORS } from '../render/colors'
 import styles from './RoomTools.module.css'
@@ -14,6 +15,9 @@ export interface RoomToolsProps {
   disabled: boolean
   /** Текущая кисть: чем зальётся комната; EMPTY_TILE = ластик области. */
   tile: TileValue
+  /** Количество вершин правильного полигона (3..12). */
+  vertexCount: number
+  onVertexCountChange: (count: number) => void
   onSelectRect: () => void
   onSelectPolygon: () => void
 }
@@ -23,10 +27,13 @@ export function RoomTools({
   activeMode,
   disabled,
   tile,
+  vertexCount,
+  onVertexCountChange,
   onSelectRect,
   onSelectPolygon,
 }: RoomToolsProps) {
   const { t } = useTranslation()
+  const verticesId = useId()
 
   const buttons = [
     { mode: 'room-rect' as const, label: t('editor.tools.roomRect') },
@@ -67,6 +74,22 @@ export function RoomTools({
             {label}
           </button>
         ))}
+        {!disabled && activeMode === 'room-polygon' && (
+          <label className={styles.vertices} htmlFor={verticesId}>
+            <span>{t('editor.rooms.verticesCount')}</span>
+            <input
+              id={verticesId}
+              type="number"
+              min={3}
+              max={MAX_POLYGON_VERTICES}
+              value={vertexCount}
+              onChange={(event) => {
+                const parsed = Number.parseInt(event.target.value, 10)
+                if (parsed >= 3 && parsed <= MAX_POLYGON_VERTICES) onVertexCountChange(parsed)
+              }}
+            />
+          </label>
+        )}
       </div>
       {disabled ? (
         <p className={styles.hint} role="note">

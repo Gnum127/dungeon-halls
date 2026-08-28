@@ -39,6 +39,8 @@ interface CanvasViewProps {
   sprites?: SpriteRenderContext
   /** Заливка комнат: текущая кисть; EMPTY_TILE = ластик области. */
   roomTile: TileValue
+  /** Вершины правильного полигона (3..12). */
+  polygonVertexCount: number
   /** Свойства инструмента света. */
   lightRadius: number
   lightColor: string
@@ -51,6 +53,7 @@ export function CanvasView({
   onSelectObject,
   sprites,
   roomTile,
+  polygonVertexCount,
   lightRadius,
   lightColor,
 }: CanvasViewProps) {
@@ -147,11 +150,12 @@ export function CanvasView({
     onCommit: handleBrushCommit,
   })
 
-  const { vertices: polygonVertices, handlers: polygonRoomHandlers } = usePolygonRoomTool({
+  const { preview: polygonPreview, handlers: polygonRoomHandlers } = usePolygonRoomTool({
     canvasRef,
     active: tool.type === 'room-polygon',
     model,
     tile: roomTile,
+    vertexCount: polygonVertexCount,
     viewportRef,
     onCommit: handleBrushCommit,
   })
@@ -216,19 +220,29 @@ export function CanvasView({
         viewport,
       )
     }
-    if (tool.type === 'room-polygon' && polygonVertices && polygonVertices.length > 0) {
-      const geometry = polygonRoom(polygonVertices, model.width, model.height, roomTile)
-      drawRoomPreview(
-        ctx,
-        {
-          tiles: geometry.tiles,
-          walls: geometry.walls.map(({ edge }) => edge),
-          verts: polygonVertices,
-        },
-        viewport,
-      )
+    if (tool.type === 'room-polygon' && polygonPreview) {
+      if (polygonPreview.vertices.length > 0) {
+        const geometry = polygonRoom(
+          polygonPreview.vertices,
+          model.width,
+          model.height,
+          roomTile,
+        )
+        drawRoomPreview(
+          ctx,
+          {
+            tiles: geometry.tiles,
+            walls: geometry.walls.map(({ edge }) => edge),
+            verts: polygonPreview.vertices,
+          },
+          viewport,
+        )
+      } else {
+        // Фаза «центр»: показываем только точку центра.
+        drawRoomPreview(ctx, { tiles: [], walls: [], verts: [polygonPreview.center] }, viewport)
+      }
     }
-  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites, hoverEdge, tool, rectRoomPreview, polygonVertices, roomTile])
+  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites, hoverEdge, tool, rectRoomPreview, polygonPreview, polygonVertexCount, roomTile])
 
   const pointerHandlers = useMemo(
     () =>

@@ -29,12 +29,13 @@
       "rooms": "Rooms",
       "roomRect": "Room: rectangle",
       "roomPolygon": "Room: polygon",
-      "roomHint": "Polygon: click vertices, Enter or double-click to finish, Esc to cancel",
+      "roomHint": "Polygon: first click sets the center, second click sets the radius, Esc to cancel",
       "roomSquareOnly": "Rooms support square grids only"
     },
     "rooms": {
       "fill": "Room fill",
-      "clearsArea": "clears the area"
+      "clearsArea": "clears the area",
+      "verticesCount": "Vertices"
     },
     "light": {
       "label": "Light",

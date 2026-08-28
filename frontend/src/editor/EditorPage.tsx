@@ -57,6 +57,7 @@ export function EditorPage() {
   const [fileStatus, setFileStatus] = useState<FileActionStatus | null>(null)
   // Единый источник заливки для кисти и инструментов комнат.
   const [brushTile, setBrushTile] = useState<TileValue>(defaultBrushTile)
+  const [polygonVertexCount, setPolygonVertexCount] = useState(6)
   // Одна панель за раз; повторный клик по активной иконке прячет панель.
   const [activeSection, setActiveSection] = useState<EditorSectionId | null>('landscape')
   // Скрываемые панели: состояние свёрнутости персистится в localStorage.
@@ -184,6 +185,8 @@ export function EditorPage() {
               activeMode={tool.type === 'room-rect' || tool.type === 'room-polygon' ? tool.type : null}
               disabled={model.gridType !== 'square'}
               tile={brushTile}
+              vertexCount={polygonVertexCount}
+              onVertexCountChange={setPolygonVertexCount}
               onSelectRect={() => selectRoomTool('room-rect')}
               onSelectPolygon={() => selectRoomTool('room-polygon')}
             />
@@ -300,6 +303,7 @@ export function EditorPage() {
           onSelectObject={setSelectedObjectId}
           sprites={renderMode === 'sprites' && atlas ? atlas : undefined}
           roomTile={brushTile}
+          polygonVertexCount={polygonVertexCount}
           lightRadius={lightRadius}
           lightColor={lightColor}
         />

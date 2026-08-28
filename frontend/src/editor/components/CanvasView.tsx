@@ -15,11 +15,15 @@ import { drawStrokePreview } from '../render/strokePreview'
 import { drawCellHighlight } from '../render/cellHighlight'
 import { drawGhostPreview } from '../render/ghostPreview'
 import { drawEdgeHighlight } from '../render/edgeHighlight'
+import { drawRoomPreview } from '../render/roomPreview'
+import { polygonRoom, rectRoom } from '../model/rooms'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
 import { useWallBrush } from '../hooks/useWallBrush'
 import { useDoorTool } from '../hooks/useDoorTool'
 import { useLightTool } from '../hooks/useLightTool'
+import { usePolygonRoomTool } from '../hooks/usePolygonRoomTool'
+import { useRectRoomTool } from '../hooks/useRectRoomTool'
 import type { EditorTool } from '../tools/editorTool'
 import { mergePointerHandlers } from './pointerHandlers'
 import { formatCoords } from './formatCoords'
@@ -130,6 +134,22 @@ export function CanvasView({
     onCommit: handleBrushCommit,
   })
 
+  const { preview: rectRoomPreview, handlers: rectRoomHandlers } = useRectRoomTool({
+    canvasRef,
+    active: tool.type === 'room-rect',
+    model,
+    viewportRef,
+    onCommit: handleBrushCommit,
+  })
+
+  const { vertices: polygonVertices, handlers: polygonRoomHandlers } = usePolygonRoomTool({
+    canvasRef,
+    active: tool.type === 'room-polygon',
+    model,
+    viewportRef,
+    onCommit: handleBrushCommit,
+  })
+
   const handleSelect = useCallback((id: number | null) => onSelectObject(id), [onSelectObject])
   const { handlers: objectHandlers } = useObjectTools({
     canvasRef,
@@ -170,7 +190,38 @@ export function CanvasView({
     if (hoverCell && tool.type === 'object') {
       drawGhostPreview(ctx, hoverCell, viewport, tool, model.gridType)
     }
-  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites, hoverEdge, tool])
+    if (tool.type === 'room-rect' && rectRoomPreview) {
+      const geometry = rectRoom(
+        rectRoomPreview.start.x,
+        rectRoomPreview.start.y,
+        rectRoomPreview.current.x,
+        rectRoomPreview.current.y,
+        model.width,
+        model.height,
+      )
+      drawRoomPreview(
+        ctx,
+        {
+          tiles: geometry.tiles,
+          walls: geometry.walls.map(({ edge }) => edge),
+          verts: [],
+        },
+        viewport,
+      )
+    }
+    if (tool.type === 'room-polygon' && polygonVertices && polygonVertices.length > 0) {
+      const geometry = polygonRoom(polygonVertices, model.width, model.height)
+      drawRoomPreview(
+        ctx,
+        {
+          tiles: geometry.tiles,
+          walls: geometry.walls.map(({ edge }) => edge),
+          verts: polygonVertices,
+        },
+        viewport,
+      )
+    }
+  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites, hoverEdge, tool, rectRoomPreview, polygonVertices])
 
   const pointerHandlers = useMemo(
     () =>
@@ -182,6 +233,8 @@ export function CanvasView({
         wallHandlers,
         doorHandlers,
         lightHandlers,
+        rectRoomHandlers,
+        polygonRoomHandlers,
       ),
     [
       panHandlers,
@@ -191,6 +244,8 @@ export function CanvasView({
       wallHandlers,
       doorHandlers,
       lightHandlers,
+      rectRoomHandlers,
+      polygonRoomHandlers,
     ],
   )
 

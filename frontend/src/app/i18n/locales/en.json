@@ -13,7 +13,12 @@
       "wall": "Wall",
       "wallEraser": "Wall eraser",
       "door": "Door",
-      "squareOnly": "Walls support square grids only"
+      "squareOnly": "Walls support square grids only",
+      "rooms": "Rooms",
+      "roomRect": "Room: rectangle",
+      "roomPolygon": "Room: polygon",
+      "roomHint": "Polygon: click vertices, Enter or double-click to finish, Esc to cancel",
+      "roomSquareOnly": "Rooms support square grids only"
     },
     "light": {
       "label": "Light",

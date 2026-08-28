@@ -10,6 +10,7 @@ import type { FileActionStatus } from './components/MapFileActions'
 import { GeneratorPanel } from './components/GeneratorPanel'
 import { ObjectPalette } from './components/ObjectPalette'
 import { RenderModePicker } from './components/RenderModePicker'
+import { RoomTools } from './components/RoomTools'
 import { TerrainPalette } from './components/TerrainPalette'
 import { WallTools } from './components/WallTools'
 import { useEditor } from './hooks/useEditor'
@@ -86,6 +87,11 @@ export function EditorPage() {
   }
 
   function selectWallTool(mode: 'wall' | 'wall-eraser' | 'door') {
+    setSelectedObjectId(null)
+    setTool({ type: mode })
+  }
+
+  function selectRoomTool(mode: 'room-rect' | 'room-polygon') {
     setSelectedObjectId(null)
     setTool({ type: mode })
   }
@@ -171,6 +177,12 @@ export function EditorPage() {
           onSelectWall={() => selectWallTool('wall')}
           onSelectEraser={() => selectWallTool('wall-eraser')}
           onSelectDoor={() => selectWallTool('door')}
+        />
+        <RoomTools
+          activeMode={tool.type === 'room-rect' || tool.type === 'room-polygon' ? tool.type : null}
+          disabled={model.gridType !== 'square'}
+          onSelectRect={() => selectRoomTool('room-rect')}
+          onSelectPolygon={() => selectRoomTool('room-polygon')}
         />
         <LightPanel
           active={tool.type === 'light'}

@@ -633,4 +633,72 @@ describe('walls interactions with replaceMap and immutability', () => {
     expect(model.walls).toEqual([{ x: 2, y: 2, side: 'N' }])
     expect(model.doors).toEqual([])
   })
+
+  it('addRoom fills floor and adds walls as one command', () => {
+    const next = applyCommand(makeMap(), {
+      kind: 'addRoom',
+      tiles: [
+        { x: 1, y: 1, tile: FLOOR },
+        { x: 2, y: 1, tile: FLOOR },
+      ],
+      walls: [
+        { edge: { x: 1, y: 1, side: 'N' }, present: true },
+        { edge: { x: 2, y: 1, side: 'N' }, present: true },
+      ],
+    })
+
+    expect(next.tiles[1 * 3 + 1]).toBe(FLOOR)
+    expect(next.tiles[1 * 3 + 2]).toBe(FLOOR)
+    expect(next.walls).toEqual([
+      { x: 1, y: 1, side: 'N' },
+      { x: 2, y: 1, side: 'N' },
+    ])
+  })
+
+  it('addRoom is a no-op when floor and walls already match', () => {
+    let model = applyCommand(makeMap(), {
+      kind: 'addRoom',
+      tiles: [{ x: 1, y: 1, tile: FLOOR }],
+      walls: [{ edge: { x: 1, y: 1, side: 'N' }, present: true }],
+    })
+    const before = model
+
+    model = applyCommand(model, {
+      kind: 'addRoom',
+      tiles: [{ x: 1, y: 1, tile: FLOOR }],
+      walls: [{ edge: { x: 1, y: 1, side: 'N' }, present: true }],
+    })
+
+    expect(model).toBe(before)
+  })
+
+  it('addRoom still records a change when only walls or only tiles differ', () => {
+    let model = applyCommand(makeMap(), {
+      kind: 'addRoom',
+      tiles: [{ x: 1, y: 1, tile: FLOOR }],
+      walls: [],
+    })
+    const afterTilesOnly = model
+
+    model = applyCommand(model, {
+      kind: 'addRoom',
+      tiles: [{ x: 1, y: 1, tile: FLOOR }],
+      walls: [{ edge: { x: 1, y: 1, side: 'N' }, present: true }],
+    })
+
+    expect(afterTilesOnly.tiles[1 * 3 + 1]).toBe(FLOOR)
+    expect(afterTilesOnly.walls).toEqual([])
+    expect(model).not.toBe(afterTilesOnly)
+    expect(model.walls).toEqual([{ x: 1, y: 1, side: 'N' }])
+  })
+
+  it('addRoom rejects an out-of-bounds wall edge', () => {
+    expect(() =>
+      applyCommand(makeMap(), {
+        kind: 'addRoom',
+        tiles: [{ x: 1, y: 1, tile: FLOOR }],
+        walls: [{ edge: { x: 3, y: 0, side: 'N' }, present: true }],
+      }),
+    ).toThrow(RangeError)
+  })
 })

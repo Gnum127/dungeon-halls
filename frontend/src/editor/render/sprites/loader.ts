@@ -20,6 +20,8 @@ export interface SpriteAtlas {
   readonly objects: Partial<Record<ObjectKindId, HTMLImageElement>>
   /** Пул готовых изображений элементов по imageId (см. ElementImageManifest). */
   readonly elementImages: Readonly<Partial<Record<string, HTMLImageElement>>>
+  /** Пул вариантов текстуры тайла (псевдослучайный тайлинг); отсутствует = один спрайт. */
+  readonly tilePools: Partial<Record<TileTypeName, readonly HTMLImageElement[]>>
 }
 
 /**
@@ -125,12 +127,13 @@ export async function loadSprites(
   manifest: SpriteManifest,
   elementManifest?: ElementImageManifest | null,
 ): Promise<SpriteAtlas> {
-  const [tiles, objects, elementImages] = await Promise.all([
+  const [tiles, objects, elementImages, tilePools] = await Promise.all([
     resolveGroup(manifest.tiles),
     resolveGroup(manifest.objects),
     elementManifest ? resolveGroup(elementManifest.items) : Promise.resolve({}),
+    resolvePoolGroup(manifest.tilePools ?? {}),
   ])
-  return { tiles, objects, elementImages }
+  return { tiles, objects, elementImages, tilePools }
 }
 
 async function resolveGroup(
@@ -145,6 +148,25 @@ async function resolveGroup(
   const result: Partial<Record<string, HTMLImageElement>> = {}
   for (const [key, image] of entries) {
     if (image) result[key] = image
+  }
+  return result
+}
+
+/** Тот же принцип для пулов: отказ одного варианта не убирает весь пул. */
+async function resolvePoolGroup(
+  group: Partial<Record<string, readonly string[]>>,
+): Promise<Partial<Record<string, readonly HTMLImageElement[]>>> {
+  const entries = await Promise.all(
+    Object.entries(group).map(async ([key, paths]) => {
+      const images = await Promise.all(
+        (paths ?? []).map((path) => requestImage(resolveSpriteUrl(path))),
+      )
+      return [key, images.filter((image): image is HTMLImageElement => image !== null)] as const
+    }),
+  )
+  const result: Partial<Record<string, readonly HTMLImageElement[]>> = {}
+  for (const [key, images] of entries) {
+    if (images.length > 0) result[key] = images
   }
   return result
 }

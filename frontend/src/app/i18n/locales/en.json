@@ -12,7 +12,6 @@
       "label": "Toolbar",
       "landscape": "Landscape",
       "elements": "Elements",
-      "rooms": "Rooms & walls",
       "light": "Light",
       "view": "View",
       "generation": "Generation",
@@ -20,22 +19,23 @@
       "expand": "Expand",
       "collapse": "Collapse"
     },
-    "tools": {
-      "walls": "Walls and doors",
+    "regionTools": {
+      "label": "Build tools",
+      "rect": "Rectangle",
+      "polygon": "Polygon",
+      "eraser": "Eraser",
       "wall": "Wall",
-      "wallEraser": "Wall eraser",
       "door": "Door",
-      "squareOnly": "Walls support square grids only",
-      "rooms": "Rooms",
-      "roomRect": "Room: rectangle",
-      "roomPolygon": "Room: polygon",
-      "roomHint": "Polygon: first click sets the center, second click sets the radius, Esc to cancel",
-      "roomSquareOnly": "Rooms support square grids only"
+      "vertices": "Vertices",
+      "autoWalls": "Auto walls",
+      "erases": "clears the area",
+      "doorTexture": "Door texture"
     },
-    "rooms": {
-      "fill": "Room fill",
-      "clearsArea": "clears the area",
-      "verticesCount": "Vertices"
+    "doors": {
+      "none": "No texture (line)",
+      "wooden": "Wooden",
+      "iron": "Iron",
+      "stone": "Stone"
     },
     "light": {
       "label": "Light",
@@ -59,7 +59,8 @@
       "water": "Water",
       "stone": "Stone",
       "sand": "Sand",
-      "wall": "Wall"
+      "wall": "Wall",
+      "stairs": "Stairs"
     },
     "objects": {
       "label": "Objects",
@@ -70,7 +71,6 @@
         "furniture": "Furniture",
         "dungeon": "Dungeon"
       },
-      "door": "Door",
       "stairs": "Stairs",
       "table": "Table",
       "chair": "Chair",
@@ -88,8 +88,6 @@
       "save": "Save",
       "load": "Load",
       "exportPng": "Export PNG",
-      "exportUvtt": "Export UVTT",
-      "uvttSquareOnly": "Universal VTT supports square grids only",
       "exportSvg": "Export SVG",
       "printLight": "Print light sources",
       "exportPdf": "Export PDF",
@@ -105,25 +103,15 @@
       "cell_halfIn": "0.5 inch",
       "pdfPages": "Pages: {{count}}",
       "pdfManyPages": "large print, many pages",
-      "pdfSquareOnly": "PDF print supports square grids only",
       "saved": "Map saved",
       "exported": "PNG downloaded",
-      "exportedUvtt": "UVTT downloaded",
       "exportedSvg": "SVG downloaded",
       "exportedPdf": "PDF downloaded",
       "loaded": "Map loaded",
       "invalid": "Failed to open file",
       "exportFailed": "PNG export failed",
-      "uvttExportFailed": "UVTT export failed",
       "svgExportFailed": "SVG export failed",
       "pdfExportFailed": "PDF export failed"
-    },
-    "grid": {
-      "label": "Grid type",
-      "square": "Square",
-      "hexFlat": "Hex (flat-top)",
-      "hexPointy": "Hex (pointy-top)",
-      "changeLocked": "Remove walls and doors to switch the grid"
     },
     "generator": {
       "title": "Map generator",
@@ -137,8 +125,7 @@
       "fillProbability": "Cave density",
       "iterations": "Smoothing iterations",
       "generate": "Generate",
-      "again": "Regenerate same seed",
-      "squareOnly": "The generator supports square grids only"
+      "again": "Regenerate same seed"
     }
   }
 }

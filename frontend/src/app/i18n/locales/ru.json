@@ -12,7 +12,6 @@
       "label": "Панели инструментов",
       "landscape": "Ландшафт",
       "elements": "Элементы",
-      "rooms": "Комнаты и стены",
       "light": "Свет",
       "view": "Вид",
       "generation": "Генерация",
@@ -20,22 +19,23 @@
       "expand": "Развернуть",
       "collapse": "Свернуть"
     },
-    "tools": {
-      "walls": "Стены и двери",
+    "regionTools": {
+      "label": "Инструменты построения",
+      "rect": "Прямоугольник",
+      "polygon": "Многогранник",
+      "eraser": "Ластик",
       "wall": "Стена",
-      "wallEraser": "Ластик стен",
       "door": "Дверь",
-      "squareOnly": "Стены поддерживают только квадратную сетку",
-      "rooms": "Комнаты",
-      "roomRect": "Комната-прямоугольник",
-      "roomPolygon": "Комната-полигон",
-      "roomHint": "Полигон: первый клик ставит центр, второй задаёт радиус, Esc — отменить",
-      "roomSquareOnly": "Комнаты поддерживают только квадратную сетку"
+      "vertices": "Вершин",
+      "autoWalls": "Авто-стены",
+      "erases": "очистит область",
+      "doorTexture": "Текстура двери"
     },
-    "rooms": {
-      "fill": "Чем заливается комната",
-      "clearsArea": "очистит область",
-      "verticesCount": "Вершин"
+    "doors": {
+      "none": "Без текстуры (линия)",
+      "wooden": "Деревянная",
+      "iron": "Железная",
+      "stone": "Каменная"
     },
     "light": {
       "label": "Свет",
@@ -59,7 +59,8 @@
       "water": "Вода",
       "stone": "Камень",
       "sand": "Песок",
-      "wall": "Стена"
+      "wall": "Стена",
+      "stairs": "Лестница"
     },
     "objects": {
       "label": "Объекты",
@@ -70,7 +71,6 @@
         "furniture": "Мебель",
         "dungeon": "Подземелье"
       },
-      "door": "Дверь",
       "stairs": "Лестница",
       "table": "Стол",
       "chair": "Стул",
@@ -88,8 +88,6 @@
       "save": "Сохранить",
       "load": "Загрузить",
       "exportPng": "Экспорт PNG",
-      "exportUvtt": "Экспорт UVTT",
-      "uvttSquareOnly": "Universal VTT поддерживает только квадратную сетку",
       "exportSvg": "Экспорт SVG",
       "printLight": "Печатать источники света",
       "exportPdf": "Экспорт PDF",
@@ -105,25 +103,15 @@
       "cell_halfIn": "0,5 дюйма",
       "pdfPages": "Страниц: {{count}}",
       "pdfManyPages": "большая печать, много страниц",
-      "pdfSquareOnly": "Печать в PDF поддерживает только квадратную сетку",
       "saved": "Карта сохранена",
       "exported": "PNG скачан",
-      "exportedUvtt": "UVTT скачан",
       "exportedSvg": "SVG скачан",
       "exportedPdf": "PDF скачан",
       "loaded": "Карта загружена",
       "invalid": "Не удалось открыть файл",
       "exportFailed": "Ошибка экспорта PNG",
-      "uvttExportFailed": "Ошибка экспорта UVTT",
       "svgExportFailed": "Ошибка экспорта SVG",
       "pdfExportFailed": "Ошибка экспорта PDF"
-    },
-    "grid": {
-      "label": "Тип сетки",
-      "square": "Квадратная",
-      "hexFlat": "Гекс (flat-top)",
-      "hexPointy": "Гекс (pointy-top)",
-      "changeLocked": "Удалите стены и двери, чтобы сменить сетку"
     },
     "generator": {
       "title": "Генератор карт",
@@ -137,8 +125,7 @@
       "fillProbability": "Плотность пещер",
       "iterations": "Итерации сглаживания",
       "generate": "Сгенерировать",
-      "again": "Ещё раз (тот же сид)",
-      "squareOnly": "Генератор поддерживает только квадратную сетку"
+      "again": "Ещё раз (тот же сид)"
     }
   }
 }

@@ -1,9 +1,8 @@
 import { useRef, useState } from 'react'
 import type { ChangeEvent as ReactChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { deserializeMap, serializeMap } from '../io'
+import { deserializeMap, serializeMap } from '../model/io'
 import { EXPORT_CELL_SIZE, exportMapToPng } from '../tools/pngExport'
-import { exportMapToUvtt } from '../vtt/uvtt'
 import { buildSvg } from '../print/svg'
 import {
   computePrintLayout,
@@ -23,12 +22,10 @@ export type FileActionStatus =
   | 'invalid'
   | 'exported'
   | 'exportedSvg'
-  | 'exportedUvtt'
   | 'exportedPdf'
   | 'exportFailed'
   | 'pdfExportFailed'
   | 'svgExportFailed'
-  | 'uvttExportFailed'
 
 /** Порог предупреждения о большой печати, страниц. */
 const PDF_MANY_PAGES = 50
@@ -39,18 +36,12 @@ interface MapFileActionsProps {
   onResult: (status: FileActionStatus) => void
   /** Атлас текущего режима; undefined/частичный = экспорт цветами. */
   sprites?: SpriteRenderContext
-  /** UVTT только для square-сеток (формат прямоугольных клеток). */
-  uvttDisabled?: boolean
-  /** Печать в PDF только для square-сеток (разбивка по клеткам). */
-  pdfDisabled?: boolean
   /** Инъекция для тестов: перехватывает браузерное скачивание. */
   download?: (filename: string, content: Blob | string, mime?: string) => void
   /** Инъекция для тестов: перехватывает чтение файла. */
   readJsonFile?: (file: File, onDone: (json: string) => void, onError: () => void) => void
   /** Инъекция для тестов: подменяет PNG-экспорт. */
   exportPng?: (model: MapModel, sprites?: SpriteRenderContext) => Promise<Blob>
-  /** Инъекция для тестов: подменяет UVTT-экспорт. */
-  exportUvtt?: (model: MapModel, sprites?: SpriteRenderContext) => Promise<Blob>
   /** Инъекция для тестов: подменяет SVG-экспорт. */
   exportSvg?: (model: MapModel, includeLight: boolean) => Promise<Blob>
   /** Инъекция для тестов: подменяет PDF-экспорт. */
@@ -59,7 +50,6 @@ interface MapFileActionsProps {
 
 const MAP_FILENAME = 'dungeon-halls-map.json'
 const MAP_PNG_FILENAME = 'dungeon-halls-map.png'
-const UVTT_FILENAME = 'dungeon-halls-map'
 const MAP_SVG_FILENAME = 'dungeon-halls-map.svg'
 const MAP_PDF_FILENAME = 'dungeon-halls-map.pdf'
 
@@ -90,12 +80,11 @@ function defaultReadJsonFile(
 }
 
 export function MapFileActions(props: MapFileActionsProps) {
-  const { getModel, onLoaded, onResult, sprites, uvttDisabled, pdfDisabled } = props
+  const { getModel, onLoaded, onResult, sprites } = props
   const download = props.download ?? browserDownload
   const readFile = props.readJsonFile ?? defaultReadJsonFile
   const exportPng =
     props.exportPng ?? ((model, sprites) => exportMapToPng(model, EXPORT_CELL_SIZE, sprites))
-  const exportUvtt = props.exportUvtt ?? ((model, sprites) => exportMapToUvtt(model, sprites))
   const exportSvg =
     props.exportSvg ??
     ((model, includeLight) =>
@@ -113,8 +102,8 @@ export function MapFileActions(props: MapFileActionsProps) {
   // Предпросмотр числа страниц ДО экспорта: layout + разбивка на клетки.
   const layout = computePrintLayout(paper, orientation, cellInches)
   const pageCount = paginateMap(
-    getModel().width,
-    getModel().height,
+    getModel().grid.width,
+    getModel().grid.height,
     layout.pageCols,
     layout.pageRows,
   ).length
@@ -133,16 +122,6 @@ export function MapFileActions(props: MapFileActionsProps) {
         onResult('exported')
       })
       .catch(() => onResult('exportFailed'))
-  }
-
-  function handleExportUvtt() {
-    Promise.resolve()
-      .then(() => exportUvtt(getModel(), sprites))
-      .then((blob) => {
-        download(`${UVTT_FILENAME}.uvtt`, blob, 'application/octet-stream')
-        onResult('exportedUvtt')
-      })
-      .catch(() => onResult('uvttExportFailed'))
   }
 
   function handleExportSvg() {
@@ -196,15 +175,6 @@ export function MapFileActions(props: MapFileActionsProps) {
       <button type="button" className={styles.button} onClick={handleExportPng}>
         {t('editor.files.exportPng')}
       </button>
-      <button
-        type="button"
-        className={styles.button}
-        disabled={uvttDisabled}
-        title={uvttDisabled ? t('editor.files.uvttSquareOnly') : undefined}
-        onClick={handleExportUvtt}
-      >
-        {t('editor.files.exportUvtt')}
-      </button>
       <label className={styles.option}>
         <input
           type="checkbox"
@@ -256,8 +226,6 @@ export function MapFileActions(props: MapFileActionsProps) {
       <button
         type="button"
         className={styles.button}
-        disabled={pdfDisabled}
-        title={pdfDisabled ? t('editor.files.pdfSquareOnly') : undefined}
         onClick={handleExportPdf}
       >
         {t('editor.files.exportPdf')}

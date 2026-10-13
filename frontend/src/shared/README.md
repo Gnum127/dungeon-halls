@@ -1,50 +1,33 @@
-# Shared: тайлы и гекс-геометрия
+# Shared: общие утилиты
+
+Модули без зависимостей от React и DOM; editor реэкспортирует нужные типы в
+`editor/model/types.ts`.
 
 ## tiles.ts
 
-Палитра `TILE_TYPES`, типы `TileValue` / `TileGrid` (Uint8Array), лимит
-`MAX_MAP_DIMENSION` и типы сетки документа:
+Палитра покрытий `TILE_TYPES` (`empty`/`floor`/`grass`/`water`/`stone`/`sand`/
+`wall`/`stairs`), типы `TileTypeName` / `TileGrid` (Uint8Array — только
+внутренняя сетка генератора) и лимит `MAX_MAP_DIMENSION` для генераторов.
+`stairs` — фигура покрытия (поперечные ступени); генератор её не эмитит.
+Сетка карты теперь только квадратная: гекс-типы и `GridType` удалены (этап 14).
 
-- `'square'` — квадратная сетка, координаты offset `x`/`y`;
-- `'hex-pointy'` — pointy-top гексы, конверсия **odd-r**;
-- `'hex-flat'` — flat-top гексы, конверсия **odd-q**.
+## point.ts — геометрия
 
-Канонические координаты модели — всегда offset (`y * width + x`);
-axial используется только внутри hex-математики.
+Операции над точкой: расстояние, интерполяция (`lerpPoint`), проекция на
+отрезок (`projectOnSegment`), проверка точки в полигоне (`pointInPolygon`),
+валидность (`isFinitePoint`). Координаты — float в клетках.
 
-## hex.ts — формулы Red Blob Games
+## id.ts
 
-Ориентация параметризована матрицей (Red Blob Games «Axial coordinates»):
-`f*` — axial→pixel, `b*` — pixel→axial; flat и pointy различаются только
-данными матрицы, иерархии классов нет.
+`newId()` — генерация идентификаторов регионов/стен/дверей.
 
-| Функция               | Формула                                            |
-| --------------------- | -------------------------------------------------- |
-| `cellCenter(q, r)`    | `x = size·(f0·q + f1·r)`, `y = size·(f2·q + f3·r)` |
-| `pixelToCell(px, py)` | обратная матрица `b*`, затем cube-round            |
-| `cellCorners()`       | 6 вершин, угол `60°·i − (pointy ? 30° : 0°)`       |
+## random.ts
 
-`size` = радиус описанной окружности гекса (не сторона!).
-
-Cube-round: третий кубический axis `s = −q − r`; округляются все три,
-наибольшее отклонение округлённой координаты корректируется так, чтобы
-`q + r + s = 0` — это даёт ближайший гекс без ветвлений по треугольникам.
-
-## Конверсии offset ↔ axial
-
-Зафиксированы для нечётных вариантов (odd-r / odd-q):
-
-```
-pointy (odd-r):  q = col − (row − (row&1)) / 2   r = row
-flat   (odd-q):  q = col                          r = row − (col − (col&1)) / 2
-```
-
-Обратные формулы — `axialToOffset`. Инвариант согласованности констант
-между `mapPixelBounds`, `cellCenterAt` и `screenToCell` охраняется
-round-trip тестом по всем клеткам (`gridGeometry.test.ts`,
-`shared/hex.test.ts`).
+`hashFromCoords(x, y)` и `pickIndexFromCoords(x, y, len)` — детерминированный
+целочисленный хеш для псевдослучайного выбора варианта текстуры при тайлинге
+без хранения в модели (без зависимости от `generator/`).
 
 ## Публичный API
 
-Импортировать только через модули `tiles.ts` / `hex.ts`; editor
-реэкспортирует нужное в `editor/model/types.ts`.
+Импортировать только через модули `shared/*`; editor реэкспортирует типы в
+`editor/model/types.ts`.

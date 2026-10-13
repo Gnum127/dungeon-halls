@@ -1,55 +1,69 @@
-import { useState } from 'react'
 import { createRef } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { applyCommand } from '../model/commands'
 import { createEmptyMap } from '../model/createEmptyMap'
+import { createWallSegment } from '../model/wallSegments'
 import type { MapModel } from '../model/types'
 import type { Viewport } from '../render/viewport'
 import { useDoorTool } from './useDoorTool'
 
 const CELL = 32
 
-function walledModel(): MapModel {
-  return applyCommand(createEmptyMap(3, 3), {
-    kind: 'toggleWall',
-    edge: { x: 1, y: 0, side: 'W' },
+function withWall(): MapModel {
+  return applyCommand(createEmptyMap(12, 4), {
+    kind: 'setWalls',
+    updates: [
+      {
+        segment: createWallSegment(
+          [
+            { x: 0, y: 0 },
+            { x: 10, y: 0 },
+          ],
+          { id: 'w1' },
+        ),
+        present: true,
+      },
+    ],
   })
 }
 
-function Harness({ model, onCommit }: { model: MapModel; onCommit: (command: unknown) => void }) {
+function withDoor(position = 0.5): MapModel {
+  return applyCommand(withWall(), { kind: 'addDoor', wallSegmentId: 'w1', position, imageId: null })
+}
+
+interface HarnessProps {
+  model: MapModel
+  imageId?: string | null
+  viewport?: Partial<Viewport>
+  onCommit: (command: unknown) => void
+}
+
+function Harness({ model, imageId = null, viewport: vp, onCommit }: HarnessProps) {
   const canvasRef = createRef<HTMLCanvasElement>()
-  const viewport: Viewport = {
-    width: 96,
-    height: 96,
+  const fullViewport: Viewport = {
+    width: 12 * CELL,
+    height: 4 * CELL,
     cellSize: CELL,
     offsetX: 0,
     offsetY: 0,
+    ...vp,
   }
-  const viewportRef = {
-    current: viewport,
-  } as unknown as React.RefObject<Viewport>
-  const { hoverEdge, handlers } = useDoorTool({
+  const viewportRef = { current: fullViewport } as unknown as React.RefObject<Viewport>
+  const { handlers } = useDoorTool({
     canvasRef,
     active: true,
     model,
+    imageId,
     viewportRef,
     onCommit: onCommit as never,
   })
-
-  return (
-    <>
-      <canvas ref={canvasRef} data-testid="canvas" {...handlers} />
-      <span data-testid="hover">
-        {hoverEdge ? `${hoverEdge.x},${hoverEdge.y},${hoverEdge.side}` : ''}
-      </span>
-    </>
-  )
+  return <canvas ref={canvasRef} data-testid="canvas" {...handlers} />
 }
 
-function setup(model: MapModel) {
+function setup(model: MapModel, imageId: string | null = null, viewport?: Partial<Viewport>) {
   const onCommit = vi.fn()
-  render(<Harness model={model} onCommit={onCommit} />)
+  render(<Harness model={model} imageId={imageId} viewport={viewport} onCommit={onCommit} />)
   const canvas = screen.getByTestId('canvas')
   canvas.getBoundingClientRect = () =>
     ({
@@ -57,92 +71,63 @@ function setup(model: MapModel) {
       y: 0,
       top: 0,
       left: 0,
-      bottom: 96,
-      right: 96,
-      width: 96,
-      height: 96,
+      bottom: 4 * CELL,
+      right: 12 * CELL,
+      width: 12 * CELL,
+      height: 4 * CELL,
       toJSON: () => ({}),
     }) as DOMRect
-  return { onCommit }
+  return { canvas, onCommit }
 }
 
 describe('useDoorTool', () => {
-  it('places a door with a left click near a wall', () => {
-    const model = walledModel()
-    const { onCommit } = setup(model)
-    // Точка у вертикальной линии x=32 → W клетки (1,0), где стоит стена.
-    fireEvent.pointerDown(screen.getByTestId('canvas'), {
-      button: 0,
-      buttons: 1,
-      pointerId: 1,
-      clientX: 34,
-      clientY: 16,
-    })
+  it('places a door on the nearest wall with the chosen texture', () => {
+    const { canvas, onCommit } = setup(withWall(), 'door-iron')
+    // Мир (5, 0) — середина стены.
+    fireEvent.pointerDown(canvas, { button: 0, pointerId: 1, clientX: 5 * CELL, clientY: 0 })
 
-    expect(onCommit).toHaveBeenCalledTimes(1)
-    expect(onCommit).toHaveBeenCalledWith({ kind: 'addDoor', edge: { x: 1, y: 0, side: 'W' } })
+    expect(onCommit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'addDoor',
+        wallSegmentId: 'w1',
+        imageId: 'door-iron',
+        position: 0.5,
+      }),
+    )
   })
 
-  it('toggles open state and removes with the right button', () => {
-    const commands: Array<Record<string, unknown>> = []
+  it('toggles an existing door open on a left click at its centre', () => {
+    const model = withDoor()
+    const { canvas, onCommit } = setup(model)
+    fireEvent.pointerDown(canvas, { button: 0, pointerId: 1, clientX: 5 * CELL, clientY: 0 })
 
-    function Live() {
-      const [model, setModel] = useState<MapModel>(walledModel)
-      const handle = (command: unknown) => {
-        commands.push(command as Record<string, unknown>)
-        setModel((prev) => applyCommand(prev, command as never))
-      }
-      return <Harness model={model} onCommit={handle} />
-    }
-
-    render(<Live />)
-    const canvas = screen.getByTestId('canvas')
-
-    const clickAt = (button: number, pointerId: number) =>
-      fireEvent.pointerDown(canvas, {
-        button,
-        buttons: button === 2 ? 2 : 1,
-        pointerId,
-        clientX: 34,
-        clientY: 16,
-      })
-
-    clickAt(0, 1) // addDoor
-    clickAt(0, 2) // setDoorOpen → true
-    clickAt(2, 3) // removeDoor
-
-    expect(commands.map((command) => command.kind)).toEqual([
-      'addDoor',
-      'setDoorOpen',
-      'removeDoor',
-    ])
-    // Открытие и удаление адресуют одну и ту же дверь.
-    expect(commands[1]).toMatchObject({ id: 1, open: true })
-    expect(commands[2]).toEqual({ kind: 'removeDoor', id: 1 })
+    expect(onCommit).toHaveBeenCalledWith({
+      kind: 'setDoorOpen',
+      id: model.doors[0].id,
+      open: true,
+    })
   })
 
-  it('does nothing where there is no wall', () => {
-    const { onCommit } = setup(createEmptyMap(3, 3))
-    fireEvent.pointerDown(screen.getByTestId('canvas'), {
-      button: 0,
-      buttons: 1,
-      pointerId: 1,
-      clientX: 48,
-      clientY: 48,
-    })
+  it('removes an existing door on a right click', () => {
+    const model = withDoor()
+    const { canvas, onCommit } = setup(model)
+    fireEvent.pointerDown(canvas, { button: 2, pointerId: 1, clientX: 5 * CELL, clientY: 0 })
+
+    expect(onCommit).toHaveBeenCalledWith({ kind: 'removeDoor', id: model.doors[0].id })
+  })
+
+  it('does not treat a click one cell away as a door hit (radius is in cells, not pixels)', () => {
+    const model = withDoor()
+    const { canvas, onCommit } = setup(model)
+    // Мир (5, 1): в 1 клетке от двери — вне радиуса, и дальше MAX_WALL_DISTANCE.
+    fireEvent.pointerDown(canvas, { button: 0, pointerId: 1, clientX: 5 * CELL, clientY: 1 * CELL })
+
     expect(onCommit).not.toHaveBeenCalled()
   })
 
-  it('tracks the hovered edge for the highlight', () => {
-    setup(walledModel())
-    fireEvent.pointerMove(screen.getByTestId('canvas'), {
-      pointerId: 1,
-      clientX: 34,
-      clientY: 16,
-    })
-    expect(screen.getByTestId('hover')).toHaveTextContent('1,0,W')
-
-    fireEvent.pointerLeave(screen.getByTestId('canvas'), { pointerId: 1 })
-    expect(screen.getByTestId('hover')).toHaveTextContent('')
+  it('ignores clicks far from any wall', () => {
+    const { canvas, onCommit } = setup(withWall())
+    fireEvent.pointerDown(canvas, { button: 0, pointerId: 1, clientX: 5 * CELL, clientY: 3 * CELL })
+    expect(onCommit).not.toHaveBeenCalled()
   })
 })

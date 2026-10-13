@@ -21,9 +21,10 @@
   каталога `sprites/`: запись `"sprites/tiles/floor.png"` → `/sprites/tiles/floor.png`.
   Префикс `sprites/` в путях — часть конвенции именования.
 
-Текущий набор (этап 8):
+Текущий набор:
 - Тайлы: floor, grass, water, stone, sand, wall (6 шт.)
-- Объекты: door, stairs, table, chair, chest, barrel, torch, bush, rock (9 шт.)
+- Пулы вариантов тайла (`tilePools`): floor, grass — по 2 варианта
+- Объекты: stairs, table, chair, chest, barrel, torch, bush, rock (8 шт.)
 
 Для генерации placeholder-спрайтов: `node scripts/gen-sprites.mjs`
 (создаёт 64×64 PNG solid-color файлы).
@@ -34,7 +35,8 @@
 public/sprites/
   manifest.json
   tiles/<tile-name>.png        # floor.png, grass.png, … (имя = ключ TILE_TYPES)
-  objects/<kind-id>.png        # door.png, chest.png, … (имя = id OBJECT_KIND_REGISTRY)
+  objects/<kind-id>.png        # chest.png, torch.png, … (имя = id OBJECT_KIND_REGISTRY)
+  tiles/<tile-name>_01.png     # варианты пула тайла (при наличии tilePools)
 ```
 
 - Имена файлов — в точности id из кода (`TILE_TYPES` / реестр объектов),
@@ -48,12 +50,20 @@ public/sprites/
 {
   "version": 1,
   "tiles": { "floor": "sprites/tiles/floor.png", "wall": "sprites/tiles/wall.png" },
-  "objects": { "door": "sprites/objects/door.png" }
+  "tilePools": {
+    "floor": ["sprites/tiles/floor_01.png", "sprites/tiles/floor_02.png"]
+  },
+  "objects": { "table": "sprites/objects/table.png" }
 }
 ```
 
 - Ключи `tiles` — имена из `TILE_TYPES` (shared/tiles.ts); ключи `objects`
   — id из `OBJECT_KIND_REGISTRY` (editor/model/objects.ts).
+- Секция `tilePools` (опциональна): ключи — имена тайлов, значения — непустые
+  массивы путей к вариантам. При тайлинге вариант выбирается детерминированно
+  по координате клетки (`shared/random.ts`), поэтому один регион всегда
+  рисуется одинаково. Если пул задан, он предпочитается одиночному `tiles`
+  спрайту. Отказ одного варианта не убирает весь пул.
 - Записи опциональны: нет записи — рендер этой клетки/вида уходит в fallback
   на цветную плитку или кружок. Пустые секции валидны («пустой атлас»).
 - Любая ошибка валидации (битый JSON, неизвестный ключ, чужая `version`)
@@ -80,7 +90,5 @@ public/sprites/
 - Генераторы локаций работают только с квадратной сеткой (см.
   `frontend/src/generator/README.md`) — ограничение не спрайтовое,
   но проявляется рядом.
-- Спрайт гекса рисуется в bbox описанной окружности (2×cellSize) и clip по
-  полигону клетки; масштаб спрайта в гексе отличается от квадратной ветки.
 - PNG-экспорт идёт в том же режиме, что холст; при недоступном атласе —
   цветами, без ожидания загрузки.

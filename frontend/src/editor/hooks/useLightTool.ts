@@ -3,7 +3,7 @@ import { useCallback } from 'react'
 import type { Command } from '../model/commands'
 import { lightAt } from '../model/lights'
 import type { MapModel } from '../model/types'
-import { isInsideMap } from '../tools/brush'
+import { isInsideMap } from '../tools/isInsideMap'
 import { useCellFromEvent } from './useCellFromEvent'
 import type { Viewport } from '../render/viewport'
 
@@ -30,7 +30,7 @@ export function useLightTool(options: LightToolOptions): {
   }
 } {
   const { canvasRef, active, model, radius, color, viewportRef, onCommit } = options
-  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef, model.gridType)
+  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
 
   const onPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {

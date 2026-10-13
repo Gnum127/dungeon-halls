@@ -1,31 +1,39 @@
-import { EMPTY_TILE, MAP_VERSION, MAX_MAP_DIMENSION } from './types'
-import type { GridType, MapModel } from './types'
+import {
+  DEFAULT_CELL_SIZE,
+  DEFAULT_MAP_HEIGHT,
+  DEFAULT_MAP_WIDTH,
+  isMapDimension,
+  MAX_MAP_SIZE,
+} from '@/config/map.config'
+import { MAP_VERSION } from './types'
+import type { MapModel } from './types'
 
-function assertDimension(value: number): void {
-  if (!Number.isInteger(value) || value < 1 || value > MAX_MAP_DIMENSION) {
-    throw new RangeError(
-      `Map dimension must be an integer in [1, ${MAX_MAP_DIMENSION}], got ${value}`,
-    )
-  }
-}
-
+/**
+ * Пустая векторная карта. Размеры по умолчанию — из config/map.config.ts,
+ * чтобы габариты карты можно было менять в одном месте.
+ */
 export function createEmptyMap(
-  width: number,
-  height: number,
-  gridType: GridType = 'square',
+  width: number = DEFAULT_MAP_WIDTH,
+  height: number = DEFAULT_MAP_HEIGHT,
+  cellSize: number = DEFAULT_CELL_SIZE,
 ): MapModel {
-  assertDimension(width)
-  assertDimension(height)
+  if (!isMapDimension(width)) {
+    throw new RangeError(`Map width must be an integer in [1, ${MAX_MAP_SIZE}], got ${width}`)
+  }
+  if (!isMapDimension(height)) {
+    throw new RangeError(`Map height must be an integer in [1, ${MAX_MAP_SIZE}], got ${height}`)
+  }
+  if (typeof cellSize !== 'number' || !Number.isFinite(cellSize) || cellSize <= 0) {
+    throw new RangeError(`Cell size must be a positive number, got ${String(cellSize)}`)
+  }
 
   return {
     version: MAP_VERSION,
-    gridType,
-    width,
-    height,
-    tiles: new Uint8Array(width * height).fill(EMPTY_TILE),
-    objects: [],
+    grid: { width, height, cellSize },
+    regions: [],
     walls: [],
     doors: [],
+    objects: [],
     lights: [],
   }
 }

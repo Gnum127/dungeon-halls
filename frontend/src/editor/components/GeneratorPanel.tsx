@@ -8,8 +8,6 @@ import styles from './GeneratorPanel.module.css'
 
 export interface GeneratorPanelProps {
   onGenerate: (params: GenerationParams) => void
-  /** Генераторы поддерживают только square: на гексах кнопки блокируются. */
-  gridDisabled?: boolean
 }
 
 interface FieldProps {
@@ -43,7 +41,7 @@ function NumberField({ id, label, min, max, step, value, onChange }: FieldProps)
   )
 }
 
-export function GeneratorPanel({ onGenerate, gridDisabled = false }: GeneratorPanelProps) {
+export function GeneratorPanel({ onGenerate }: GeneratorPanelProps) {
   const { t } = useTranslation()
   const uid = useId()
   const [form, setForm] = useState<GeneratorFormState>(DEFAULT_GENERATOR_FORM)
@@ -146,7 +144,7 @@ export function GeneratorPanel({ onGenerate, gridDisabled = false }: GeneratorPa
       <button
         type="button"
         className={styles.generate}
-        disabled={!params || gridDisabled}
+        disabled={!params}
         onClick={generate}
       >
         {t('editor.generator.generate')}
@@ -155,16 +153,10 @@ export function GeneratorPanel({ onGenerate, gridDisabled = false }: GeneratorPa
         <button
           type="button"
           className={styles.again}
-          disabled={gridDisabled}
           onClick={() => onGenerate(lastParams)}
         >
           {t('editor.generator.again')}
         </button>
-      )}
-      {gridDisabled && (
-        <p className={styles.hint} role="note">
-          {t('editor.generator.squareOnly')}
-        </p>
       )}
     </section>
   )

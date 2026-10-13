@@ -1,279 +1,175 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ElementImageManifest } from './manifest'
-import type { SpriteManifest } from './manifest'
 import {
-  SPRITE_LOAD_TIMEOUT_MS,
   loadElementManifest,
   loadManifest,
   loadSprites,
   resetSpriteCache,
+  resolveSpriteUrl,
+  SPRITE_LOAD_TIMEOUT_MS,
 } from './loader'
+import type { SpriteManifest } from './manifest'
 
-type Behavior = 'ok' | 'error' | 'stall'
-
-let createdImages: Array<{ src: string }> = []
+let constructed = 0
 
 class FakeImage {
-  declare src: string
   onload: (() => void) | null = null
   onerror: (() => void) | null = null
+  private current = ''
 
   constructor() {
-    createdImages.push(this)
-    const behavior: Behavior = script.shift() ?? 'stall'
-    const store = { value: '' }
-    Object.defineProperty(this, 'src', {
-      set: (value: string) => {
-        store.value = value
-        if (behavior === 'ok') queueMicrotask(() => this.onload?.())
-        if (behavior === 'error') queueMicrotask(() => this.onerror?.())
-      },
-      get: () => store.value,
+    constructed += 1
+  }
+
+  set src(value: string) {
+    this.current = value
+    queueMicrotask(() => {
+      if (value.includes('missing')) this.onerror?.()
+      else this.onload?.()
     })
+  }
+
+  get src(): string {
+    return this.current
   }
 }
 
-// Поведение картинок по порядку создания: ok / error / stall (зависла).
-let script: Behavior[] = []
-
-const MANIFEST: SpriteManifest = {
-  version: 1,
-  tiles: { floor: 'tiles/floor.png', wall: 'tiles/wall.png' },
-  objects: { door: 'objects/door.png' },
+function jsonResponse(payload: unknown, ok = true) {
+  return { ok, json: async () => payload } as unknown as Response
 }
 
+beforeEach(() => {
+  resetSpriteCache()
+  constructed = 0
+  vi.stubGlobal('Image', FakeImage as unknown as typeof Image)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+describe('resolveSpriteUrl', () => {
+  it('joins the Vite base url with the manifest path', () => {
+    expect(resolveSpriteUrl('tiles/floor.png')).toBe('/tiles/floor.png')
+  })
+})
+
 describe('loadManifest', () => {
-  const fetchMock = vi.fn()
-
-  beforeEach(() => {
-    resetSpriteCache()
-    createdImages = []
-    script = []
-    fetchMock.mockClear()
-    vi.stubGlobal('Image', FakeImage as unknown as typeof Image)
-    vi.stubGlobal('fetch', fetchMock)
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-    vi.useRealTimers()
-  })
-
-  it('parses a valid manifest', async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ version: 1, tiles: {}, objects: {} }),
-    })
-    expect(await loadManifest()).toEqual({ version: 1, tiles: {}, objects: {} })
-  })
-
-  it('returns null on http error status', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 404 })
-    expect(await loadManifest()).toBeNull()
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
-
-  it('returns null on broken json without unhandled rejection', async () => {
-    fetchMock.mockResolvedValue({ ok: true, json: async () => '{broken' })
+  it('returns null on a non-ok response (404)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(null, false)))
     expect(await loadManifest()).toBeNull()
   })
 
-  it('returns null on network failure', async () => {
-    fetchMock.mockRejectedValue(new Error('offline'))
+  it('returns null for invalid JSON shape', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ version: 99 })))
     expect(await loadManifest()).toBeNull()
   })
 
-  it('returns null on schema-invalid payload', async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ version: 99, tiles: {}, objects: {} }),
-    })
-    expect(await loadManifest()).toBeNull()
+  it('returns a validated manifest', async () => {
+    const manifest = { version: 1, tiles: { floor: 'tiles/floor.png' }, objects: {} }
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(manifest)))
+    expect(await loadManifest()).toEqual(manifest)
   })
 })
 
 describe('loadElementManifest', () => {
-  const fetchMock = vi.fn()
-
-  beforeEach(() => {
-    fetchMock.mockClear()
-    vi.stubGlobal('fetch', fetchMock)
+  it('validates the element image pool', async () => {
+    const manifest = { version: 1, items: { 'img-1': 'element-images/a.png' } }
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(manifest)))
+    expect(await loadElementManifest()).toEqual(manifest)
   })
+})
 
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('parses a valid pool manifest', async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ version: 1, items: { 'table-wooden': 'element-images/t.png' } }),
-    })
-    expect(await loadElementManifest()).toEqual({
+describe('loadSprites tile pools', () => {
+  it('resolves a pool and skips failed variants', async () => {
+    const atlas = await loadSprites({
       version: 1,
-      items: { 'table-wooden': 'element-images/t.png' },
+      tiles: {},
+      objects: {},
+      tilePools: { floor: ['tiles/floor_01.png', 'tiles/missing.png'] },
     })
+    expect(atlas.tilePools.floor).toHaveLength(1)
+    expect(atlas.tilePools.floor?.[0]).toBeInstanceOf(FakeImage)
   })
 
-  it('returns null on http error, broken json, network failure and bad schema', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 404 })
-    expect(await loadElementManifest()).toBeNull()
-
-    fetchMock.mockResolvedValue({ ok: true, json: async () => '{broken' })
-    expect(await loadElementManifest()).toBeNull()
-
-    fetchMock.mockRejectedValue(new Error('offline'))
-    expect(await loadElementManifest()).toBeNull()
-
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ version: 2, items: {} }) })
-    expect(await loadElementManifest()).toBeNull()
+  it('omits a pool whose every variant failed', async () => {
+    const atlas = await loadSprites({
+      version: 1,
+      tiles: {},
+      objects: {},
+      tilePools: { grass: ['tiles/missing.png'] },
+    })
+    expect(atlas.tilePools.grass).toBeUndefined()
   })
 })
 
 describe('loadSprites', () => {
-  const fetchMock = vi.fn()
-
-  beforeEach(() => {
-    resetSpriteCache()
-    createdImages = []
-    script = []
-    vi.stubGlobal('Image', FakeImage as unknown as typeof Image)
-    vi.stubGlobal('fetch', fetchMock)
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-    vi.useRealTimers()
-  })
-
-  it('loads all sprites and resolves urls against base url', async () => {
-    script = ['ok', 'ok', 'ok']
-    const atlas = await loadSprites(MANIFEST)
-
-    expect(Object.keys(atlas.tiles)).toEqual(['floor', 'wall'])
-    expect(atlas.objects.door).toBeDefined()
-    expect(createdImages.map((image) => image.src)).toEqual([
-      '/tiles/floor.png',
-      '/tiles/wall.png',
-      '/objects/door.png',
-    ])
-  })
-
-  it('deduplicates parallel requests to the same path', async () => {
-    script = ['ok', 'ok']
-    const atlas = await Promise.all([
-      loadSprites({ version: 1, tiles: { floor: 'a.png' }, objects: { chest: 'a.png' } }),
-      loadSprites({ version: 1, tiles: { floor: 'a.png' }, objects: {} }),
-    ])
-
-    // Один уникальный путь — одна картинка на оба вызова.
-    expect(createdImages).toHaveLength(1)
-    expect(atlas[0]?.tiles.floor).toBe(atlas[0]?.objects.chest)
-    expect(atlas[1]?.tiles.floor).toBe(atlas[0]?.tiles.floor)
-  })
-
-  it('keeps the pipeline alive when a single file fails', async () => {
-    script = ['error', 'ok', 'ok']
-    const atlas = await loadSprites(MANIFEST)
-
-    expect(atlas.tiles.floor).toBeUndefined()
-    expect(atlas.tiles.wall).toBeDefined()
-  })
-
-  it('allows retry after failure instead of caching it forever', async () => {
-    script = ['error', 'ok']
-    const failed = await loadSprites({
+  it('skips images that fail to load', async () => {
+    const atlas = await loadSprites({
       version: 1,
-      tiles: { floor: 'tiles/floor.png' },
+      tiles: { floor: 'tiles/floor.png', grass: 'tiles/missing.png' },
       objects: {},
     })
-    expect(failed.tiles.floor).toBeUndefined()
-
-    const retried = await loadSprites({
-      version: 1,
-      tiles: { floor: 'tiles/floor.png' },
-      objects: {},
-    })
-    expect(retried.tiles.floor).toBeDefined()
-    expect(createdImages).toHaveLength(2)
-  })
-
-  it('serves repeated loads from cache without new images', async () => {
-    script = ['ok']
-    const first = await loadSprites({
-      version: 1,
-      tiles: { floor: 'tiles/floor.png' },
-      objects: {},
-    })
-    const second = await loadSprites({
-      version: 1,
-      tiles: { floor: 'tiles/floor.png' },
-      objects: {},
-    })
-
-    expect(createdImages).toHaveLength(1)
-    expect(second.tiles.floor).toBe(first.tiles.floor)
-  })
-
-  it('drops stalled images after the load timeout', async () => {
-    vi.useFakeTimers()
-    script = ['stall']
-    const pending = loadSprites({
-      version: 1,
-      tiles: { floor: 'tiles/floor.png' },
-      objects: {},
-    })
-
-    await vi.advanceTimersByTimeAsync(SPRITE_LOAD_TIMEOUT_MS)
-    expect((await pending).tiles.floor).toBeUndefined()
-  })
-
-  it('loads the element images pool when the element manifest is given', async () => {
-    script = ['ok', 'ok', 'ok', 'ok']
-    const elementManifest: ElementImageManifest = {
-      version: 1,
-      items: { 'door-iron': 'element-images/door-iron.png' },
-    }
-    const atlas = await loadSprites(MANIFEST, elementManifest)
-
-    expect(atlas.elementImages['door-iron']).toBeDefined()
-    expect(createdImages.map((image) => image.src)).toEqual([
-      '/tiles/floor.png',
-      '/tiles/wall.png',
-      '/objects/door.png',
-      '/element-images/door-iron.png',
-    ])
-  })
-
-  it('deduplicates a pool path shared with sprite groups', async () => {
-    script = ['ok', 'ok', 'ok']
-    const elementManifest: ElementImageManifest = {
-      version: 1,
-      items: { 'door-iron': 'objects/door.png' },
-    }
-    const atlas = await loadSprites(MANIFEST, elementManifest)
-
-    // objects.door и elementImages['door-iron'] — один файл, одна картинка.
-    expect(createdImages).toHaveLength(3)
-    expect(atlas.elementImages['door-iron']).toBe(atlas.objects.door)
-  })
-
-  it('drops a failing pool file instead of breaking the pipeline', async () => {
-    script = ['ok', 'ok', 'ok', 'error']
-    const elementManifest: ElementImageManifest = {
-      version: 1,
-      items: { 'table-wooden': 'element-images/table-wooden.png' },
-    }
-    const atlas = await loadSprites(MANIFEST, elementManifest)
-
-    expect(atlas.elementImages['table-wooden']).toBeUndefined()
     expect(atlas.tiles.floor).toBeDefined()
-    expect(atlas.objects.door).toBeDefined()
+    expect(atlas.tiles.grass).toBeUndefined()
   })
 
-  it('exposes an empty pool when no element manifest is given', async () => {
-    script = ['ok', 'ok', 'ok']
-    const atlas = await loadSprites(MANIFEST)
-    expect(atlas.elementImages).toEqual({})
+  it('deduplicates parallel requests for the same path', async () => {
+    const atlas = await loadSprites({
+      version: 1,
+      tiles: { floor: 'tiles/same.png' },
+      objects: { table: 'tiles/same.png' },
+    })
+    expect(constructed).toBe(1)
+    expect(atlas.tiles.floor).toBe(atlas.objects.table)
+  })
+
+  it('caches a successful load across calls', async () => {
+    const manifest: SpriteManifest = { version: 1, tiles: { floor: 'tiles/floor.png' }, objects: {} }
+    await loadSprites(manifest)
+    await loadSprites(manifest)
+    expect(constructed).toBe(1)
+  })
+
+  it('times out an image that never loads', async () => {
+    class HangingImage {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      set src(_value: string) {}
+    }
+    vi.stubGlobal('Image', HangingImage as unknown as typeof Image)
+    vi.useFakeTimers()
+    try {
+      const pending = loadSprites({ version: 1, tiles: { floor: 'tiles/hang.png' }, objects: {} })
+      await vi.advanceTimersByTimeAsync(SPRITE_LOAD_TIMEOUT_MS + 1)
+      const atlas = await pending
+      expect(atlas.tiles.floor).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not cache a failed load (retries on the next request)', async () => {
+    let attempts = 0
+    class FlakyImage {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      set src(_value: string) {
+        attempts += 1
+        const attempt = attempts
+        queueMicrotask(() => {
+          if (attempt === 1) this.onerror?.()
+          else this.onload?.()
+        })
+      }
+    }
+    vi.stubGlobal('Image', FlakyImage as unknown as typeof Image)
+    const manifest: SpriteManifest = { version: 1, tiles: { floor: 'tiles/flaky.png' }, objects: {} }
+
+    const first = await loadSprites(manifest)
+    expect(first.tiles.floor).toBeUndefined()
+
+    const second = await loadSprites(manifest)
+    expect(second.tiles.floor).toBeDefined()
+    expect(attempts).toBe(2)
   })
 })

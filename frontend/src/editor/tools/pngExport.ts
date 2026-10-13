@@ -1,5 +1,5 @@
 import { renderMap } from '../render/renderMap'
-import { mapPixelBounds } from '../render/gridGeometry'
+import { mapPixelBounds } from '../render/geometry'
 import type { SpriteRenderContext } from '../render/sprites/loader'
 import type { MapModel } from '../model/types'
 import type { PageRect } from '../print/pages'
@@ -73,7 +73,7 @@ export function exportMapToPng(
 }
 
 /**
- * Рендер карты в offscreen canvas: общая точка для PNG-, UVTT- и PDF-экспорта.
+ * Рендер карты в offscreen canvas: общая точка для PNG- и PDF-экспорта.
  * Без options рендерится вся карта целиком; с options.page — одна страница
  * печати (клетки страницы, лимиты canvas считаются ОТ РАЗМЕРА СТРАНИЦЫ,
  * поэтому огромная карта не мешает маленькой странице).
@@ -91,10 +91,6 @@ export function renderToCanvas(
   let offsetX = 0
   let offsetY = 0
   if (page) {
-    if (model.gridType !== 'square') {
-      // Разбивка по страницам определена только для прямоугольных клеток.
-      throw new RangeError('Paged rendering supports square grids only')
-    }
     validatePage(page)
     const pageSize = options?.pageSize
     if (pageSize) {
@@ -110,10 +106,8 @@ export function renderToCanvas(
     offsetX = page.col * cellSize
     offsetY = page.row * cellSize
   } else {
-    // Габариты от геометрии сетки: у гексов холст шире/выше w·cellSize,
-    // иначе крайние клетки молча обрезаются. canvas.width/height — целые
-    // (дробная часть отбрасывается браузером), поэтому округляем вверх.
-    const bounds = mapPixelBounds(model.width, model.height, model.gridType, cellSize)
+    // Габариты карты: холст равен grid.width/height клеткам.
+    const bounds = mapPixelBounds(model.grid.width, model.grid.height, cellSize)
     width = Math.ceil(bounds.width)
     height = Math.ceil(bounds.height)
   }
@@ -136,20 +130,4 @@ export function renderToCanvas(
     includeLight: options?.includeLight,
   })
   return canvas
-}
-
-/** PNG-байты offscreen canvas; общий хелпер PNG- и UVTT-экспорта. */
-export function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        reject(new Error('PNG encoding failed'))
-        return
-      }
-      blob.arrayBuffer().then(
-        (buffer) => resolve(new Uint8Array(buffer)),
-        () => reject(new Error('PNG encoding failed')),
-      )
-    }, 'image/png')
-  })
 }

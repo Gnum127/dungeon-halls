@@ -5,7 +5,7 @@ import { isEditableTarget } from '../dom/isEditableTarget'
 import type { Command } from '../model/commands'
 import { findObjectById } from '../model/objects'
 import type { MapModel } from '../model/types'
-import { isInsideMap } from '../tools/brush'
+import { isInsideMap } from '../tools/isInsideMap'
 import type { EditorTool } from '../tools/editorTool'
 import { isCellFree, topmostObjectAt } from '../tools/objects'
 import type { Viewport } from '../render/viewport'
@@ -47,7 +47,7 @@ export function useObjectTools(options: ObjectToolsOptions): {
   const { canvasRef, viewportRef, store, model, tool, selectedId, onSelect } = options
   const dragRef = useRef<DragState | null>(null)
 
-  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef, model.gridType)
+  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
 
   function capturePointer(event: ReactPointerEvent<HTMLCanvasElement>) {
     try {

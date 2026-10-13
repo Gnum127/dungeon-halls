@@ -1,91 +1,74 @@
-import { useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Command } from '../model/commands'
-import { doorAtEdge, hasWall, normalizeEdge } from '../model/walls'
+import { nearestWallSegment, wallSegmentPositionOf } from '../model/wallSegments'
+import { doorHitTest } from '../tools/doorHitTest'
 import type { MapModel } from '../model/types'
-import type { WallEdge } from '../model/walls'
+import type { Point } from '@/shared/point'
 import type { Viewport } from '../render/viewport'
-import { nearestEdgeAt } from '../tools/walls'
+import { useWorldPointFromEvent } from './useCellFromEvent'
 
 interface DoorToolOptions {
   canvasRef: RefObject<HTMLCanvasElement | null>
-  /** false — инструмент неактивен, события игнорируются. */
   active: boolean
   model: MapModel
+  /** Текстура ставящейся двери (null = жирная линия). */
+  imageId: string | null
   viewportRef: RefObject<Viewport>
   onCommit: (command: Command | null) => void
 }
 
 const LEFT_BUTTON = 0
 const RIGHT_BUTTON = 2
+/** Максимальное расстояние до осевой стены (в клетках) для постановки двери. */
+const MAX_WALL_DISTANCE = 0.5
+/** Радиус попадания по двери в мировых клетках (примерно половина полотна). */
+const DOOR_HIT_RADIUS = 0.15
 
 /**
- * Инструмент дверей: клик у стены ставит дверь (одна на ребро), повторный
- * клик переключает open/closed, правый клик удаляет дверь с ребра.
- * Двигает подсветку ближайшего ребра под курсором.
+ * Инструмент дверей: клик по существующей двери переключает open/closed,
+ * правый клик по ней — удаляет; иначе клик у стены ставит новую дверь
+ * (позиция по проекции на сегмент). Хит-тест двери — `doorHitTest`.
  */
 export function useDoorTool(options: DoorToolOptions): {
-  hoverEdge: WallEdge | null
   handlers: {
     onPointerDown: (event: ReactPointerEvent<HTMLCanvasElement>) => void
-    onPointerMove: (event: ReactPointerEvent<HTMLCanvasElement>) => void
-    onPointerLeave: (event: ReactPointerEvent<HTMLCanvasElement>) => void
   }
 } {
-  const { canvasRef, active, model, viewportRef, onCommit } = options
-  const [hoverEdge, setHoverEdge] = useState<WallEdge | null>(null)
-
-  function edgeFromEvent(event: ReactPointerEvent<HTMLCanvasElement>): WallEdge | null {
-    const canvas = canvasRef.current
-    const viewport = viewportRef.current
-    if (!canvas || !viewport) return null
-    const rect = canvas.getBoundingClientRect()
-    const edge = nearestEdgeAt(
-      viewport,
-      event.clientX - rect.left,
-      event.clientY - rect.top,
-      model.width,
-      model.height,
-    )
-    return edge ? normalizeEdge(edge, model.width, model.height) : null
-  }
+  const { canvasRef, active, model, imageId, viewportRef, onCommit } = options
+  const worldFromEvent = useWorldPointFromEvent(canvasRef, viewportRef)
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (!active) return
     if (event.button !== LEFT_BUTTON && event.button !== RIGHT_BUTTON) return
-    const edge = edgeFromEvent(event)
-    if (!edge || !hasWall(model.walls, edge)) return
+    const world: Point = worldFromEvent(event)
+    if (!Number.isFinite(world.x) || !Number.isFinite(world.y)) return
 
-    const existing = doorAtEdge(model.doors, edge)
-    if (existing) {
-      if (event.button === LEFT_BUTTON) {
-        onCommit({ kind: 'setDoorOpen', id: existing.id, open: !existing.open })
+    const hitDoorId = doorHitTest(world, model.doors, model.walls, DOOR_HIT_RADIUS)
+    if (hitDoorId) {
+      event.preventDefault()
+      const door = model.doors.find((candidate) => candidate.id === hitDoorId)
+      if (!door) return
+      if (event.button === RIGHT_BUTTON) {
+        onCommit({ kind: 'removeDoor', id: hitDoorId })
       } else {
-        onCommit({ kind: 'removeDoor', id: existing.id })
+        onCommit({ kind: 'setDoorOpen', id: hitDoorId, open: !door.open })
       }
       return
     }
-    if (event.button === LEFT_BUTTON) {
-      onCommit({ kind: 'addDoor', edge })
-    }
+
+    if (event.button !== LEFT_BUTTON) return
+    const hit = nearestWallSegment(model.walls, world)
+    if (!hit || hit.distance > MAX_WALL_DISTANCE) return
+    const position = wallSegmentPositionOf(hit.segment, world)
+
+    event.preventDefault()
+    onCommit({
+      kind: 'addDoor',
+      wallSegmentId: hit.segment.id,
+      position,
+      imageId,
+    })
   }
 
-  function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
-    if (!active) return
-    setHoverEdge(edgeFromEvent(event))
-  }
-
-  function onPointerLeave() {
-    if (!active) return
-    setHoverEdge(null)
-  }
-
-  return {
-    hoverEdge,
-    handlers: {
-      onPointerDown,
-      onPointerMove,
-      onPointerLeave,
-    },
-  }
+  return { handlers: { onPointerDown } }
 }

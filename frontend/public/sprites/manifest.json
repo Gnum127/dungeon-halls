@@ -8,8 +8,11 @@
     "sand": "sprites/tiles/sand.png",
     "wall": "sprites/tiles/wall.png"
   },
+  "tilePools": {
+    "floor": ["sprites/tiles/floor_01.png", "sprites/tiles/floor_02.png"],
+    "grass": ["sprites/tiles/grass_01.png", "sprites/tiles/grass_02.png"]
+  },
   "objects": {
-    "door": "sprites/objects/door.png",
     "stairs": "sprites/objects/stairs.png",
     "table": "sprites/objects/table.png",
     "chair": "sprites/objects/chair.png",

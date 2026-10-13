@@ -4,30 +4,27 @@ import { useCanvasSize } from '../hooks/useCanvasSize'
 import { useDevicePixelRatio } from '../hooks/useDevicePixelRatio'
 import { useMiddleButtonPan } from '../hooks/useMiddleButtonPan'
 import { useWheelZoom } from '../hooks/useWheelZoom'
-import { useTerrainBrush } from '../hooks/useTerrainBrush'
 import { useObjectTools } from '../hooks/useObjectTools'
 import { useHoverCell } from '../hooks/useHoverCell'
+import { useLightTool } from '../hooks/useLightTool'
+import { useDoorTool } from '../hooks/useDoorTool'
+import { useRectRegionTool } from '../hooks/useRectRegionTool'
+import { usePolygonRegionTool } from '../hooks/usePolygonRegionTool'
+import { useWallTool } from '../hooks/useWallTool'
 import type { EditorStore } from '../store/EditorStore'
 import type { Command } from '../model/commands'
 import { renderMap } from '../render/renderMap'
 import type { SpriteRenderContext } from '../render/sprites/loader'
-import { drawStrokePreview } from '../render/strokePreview'
 import { drawCellHighlight } from '../render/cellHighlight'
 import { drawGhostPreview } from '../render/ghostPreview'
-import { drawEdgeHighlight } from '../render/edgeHighlight'
-import { drawRoomPreview } from '../render/roomPreview'
-import { polygonRoom, rectRoom } from '../model/rooms'
+import { rectPolygon, regularPolygonPoints } from '../tools/regions'
+import { drawRegionWithWalls } from '../tools/regionPreview'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
-import { useWallBrush } from '../hooks/useWallBrush'
-import { useDoorTool } from '../hooks/useDoorTool'
-import { useLightTool } from '../hooks/useLightTool'
-import { usePolygonRoomTool } from '../hooks/usePolygonRoomTool'
-import { useRectRoomTool } from '../hooks/useRectRoomTool'
+import type { TileTypeName } from '../model/types'
 import type { EditorTool } from '../tools/editorTool'
 import { mergePointerHandlers } from './pointerHandlers'
 import { formatCoords } from './formatCoords'
-import type { TileValue } from '../model/types'
 import styles from './CanvasView.module.css'
 
 interface CanvasViewProps {
@@ -37,10 +34,10 @@ interface CanvasViewProps {
   onSelectObject: (id: number | null) => void
   /** Атлас спрайтов; undefined = цветной режим (fallback на плитки). */
   sprites?: SpriteRenderContext
-  /** Заливка комнат: текущая кисть; EMPTY_TILE = ластик области. */
-  roomTile: TileValue
-  /** Вершины правильного полигона (3..12). */
-  polygonVertexCount: number
+  /** Текущее покрытие для инструментов регионов (кисть заливки). */
+  tileType: TileTypeName
+  /** Авто-стены: пересчитывать контур при построении регионов. */
+  autoWalls: boolean
   /** Свойства инструмента света. */
   lightRadius: number
   lightColor: string
@@ -52,8 +49,8 @@ export function CanvasView({
   selectedObjectId,
   onSelectObject,
   sprites,
-  roomTile,
-  polygonVertexCount,
+  tileType,
+  autoWalls,
   lightRadius,
   lightColor,
 }: CanvasViewProps) {
@@ -77,7 +74,6 @@ export function CanvasView({
     [panZoom, size],
   )
 
-  // Зеркало для хуков, читающих вьюпорт внутри событий.
   const viewportRef = useRef<Viewport>(viewport)
   useEffect(() => {
     viewportRef.current = viewport
@@ -97,38 +93,49 @@ export function CanvasView({
   }, [])
   const { handlers: panHandlers } = useMiddleButtonPan(canvasRef, handlePan)
 
-  const handleBrushCommit = useCallback(
+  const onCommit = useCallback(
     (command: Command | null) => {
       if (!command) return
       store.dispatch(command)
     },
     [store],
   )
-  const brushTile = tool.type === 'terrain' ? tool.tile : -1
-  const { pendingCells, handlers: brushHandlers } = useTerrainBrush({
+
+  const { handlers: rectRegionHandlers, preview: rectPreview } = useRectRegionTool({
     canvasRef,
-    active: tool.type === 'terrain',
+    active: tool.type === 'region-rect',
     model,
-    tile: brushTile,
+    tileType,
+    autoWalls,
     viewportRef,
-    onCommit: handleBrushCommit,
+    onCommit,
   })
 
-  const { handlers: wallHandlers } = useWallBrush({
+  const { handlers: polygonRegionHandlers, preview: polygonPreview } = usePolygonRegionTool({
     canvasRef,
-    active: tool.type === 'wall' || tool.type === 'wall-eraser',
+    active: tool.type === 'region-polygon',
     model,
-    present: tool.type === 'wall',
+    tileType,
+    vertices: tool.type === 'region-polygon' ? tool.vertices : 6,
+    autoWalls,
     viewportRef,
-    onCommit: handleBrushCommit,
+    onCommit,
   })
 
-  const { hoverEdge, handlers: doorHandlers } = useDoorTool({
+  const { handlers: wallHandlers, preview: wallPreview } = useWallTool({
+    canvasRef,
+    active: tool.type === 'wall',
+    viewportRef,
+    onCommit,
+  })
+
+  const { handlers: doorHandlers } = useDoorTool({
     canvasRef,
     active: tool.type === 'door',
     model,
+    imageId: tool.type === 'door' ? tool.imageId : null,
     viewportRef,
-    onCommit: handleBrushCommit,
+    onCommit,
   })
 
   const { handlers: lightHandlers } = useLightTool({
@@ -138,26 +145,7 @@ export function CanvasView({
     radius: lightRadius,
     color: lightColor,
     viewportRef,
-    onCommit: handleBrushCommit,
-  })
-
-  const { preview: rectRoomPreview, handlers: rectRoomHandlers } = useRectRoomTool({
-    canvasRef,
-    active: tool.type === 'room-rect',
-    model,
-    tile: roomTile,
-    viewportRef,
-    onCommit: handleBrushCommit,
-  })
-
-  const { preview: polygonPreview, handlers: polygonRoomHandlers } = usePolygonRoomTool({
-    canvasRef,
-    active: tool.type === 'room-polygon',
-    model,
-    tile: roomTile,
-    vertexCount: polygonVertexCount,
-    viewportRef,
-    onCommit: handleBrushCommit,
+    onCommit,
   })
 
   const handleSelect = useCallback((id: number | null) => onSelectObject(id), [onSelectObject])
@@ -194,79 +182,83 @@ export function CanvasView({
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     renderMap(ctx, model, viewport, sprites)
-    drawStrokePreview(ctx, pendingCells, viewport, brushTile, model.gridType)
-    if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport, model.gridType)
-    if (hoverEdge && tool.type === 'door') drawEdgeHighlight(ctx, hoverEdge, viewport)
+
+    if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport)
     if (hoverCell && tool.type === 'object') {
-      drawGhostPreview(ctx, hoverCell, viewport, tool, model.gridType)
+      drawGhostPreview(ctx, hoverCell, viewport, tool)
     }
-    if (tool.type === 'room-rect' && rectRoomPreview) {
-      const geometry = rectRoom(
-        rectRoomPreview.start.x,
-        rectRoomPreview.start.y,
-        rectRoomPreview.current.x,
-        rectRoomPreview.current.y,
-        model.width,
-        model.height,
-        roomTile,
+
+    if (tool.type === 'region-rect' && rectPreview) {
+      const polygon = rectPolygon(
+        rectPreview.start.x,
+        rectPreview.start.y,
+        rectPreview.current.x,
+        rectPreview.current.y,
+        model.grid.width,
+        model.grid.height,
       )
-      drawRoomPreview(
-        ctx,
-        {
-          tiles: geometry.tiles,
-          walls: geometry.walls.map(({ edge }) => edge),
-          verts: [],
-        },
-        viewport,
-      )
+      drawRegionWithWalls(ctx, model, viewport, tileType, polygon, autoWalls)
     }
-    if (tool.type === 'room-polygon' && polygonPreview) {
-      if (polygonPreview.vertices.length > 0) {
-        const geometry = polygonRoom(
-          polygonPreview.vertices,
-          model.width,
-          model.height,
-          roomTile,
-        )
-        drawRoomPreview(
-          ctx,
-          {
-            tiles: geometry.tiles,
-            walls: geometry.walls.map(({ edge }) => edge),
-            verts: polygonPreview.vertices,
-          },
-          viewport,
-        )
-      } else {
-        // Фаза «центр»: показываем только точку центра.
-        drawRoomPreview(ctx, { tiles: [], walls: [], verts: [polygonPreview.center] }, viewport)
+
+    if (tool.type === 'region-polygon' && polygonPreview) {
+      const centerPoint = { x: polygonPreview.center.x + 0.5, y: polygonPreview.center.y + 0.5 }
+      const radialPoint = { x: polygonPreview.current.x + 0.5, y: polygonPreview.current.y + 0.5 }
+      const points = regularPolygonPoints(centerPoint, radialPoint, tool.vertices)
+      if (points.length >= 3) {
+        drawRegionWithWalls(ctx, model, viewport, tileType, points, autoWalls)
       }
     }
-  }, [model, viewport, dpr, pendingCells, brushTile, hoverCell, sprites, hoverEdge, tool, rectRoomPreview, polygonPreview, polygonVertexCount, roomTile])
+
+    if (tool.type === 'wall' && wallPreview) {
+      ctx.strokeStyle = '#e0b050'
+      ctx.lineWidth = 3
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(
+        wallPreview.a.x * viewport.cellSize - viewport.offsetX,
+        wallPreview.a.y * viewport.cellSize - viewport.offsetY,
+      )
+      ctx.lineTo(
+        wallPreview.b.x * viewport.cellSize - viewport.offsetX,
+        wallPreview.b.y * viewport.cellSize - viewport.offsetY,
+      )
+      ctx.stroke()
+    }
+  }, [
+    model,
+    viewport,
+    dpr,
+    hoverCell,
+    sprites,
+    tool,
+    rectPreview,
+    polygonPreview,
+    wallPreview,
+    tileType,
+    autoWalls,
+  ])
 
   const pointerHandlers = useMemo(
     () =>
       mergePointerHandlers(
         panHandlers,
-        brushHandlers,
         objectHandlers,
         hoverHandlers,
-        wallHandlers,
-        doorHandlers,
         lightHandlers,
-        rectRoomHandlers,
-        polygonRoomHandlers,
+        doorHandlers,
+        rectRegionHandlers,
+        polygonRegionHandlers,
+        wallHandlers,
       ),
     [
       panHandlers,
-      brushHandlers,
       objectHandlers,
       hoverHandlers,
-      wallHandlers,
-      doorHandlers,
       lightHandlers,
-      rectRoomHandlers,
-      polygonRoomHandlers,
+      doorHandlers,
+      rectRegionHandlers,
+      polygonRegionHandlers,
+      wallHandlers,
     ],
   )
 
@@ -279,9 +271,8 @@ export function CanvasView({
         onContextMenu={(event) => event.preventDefault()}
         {...pointerHandlers}
       />
-      {/* Не live-регион: координаты меняются на каждый шаг курсора. */}
       <div className={styles.status} data-testid="editor-coords">
-        {hoverCell ? formatCoords(hoverCell, model.gridType) : '—'}
+        {hoverCell ? formatCoords(hoverCell) : '—'}
       </div>
     </div>
   )

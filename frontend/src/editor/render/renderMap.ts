@@ -1,22 +1,27 @@
 import { isKnownKind, OBJECT_COLORS, OBJECT_KIND_ENTRIES } from '../model/objects'
-import { TILE_TYPES } from '../model/types'
+import { regionBounds } from '../model/regions'
+import { pointAlongWallSegment } from '../model/wallSegments'
+import type { WallSegment } from '../model/wallSegments'
 import type { MapModel } from '../model/types'
-import { cellCorners } from '@/shared/hex'
+import type { TerrainRegion } from '../model/regions'
 import type { SpriteRenderContext } from './sprites/loader'
-import type { WallEdge } from '../model/walls'
 import {
   CANVAS_BACKGROUND_COLOR,
   DOOR_FILL_COLOR,
+  DOOR_LENGTH_FRACTION,
+  DOOR_THICKNESS_FRACTION,
   FALLBACK_OBJECT_COLOR,
   GRID_LINE_COLOR,
   LIGHT_GLOW_COLOR,
   LIGHT_MARKER_COLOR,
   OBJECT_OUTLINE_COLOR,
+  STAIRS_STEP_COLOR,
   TILE_COLORS,
+  WALL_BODY_COLOR,
   WALL_LINE_COLOR,
-  WALL_LINE_WIDTH,
 } from './colors'
-import { cellCenterAt, hexOrientationOf, traceCellPolygon, visibleCellRange } from './gridGeometry'
+import { cellCenterAt, visibleCellRange } from './geometry'
+import { pickIndexFromCoords } from '@/shared/random'
 import type { Viewport } from './viewport'
 
 export interface RenderMapOptions {
@@ -48,9 +53,11 @@ function resolveObjectImage(
   return sprites.objects[kindId]
 }
 
-/** Единственная точка рендера карты: чистая функция от модели и вьюпорта.
- * Спрайтовый режим включается опциональным атласом готовых картинок;
- * отсутствующий атлас или спрайт = fallback на цветную плитку.
+/**
+ * Единственная точка рендера карты: чистая функция от модели и вьюпорта.
+ * Порядок слоёв: фон → регионы (по zOrder) → сетка → объекты → стены →
+ * двери → свет. Спрайтовый режим включается опциональным атласом; отсутствие
+ * атласа/спрайта = fallback на цвет.
  *
  * Контракт: вызывающий обязан выставить ctx.setTransform(dpr,…) и передать
  * viewport в CSS-пикселях; renderMap работает в CSS-координатах.
@@ -62,7 +69,7 @@ export function renderMap(
   sprites?: SpriteRenderContext,
   options?: RenderMapOptions,
 ): void {
-  const { width, height, cellSize, offsetX, offsetY } = viewport
+  const { width, height } = viewport
 
   ctx.fillStyle = CANVAS_BACKGROUND_COLOR
   ctx.fillRect(0, 0, width, height)
@@ -71,144 +78,260 @@ export function renderMap(
   const smoothingBefore = ctx.imageSmoothingEnabled
   if (sprites) ctx.imageSmoothingEnabled = false
 
-  const orientation = hexOrientationOf(model.gridType)
-  if (orientation === null) {
-    // Квадратная ветка: заливка/линии зафиксированы тестами, менять нельзя.
-    // Culling общий с hex через visibleCellRange (формулы идентичны прежним).
-    const range = visibleCellRange(viewport, model.width, model.height, model.gridType)
-
-    for (let row = range.firstRow; row <= range.lastRow; row += 1) {
-      for (let col = range.firstCol; col <= range.lastCol; col += 1) {
-        const tileIndex = model.tiles[row * model.width + col]
-        // Fallback на случай битых значений из будущих загруженных файлов.
-        const typeName = TILE_TYPES[tileIndex] ?? 'empty'
-        const sprite = sprites?.tiles[typeName]
-        if (sprite) {
-          // Квадрат: спрайт точно в клетку, clip не нужен (бюджет производительности).
-          ctx.drawImage(
-            sprite,
-            col * cellSize - offsetX,
-            row * cellSize - offsetY,
-            cellSize,
-            cellSize,
-          )
-          continue
-        }
-        ctx.fillStyle = TILE_COLORS[typeName]
-        ctx.fillRect(col * cellSize - offsetX, row * cellSize - offsetY, cellSize, cellSize)
-      }
-    }
-
-    ctx.strokeStyle = GRID_LINE_COLOR
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    for (let col = range.firstCol; col <= range.lastCol + 1; col += 1) {
-      const x = Math.floor(col * cellSize - offsetX) + 0.5
-      ctx.moveTo(x, Math.max(0, -offsetY))
-      ctx.lineTo(x, Math.min(height, model.height * cellSize - offsetY))
-    }
-    for (let row = range.firstRow; row <= range.lastRow + 1; row += 1) {
-      const y = Math.floor(row * cellSize - offsetY) + 0.5
-      ctx.moveTo(Math.max(0, -offsetX), y)
-      ctx.lineTo(Math.min(width, model.width * cellSize - offsetX), y)
-    }
-    ctx.stroke()
-  } else {
-    const corners = cellCorners(orientation, cellSize)
-    const range = visibleCellRange(viewport, model.width, model.height, model.gridType)
-
-    for (let row = range.firstRow; row <= range.lastRow; row += 1) {
-      for (let col = range.firstCol; col <= range.lastCol; col += 1) {
-        const tileIndex = model.tiles[row * model.width + col]
-        const typeName = TILE_TYPES[tileIndex] ?? 'empty'
-        const center = cellCenterAt(col, row, model.gridType, cellSize)
-        ctx.beginPath()
-        traceCellPolygon(ctx, center.x - offsetX, center.y - offsetY, corners)
-        const sprite = sprites?.tiles[typeName]
-        if (sprite) {
-          // Гекс: спрайт растягивается на bbox полигона и clip по нему —
-          // края клетки не остаются пустыми.
-          ctx.save()
-          ctx.clip()
-          ctx.drawImage(
-            sprite,
-            center.x - offsetX - cellSize,
-            center.y - offsetY - cellSize,
-            cellSize * 2,
-            cellSize * 2,
-          )
-          ctx.restore()
-          continue
-        }
-        ctx.fillStyle = TILE_COLORS[typeName]
-        ctx.fill()
-      }
-    }
-
-    ctx.strokeStyle = GRID_LINE_COLOR
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    for (let row = range.firstRow; row <= range.lastRow; row += 1) {
-      for (let col = range.firstCol; col <= range.lastCol; col += 1) {
-        const center = cellCenterAt(col, row, model.gridType, cellSize)
-        traceCellPolygon(ctx, center.x - offsetX, center.y - offsetY, corners)
-      }
-    }
-    ctx.stroke()
+  const sortedRegions = [...model.regions].sort((a, b) => a.zOrder - b.zOrder)
+  for (const region of sortedRegions) {
+    drawRegion(ctx, region, viewport, sprites)
   }
 
-  // Объекты рисуются в порядке массива: верхний — последним.
+  drawGrid(ctx, model, viewport)
+
   for (const object of model.objects) {
-    const center = cellCenterAt(object.x, object.y, model.gridType, cellSize)
-    const cx = center.x - offsetX
-    const cy = center.y - offsetY
-    if (cx < -cellSize * 3 || cx > width + cellSize * 3 || cy < -cellSize * 3 || cy > height + cellSize * 3) {
-      continue
-    }
-    const scaleX = object.scale?.w ?? 1
-    const scaleY = object.scale?.h ?? 1
-    const rotation = object.rotation ?? 0
-    const sprite = resolveObjectImage(sprites, object.kindId)
+    drawObject(ctx, object, viewport, sprites)
+  }
 
-    ctx.save()
-    ctx.translate(cx, cy)
-    if (rotation !== 0) {
-      ctx.rotate((rotation * Math.PI) / 180)
-    }
+  for (const wall of model.walls) {
+    drawWall(ctx, wall, viewport)
+  }
 
-    if (sprite) {
-      const baseSize = orientation === null ? cellSize : cellSize * 2
-      const w = baseSize * scaleX
-      const h = baseSize * scaleY
-      ctx.drawImage(sprite, -w / 2, -h / 2, w, h)
-    } else {
-      const baseRadius = Math.max(3, cellSize * 0.3)
-      const rx = baseRadius * scaleX
-      const ry = baseRadius * scaleY
-      ctx.beginPath()
-      ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
-      ctx.fillStyle = isKnownKind(object.kindId)
-        ? OBJECT_COLORS[object.kindId]
-        : FALLBACK_OBJECT_COLOR
-      ctx.fill()
-      ctx.lineWidth = 1
-      ctx.strokeStyle = OBJECT_OUTLINE_COLOR
-      ctx.stroke()
-    }
-
-    ctx.restore()
+  for (const door of model.doors) {
+    drawDoor(ctx, model, door, viewport, sprites)
   }
 
   if (sprites) ctx.imageSmoothingEnabled = smoothingBefore
 
-  // Defense-in-depth: рёбра определены только для квадратной сетки.
-  if (model.gridType === 'square') {
-    drawWalls(ctx, model, cellSize, offsetX, offsetY)
-    drawDoors(ctx, model, cellSize, offsetX, offsetY)
-  }
   if (options?.includeLight !== false) {
     drawLights(ctx, model, viewport)
   }
+}
+
+/** Трассирует замкнутый путь полигона в экранных координатах (для fill/clip). */
+function tracePolygon(
+  ctx: CanvasRenderingContext2D,
+  polygon: TerrainRegion['polygon'],
+  viewport: Viewport,
+): void {
+  const { cellSize, offsetX, offsetY } = viewport
+  ctx.beginPath()
+  polygon.forEach((point, index) => {
+    const x = point.x * cellSize - offsetX
+    const y = point.y * cellSize - offsetY
+    if (index === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  })
+  ctx.closePath()
+}
+
+/** Заливка полигона региона цветом; в спрайтовом режиме — тайлинг текстуры. */
+function drawRegion(
+  ctx: CanvasRenderingContext2D,
+  region: TerrainRegion,
+  viewport: Viewport,
+  sprites?: SpriteRenderContext,
+): void {
+  const { cellSize, offsetX, offsetY } = viewport
+  tracePolygon(ctx, region.polygon, viewport)
+  ctx.fillStyle = TILE_COLORS[region.tileType] ?? CANVAS_BACKGROUND_COLOR
+  ctx.fill()
+
+  const pool = sprites?.tilePools?.[region.tileType]
+  const hasPool = pool !== undefined && pool.length > 0
+  const sprite = sprites?.tiles[region.tileType]
+  if (hasPool || sprite) {
+    const bounds = regionBounds(region)
+    const startX = Math.floor(bounds.minX)
+    const startY = Math.floor(bounds.minY)
+    const endX = Math.ceil(bounds.maxX)
+    const endY = Math.ceil(bounds.maxY)
+    ctx.save()
+    // Путь контекста мог быть изменён между вызовами — трассируем заново.
+    tracePolygon(ctx, region.polygon, viewport)
+    ctx.clip()
+    for (let row = startY; row < endY; row += 1) {
+      for (let col = startX; col < endX; col += 1) {
+        // Пул: вариант выбирается детерминированно по координате клетки.
+        const image = hasPool ? pool[pickIndexFromCoords(col, row, pool.length)] : sprite
+        if (!image) continue
+        ctx.drawImage(
+          image,
+          col * cellSize - offsetX,
+          row * cellSize - offsetY,
+          cellSize,
+          cellSize,
+        )
+      }
+    }
+    ctx.restore()
+  }
+
+  if (region.tileType === 'stairs') {
+    drawStairsSteps(ctx, region, viewport)
+  }
+}
+
+/**
+ * Поперечные линии-ступени внутри региона лестницы: рисуются по bounding box
+ * региона с clip по его полигону. Шаг линий — четверть клетки.
+ */
+function drawStairsSteps(
+  ctx: CanvasRenderingContext2D,
+  region: TerrainRegion,
+  viewport: Viewport,
+): void {
+  const { cellSize, offsetX, offsetY } = viewport
+  const bounds = regionBounds(region)
+  ctx.save()
+  tracePolygon(ctx, region.polygon, viewport)
+  ctx.clip()
+
+  ctx.strokeStyle = STAIRS_STEP_COLOR
+  ctx.lineWidth = Math.max(1, cellSize * 0.05)
+  const step = cellSize * 0.25
+  const left = bounds.minX * cellSize - offsetX
+  const right = bounds.maxX * cellSize - offsetX
+  for (let y = bounds.minY * cellSize - offsetY; y <= bounds.maxY * cellSize - offsetY; y += step) {
+    ctx.beginPath()
+    ctx.moveTo(left, y)
+    ctx.lineTo(right, y)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+/** Линии сетки (квадратная сетка). */
+function drawGrid(ctx: CanvasRenderingContext2D, model: MapModel, viewport: Viewport): void {
+  const { width, height, cellSize, offsetX, offsetY } = viewport
+  const { width: cols, height: rows } = model.grid
+  const range = visibleCellRange(viewport, cols, rows)
+
+  ctx.strokeStyle = GRID_LINE_COLOR
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  for (let col = range.firstCol; col <= range.lastCol + 1; col += 1) {
+    const x = Math.floor(col * cellSize - offsetX) + 0.5
+    ctx.moveTo(x, Math.max(0, -offsetY))
+    ctx.lineTo(x, Math.min(height, rows * cellSize - offsetY))
+  }
+  for (let row = range.firstRow; row <= range.lastRow + 1; row += 1) {
+    const y = Math.floor(row * cellSize - offsetY) + 0.5
+    ctx.moveTo(Math.max(0, -offsetX), y)
+    ctx.lineTo(Math.min(width, cols * cellSize - offsetX), y)
+  }
+  ctx.stroke()
+}
+
+function drawObject(
+  ctx: CanvasRenderingContext2D,
+  object: MapModel['objects'][number],
+  viewport: Viewport,
+  sprites?: SpriteRenderContext,
+): void {
+  const { width, height, cellSize, offsetX, offsetY } = viewport
+  const center = cellCenterAt(object.x, object.y, cellSize)
+  const cx = center.x - offsetX
+  const cy = center.y - offsetY
+  if (
+    cx < -cellSize * 3 ||
+    cx > width + cellSize * 3 ||
+    cy < -cellSize * 3 ||
+    cy > height + cellSize * 3
+  ) {
+    return
+  }
+  const scaleX = object.scale?.w ?? 1
+  const scaleY = object.scale?.h ?? 1
+  const rotation = object.rotation ?? 0
+  const sprite = resolveObjectImage(sprites, object.kindId)
+
+  ctx.save()
+  ctx.translate(cx, cy)
+  if (rotation !== 0) {
+    ctx.rotate((rotation * Math.PI) / 180)
+  }
+
+  if (sprite) {
+    const w = cellSize * scaleX
+    const h = cellSize * scaleY
+    ctx.drawImage(sprite, -w / 2, -h / 2, w, h)
+  } else {
+    const baseRadius = Math.max(3, cellSize * 0.3)
+    const rx = baseRadius * scaleX
+    const ry = baseRadius * scaleY
+    ctx.beginPath()
+    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
+    ctx.fillStyle = isKnownKind(object.kindId) ? OBJECT_COLORS[object.kindId] : FALLBACK_OBJECT_COLOR
+    ctx.fill()
+    ctx.lineWidth = 1
+    ctx.strokeStyle = OBJECT_OUTLINE_COLOR
+    ctx.stroke()
+  }
+
+  ctx.restore()
+}
+
+/** Тело стены (утолщение) + тонкий контур поверх. */
+function drawWall(ctx: CanvasRenderingContext2D, wall: WallSegment, viewport: Viewport): void {
+  if (wall.points.length < 2) return
+  const { cellSize, offsetX, offsetY } = viewport
+  const bodyWidth = Math.max(3, wall.thickness * cellSize)
+
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'miter'
+  ctx.miterLimit = 2
+
+  ctx.strokeStyle = WALL_BODY_COLOR
+  ctx.lineWidth = bodyWidth
+  ctx.beginPath()
+  ctx.moveTo(wall.points[0].x * cellSize - offsetX, wall.points[0].y * cellSize - offsetY)
+  for (let i = 1; i < wall.points.length; i += 1) {
+    ctx.lineTo(wall.points[i].x * cellSize - offsetX, wall.points[i].y * cellSize - offsetY)
+  }
+  ctx.stroke()
+
+  ctx.strokeStyle = WALL_LINE_COLOR
+  ctx.lineWidth = Math.max(1.5, bodyWidth * 0.35)
+  ctx.stroke()
+}
+
+/** Дверь на стеновом сегменте: текстура, иначе жирное полотно. */
+function drawDoor(
+  ctx: CanvasRenderingContext2D,
+  model: MapModel,
+  door: MapModel['doors'][number],
+  viewport: Viewport,
+  sprites?: SpriteRenderContext,
+): void {
+  const wall = model.walls.find((candidate) => candidate.id === door.wallSegmentId)
+  if (!wall) return
+  const { cellSize, offsetX, offsetY } = viewport
+
+  const point = pointAlongWallSegment(wall, door.position)
+  const ahead = pointAlongWallSegment(wall, Math.min(1, door.position + 0.001))
+  const behind = pointAlongWallSegment(wall, Math.max(0, door.position - 0.001))
+  const tangentX = ahead.x - behind.x
+  const tangentY = ahead.y - behind.y
+  const angle = Math.atan2(tangentY, tangentX)
+
+  const length = cellSize * DOOR_LENGTH_FRACTION
+  const thickness = Math.max(4, cellSize * DOOR_THICKNESS_FRACTION)
+
+  ctx.save()
+  ctx.translate(point.x * cellSize - offsetX, point.y * cellSize - offsetY)
+  ctx.rotate(angle)
+
+  const image = door.imageId ? sprites?.elementImages[door.imageId] : undefined
+  if (image) {
+    ctx.drawImage(image, -length / 2, -thickness / 2, length, thickness)
+  } else if (door.open) {
+    const segment = length * 0.3
+    ctx.fillStyle = DOOR_FILL_COLOR
+    ctx.fillRect(-length / 2, -thickness / 2, segment, thickness)
+    ctx.fillRect(length / 2 - segment, -thickness / 2, segment, thickness)
+  } else {
+    ctx.fillStyle = DOOR_FILL_COLOR
+    ctx.fillRect(-length / 2, -thickness / 2, length, thickness)
+  }
+
+  ctx.restore()
 }
 
 /** Свечение (полупрозрачный круг) + маркер источника; поверх остального. */
@@ -217,7 +340,7 @@ function drawLights(ctx: CanvasRenderingContext2D, model: MapModel, viewport: Vi
   const { cellSize, offsetX, offsetY } = viewport
   const marker = Math.max(3, Math.round(cellSize * 0.12))
   for (const light of model.lights) {
-    const center = cellCenterAt(light.x, light.y, model.gridType, cellSize)
+    const center = cellCenterAt(light.x, light.y, cellSize)
     const cx = center.x - offsetX
     const cy = center.y - offsetY
     ctx.fillStyle = LIGHT_GLOW_COLOR
@@ -228,97 +351,5 @@ function drawLights(ctx: CanvasRenderingContext2D, model: MapModel, viewport: Vi
     ctx.beginPath()
     ctx.arc(cx, cy, marker, 0, Math.PI * 2)
     ctx.fill()
-  }
-}
-
-/**
- * Сегмент стены в мировых координатах [x1, y1, x2, y2]; единственный источник
- * геометрии ребра для canvas-рендера и SVG-печати.
- */
-export function wallSegment(edge: WallEdge, cellSize: number): [number, number, number, number] {
-  const x = edge.x * cellSize
-  const y = edge.y * cellSize
-  switch (edge.side) {
-    case 'N':
-      return [x, y, x + cellSize, y]
-    case 'S':
-      return [x, y + cellSize, x + cellSize, y + cellSize]
-    case 'W':
-      return [x, y, x, y + cellSize]
-    default:
-      return [x + cellSize, y, x + cellSize, y + cellSize]
-  }
-}
-
-/** Линии стен поверх тайлов и объектов; экранная геометрия ребра. */
-function drawWalls(
-  ctx: CanvasRenderingContext2D,
-  model: MapModel,
-  cellSize: number,
-  offsetX: number,
-  offsetY: number,
-): void {
-  if (model.walls.length === 0) return
-  ctx.lineWidth = WALL_LINE_WIDTH
-  ctx.strokeStyle = WALL_LINE_COLOR
-  ctx.beginPath()
-  for (const wall of model.walls) {
-    const [x1, y1, x2, y2] = wallSegment(wall, cellSize)
-    ctx.moveTo(x1 - offsetX, y1 - offsetY)
-    ctx.lineTo(x2 - offsetX, y2 - offsetY)
-  }
-  ctx.stroke()
-}
-
-interface Rect {
-  x: number
-  y: number
-  w: number
-  h: number
-}
-
-/**
- * Прямоугольники двери в мировых координатах. Закрытая — полотно по центру
- * ребра (60% длины); открытая — два коротких сегмента у концов (просвет).
- * Экспортирована для SVG-печати: единственный источник геометрии двери.
- */
-export function doorRects(edge: WallEdge, open: boolean, cellSize: number): Array<Rect> {
-  const horizontal = edge.side === 'N' || edge.side === 'S'
-  const thickness = Math.max(4, Math.round(cellSize * 0.18))
-  if (horizontal) {
-    const x = edge.x * cellSize
-    const y = edge.y * cellSize + (edge.side === 'N' ? -thickness / 2 : cellSize - thickness / 2)
-    if (open) {
-      return [
-        { x, y, w: cellSize * 0.2, h: thickness },
-        { x: x + cellSize * 0.8, y, w: cellSize * 0.2, h: thickness },
-      ]
-    }
-    return [{ x: x + cellSize * 0.2, y, w: cellSize * 0.6, h: thickness }]
-  }
-  const x = edge.x * cellSize + (edge.side === 'W' ? -thickness / 2 : cellSize - thickness / 2)
-  const y = edge.y * cellSize
-  if (open) {
-    return [
-      { x, y, w: thickness, h: cellSize * 0.2 },
-      { x, y: y + cellSize * 0.8, w: thickness, h: cellSize * 0.2 },
-    ]
-  }
-  return [{ x, y: y + cellSize * 0.2, w: thickness, h: cellSize * 0.6 }]
-}
-
-function drawDoors(
-  ctx: CanvasRenderingContext2D,
-  model: MapModel,
-  cellSize: number,
-  offsetX: number,
-  offsetY: number,
-): void {
-  if (model.doors.length === 0) return
-  ctx.fillStyle = DOOR_FILL_COLOR
-  for (const door of model.doors) {
-    for (const rect of doorRects(door.edge, door.open, cellSize)) {
-      ctx.fillRect(rect.x - offsetX, rect.y - offsetY, rect.w, rect.h)
-    }
   }
 }

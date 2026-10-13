@@ -27,11 +27,14 @@ export interface ElementImageManifest {
 /**
  * Записи опциональны: нет записи — рендер уходит в fallback на цвет.
  * Единственный источник путей к спрайтам — манифест.
+ * `tilePools` — необязательный пул вариантов текстуры тайла: при тайлинге
+ * варианта выбирается детерминированно по координате клетки (shared/random).
  */
 export interface SpriteManifest {
   readonly version: typeof SPRITE_MANIFEST_VERSION
   readonly tiles: Partial<Record<TileTypeName, string>>
   readonly objects: Partial<Record<ObjectKindId, string>>
+  readonly tilePools?: Partial<Record<TileTypeName, readonly string[]>>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -83,7 +86,7 @@ function validatePaths(
  */
 export function validateManifest(data: unknown): SpriteManifest | null {
   if (!isRecord(data)) return null
-  const { version, tiles, objects } = data
+  const { version, tiles, objects, tilePools } = data
   if (version !== SPRITE_MANIFEST_VERSION) return null
 
   const validatedTiles = validatePaths(tiles, TILE_TYPES as readonly string[])
@@ -91,9 +94,35 @@ export function validateManifest(data: unknown): SpriteManifest | null {
   const validatedObjects = validatePaths(objects, OBJECT_KINDS as readonly string[])
   if (!validatedObjects) return null
 
-  return {
+  const manifest: SpriteManifest = {
     version: SPRITE_MANIFEST_VERSION,
     tiles: validatedTiles,
     objects: validatedObjects,
   }
+  if (tilePools === undefined) return manifest
+
+  const validatedPools = validatePools(tilePools)
+  if (!validatedPools) return null
+  return { ...manifest, tilePools: validatedPools }
+}
+
+/**
+ * Пул вариантов текстур: ключи — только известные тайлы, значения — непустые
+ * массивы непустых путей (пустой пул бессмыслен и отклоняется).
+ */
+function validatePools(value: unknown): Partial<Record<TileTypeName, readonly string[]>> | null {
+  if (!isRecord(value)) return null
+  const pools: Partial<Record<TileTypeName, readonly string[]>> = {}
+  for (const [key, paths] of Object.entries(value)) {
+    if (!(TILE_TYPES as readonly string[]).includes(key)) return null
+    if (
+      !Array.isArray(paths) ||
+      paths.length === 0 ||
+      !paths.every((path) => typeof path === 'string' && path.length > 0)
+    ) {
+      return null
+    }
+    pools[key as TileTypeName] = paths as string[]
+  }
+  return pools
 }

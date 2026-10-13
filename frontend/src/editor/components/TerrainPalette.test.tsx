@@ -1,42 +1,24 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { TILE_TYPES } from '../model/types'
 import { TerrainPalette } from './TerrainPalette'
 
-const EMPTY = TILE_TYPES.indexOf('empty')
-const FLOOR = TILE_TYPES.indexOf('floor')
-const WALL = TILE_TYPES.indexOf('wall')
-
 describe('TerrainPalette', () => {
-  it('renders a swatch for every tile type with localized names', () => {
-    render(<TerrainPalette selected={FLOOR} onSelect={vi.fn()} />)
+  it('renders every square tile type including the eraser', () => {
+    render(<TerrainPalette selected={null} onSelect={vi.fn()} />)
 
-    const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(TILE_TYPES.length)
-
-    // Язык зафиксирован в setup.ts как en.
-    expect(screen.getByTitle('Floor')).toBeInTheDocument()
-    expect(screen.getByTitle('Grass')).toBeInTheDocument()
-    expect(screen.getByTitle('Wall')).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Terrain types' })).toBeInTheDocument()
+    for (const name of ['Eraser', 'Floor', 'Grass', 'Water', 'Stone', 'Sand', 'Wall', 'Stairs']) {
+      expect(screen.getByRole('button', { name })).toBeInTheDocument()
+    }
+    expect(screen.queryByRole('button', { name: /hex/i })).toBeNull()
   })
 
-  it('marks the selected tile with aria-pressed', () => {
-    render(<TerrainPalette selected={WALL} onSelect={vi.fn()} />)
-
-    const wallButton = screen.getByTitle('Wall')
-    const floorButton = screen.getByTitle('Floor')
-
-    expect(wallButton).toHaveAttribute('aria-pressed', 'true')
-    expect(floorButton).toHaveAttribute('aria-pressed', 'false')
-  })
-
-  it('reports the clicked tile value', async () => {
+  it('marks the selected swatch and reports clicks', () => {
     const onSelect = vi.fn()
-    render(<TerrainPalette selected={EMPTY} onSelect={onSelect} />)
+    render(<TerrainPalette selected="water" onSelect={onSelect} />)
 
-    fireEvent.click(screen.getByTitle('Water'))
-    expect(onSelect).toHaveBeenCalledTimes(1)
-    expect(onSelect).toHaveBeenCalledWith(TILE_TYPES.indexOf('water'))
+    expect(screen.getByRole('button', { name: 'Water' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Grass' }))
+    expect(onSelect).toHaveBeenCalledWith('grass')
   })
 })

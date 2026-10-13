@@ -1,55 +1,51 @@
 import { describe, expect, it } from 'vitest'
+import {
+  DEFAULT_CELL_SIZE,
+  DEFAULT_MAP_HEIGHT,
+  DEFAULT_MAP_WIDTH,
+  MAX_MAP_SIZE,
+} from '@/config/map.config'
 import { createEmptyMap } from './createEmptyMap'
-import { EMPTY_TILE, MAX_MAP_DIMENSION, TILE_TYPES } from './types'
+import { MAP_VERSION } from './types'
 
-describe('TILE_TYPES invariants', () => {
-  it('EMPTY_TILE is the index of the "empty" palette entry', () => {
-    expect(EMPTY_TILE).toBe(TILE_TYPES.indexOf('empty'))
-    expect(TILE_TYPES[EMPTY_TILE]).toBe('empty')
-  })
-})
-
-describe('createEmptyMap', () => {
-  it('creates a map with given dimensions filled with empty tiles and no objects', () => {
-    const map = createEmptyMap(3, 4)
-
-    expect(map.version).toBeDefined()
-    expect(map.width).toBe(3)
-    expect(map.height).toBe(4)
-    expect(map.tiles.length).toBe(12)
-    expect([...map.tiles].every((tile) => tile === EMPTY_TILE)).toBe(true)
-    expect(map.objects).toEqual([])
+describe('createEmptyMap (v5)', () => {
+  it('uses config defaults', () => {
+    const model = createEmptyMap()
+    expect(model.version).toBe(MAP_VERSION)
+    expect(model.grid).toEqual({
+      width: DEFAULT_MAP_WIDTH,
+      height: DEFAULT_MAP_HEIGHT,
+      cellSize: DEFAULT_CELL_SIZE,
+    })
+    expect(model.regions).toEqual([])
+    expect(model.walls).toEqual([])
+    expect(model.doors).toEqual([])
+    expect(model.objects).toEqual([])
+    expect(model.lights).toEqual([])
   })
 
-  it('accepts a custom gridType', () => {
-    const map = createEmptyMap(2, 2, 'hex-flat')
-
-    expect(map.gridType).toBe('hex-flat')
+  it('accepts explicit dimensions and cell size', () => {
+    expect(createEmptyMap(10, 20, 32).grid).toEqual({ width: 10, height: 20, cellSize: 32 })
   })
 
-  it('defaults gridType to square', () => {
-    const map = createEmptyMap(2, 2)
-
-    expect(map.gridType).toBe('square')
+  it.each([0, -1, 1.5, MAX_MAP_SIZE + 1])('rejects invalid width %s', (width) => {
+    expect(() => createEmptyMap(width, 10)).toThrow(RangeError)
   })
 
-  it('creates a fresh tiles buffer on every call', () => {
-    const first = createEmptyMap(2, 2)
-    const second = createEmptyMap(2, 2)
-
-    expect(first.tiles).not.toBe(second.tiles)
+  it.each([0, -1, 2.5, MAX_MAP_SIZE + 1])('rejects invalid height %s', (height) => {
+    expect(() => createEmptyMap(10, height)).toThrow(RangeError)
   })
 
-  it.each([0, -5, 2.5, Number.NaN, MAX_MAP_DIMENSION + 1])(
-    'rejects invalid dimension %s',
-    (dimension) => {
-      expect(() => createEmptyMap(dimension, 5)).toThrow(RangeError)
-      expect(() => createEmptyMap(5, dimension)).toThrow(RangeError)
-    },
-  )
+  it.each([0, -1, NaN, Infinity])('rejects invalid cell size %s', (cellSize) => {
+    expect(() => createEmptyMap(10, 10, cellSize)).toThrow(/cell size/i)
+  })
 
-  it('accepts boundary dimensions', () => {
-    expect(() => createEmptyMap(1, 1)).not.toThrow()
-    expect(() => createEmptyMap(MAX_MAP_DIMENSION, MAX_MAP_DIMENSION)).not.toThrow()
+  it('accepts the boundary sizes 1 and MAX_MAP_SIZE', () => {
+    expect(createEmptyMap(1, 1).grid).toEqual({ width: 1, height: 1, cellSize: DEFAULT_CELL_SIZE })
+    expect(createEmptyMap(MAX_MAP_SIZE, MAX_MAP_SIZE).grid.width).toBe(MAX_MAP_SIZE)
+  })
+
+  it('mentions MAX_MAP_SIZE in the out-of-range message', () => {
+    expect(() => createEmptyMap(MAX_MAP_SIZE + 1, 1)).toThrow(new RegExp(String(MAX_MAP_SIZE)))
   })
 })

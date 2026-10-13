@@ -6,7 +6,9 @@ import { isEditableTarget } from '../dom/isEditableTarget'
 export interface HotkeysOptions {
   onUndo: () => void
   onRedo: () => void
-  onSelectBrush: () => void
+  onSelectSelect: () => void
+  onSelectRegionRect: () => void
+  onSelectRegionPolygon: () => void
   onSelectEraser: () => void
   onSelectWalls: () => void
   onSelectDoors: () => void
@@ -20,7 +22,6 @@ export interface HotkeysOptions {
  * работают в любой раскладке. В полях ввода хоткеи не действуют.
  */
 export function useEditorHotkeys(options: HotkeysOptions): void {
-  // Свежие колбэки без пересоздания слушателя на каждый рендер.
   const latestRef = useRef(options)
   useEffect(() => {
     latestRef.current = options
@@ -29,8 +30,6 @@ export function useEditorHotkeys(options: HotkeysOptions): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return
-      // AltGr на европейских раскладках выглядит как Ctrl+Alt — не считаем
-      // такие нажатия Ctrl-комбинациями.
       const ctrl = (event.ctrlKey || event.metaKey) && !event.altKey
       const handlers = latestRef.current
 
@@ -46,9 +45,15 @@ export function useEditorHotkeys(options: HotkeysOptions): void {
         return
       }
       if (!ctrl && !event.altKey && !event.metaKey && !event.shiftKey) {
-        if (event.code === 'KeyB') {
+        if (event.code === 'KeyV') {
           event.preventDefault()
-          handlers.onSelectBrush()
+          handlers.onSelectSelect()
+        } else if (event.code === 'KeyB') {
+          event.preventDefault()
+          handlers.onSelectRegionRect()
+        } else if (event.code === 'KeyP') {
+          event.preventDefault()
+          handlers.onSelectRegionPolygon()
         } else if (event.code === 'KeyE') {
           event.preventDefault()
           handlers.onSelectEraser()
@@ -65,7 +70,6 @@ export function useEditorHotkeys(options: HotkeysOptions): void {
           event.preventDefault()
           handlers.onRotateObject()
         } else {
-          // 1-9: выбор объекта из каталога
           const digit = parseInt(event.code.replace('Digit', ''), 10)
           if (digit >= 1 && digit <= OBJECT_KINDS.length) {
             event.preventDefault()

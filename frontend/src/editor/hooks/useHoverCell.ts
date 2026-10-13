@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react'
 import type { MapModel } from '../model/types'
-import { isInsideMap } from '../tools/brush'
+import { isInsideMap } from '../tools/isInsideMap'
 import type { Viewport } from '../render/viewport'
 import { useCellFromEvent } from './useCellFromEvent'
 
@@ -30,7 +30,7 @@ export function useHoverCell(options: HoverCellOptions): {
   const clientPointRef = useRef<{ clientX: number; clientY: number } | null>(null)
   const [cell, setCell] = useState<{ x: number; y: number } | null>(null)
 
-  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef, model.gridType)
+  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
 
   const recompute = useCallback(() => {
     const point = clientPointRef.current

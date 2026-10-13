@@ -17,6 +17,7 @@ import {
   rectsOverlap,
   topmostObjectAt,
 } from './objects'
+import { DOOR_CATALOG } from './doorCatalog'
 import type { MapObject } from './types'
 
 function resolveKey(resource: object, key: string): unknown {
@@ -33,14 +34,14 @@ function resolveKey(resource: object, key: string): unknown {
 
 function obj(id: number, x: number, y: number, w = 1, h = 1): MapObject {
   return w === 1 && h === 1
-    ? { id, kindId: 'door', x, y }
-    : { id, kindId: 'door', x, y, scale: { w, h } }
+    ? { id, kindId: 'stairs', x, y }
+    : { id, kindId: 'stairs', x, y, scale: { w, h } }
 }
 
 describe('OBJECT_KIND_REGISTRY', () => {
   it('derives kinds, colors and entries from a single source', () => {
     expect(OBJECT_KINDS).toEqual([
-      'door', 'stairs', 'table', 'chair', 'chest', 'barrel', 'torch', 'bush', 'rock',
+      'stairs', 'table', 'chair', 'chest', 'barrel', 'torch', 'bush', 'rock',
     ])
     expect(OBJECT_KIND_ENTRIES.map((entry) => entry.id)).toEqual(OBJECT_KINDS)
     expect(Object.keys(OBJECT_COLORS)).toEqual(OBJECT_KINDS)
@@ -75,11 +76,9 @@ describe('OBJECT_KIND_REGISTRY', () => {
     expect(chair?.defaultScale).toBeUndefined()
   })
 
-  it('has gridRestriction for hex-incompatible objects', () => {
+  it('has gridRestriction for square-only objects', () => {
     const torch = OBJECT_KIND_ENTRIES.find((e) => e.id === 'torch')
     expect(torch?.gridRestriction).toBe('square')
-    const door = OBJECT_KIND_ENTRIES.find((e) => e.id === 'door')
-    expect(door?.gridRestriction).toBeUndefined()
   })
 
   it('keeps the default scale inside the available scales when scales are present', () => {
@@ -111,9 +110,10 @@ describe('OBJECT_KIND_REGISTRY', () => {
   })
 
   it('recognizes only registered kinds', () => {
-    expect(isKnownKind('door')).toBe(true)
+    expect(isKnownKind('stairs')).toBe(true)
     expect(isKnownKind('torch')).toBe(true)
     expect(isKnownKind('dragon')).toBe(false)
+    expect(isKnownKind('door')).toBe(false)
     // Свойства прототипа не должны проходить guard.
     expect(isKnownKind('toString')).toBe(false)
     expect(isKnownKind('constructor')).toBe(false)
@@ -140,11 +140,13 @@ describe('element images pool', () => {
       }
     }
     // Обратная связь: каждый элемент манифеста обязан быть в пуле какого-то
-    // вида (иначе пикер не сможет его предложить).
+    // вида объектов ЛИБО принадлежать каталогу дверей (двери — не вид объекта).
+    const doorImageIds = new Set(DOOR_CATALOG.map((entry) => entry.defaultImageId))
     for (const imageId of poolIds) {
-      expect(
-        OBJECT_KIND_ENTRIES.some((entry) => (entry.imagePool ?? []).includes(imageId)),
-      ).toBe(true)
+      const ownedByKind = OBJECT_KIND_ENTRIES.some((entry) =>
+        (entry.imagePool ?? []).includes(imageId),
+      )
+      expect(ownedByKind || doorImageIds.has(imageId)).toBe(true)
     }
   })
 })
@@ -174,7 +176,7 @@ describe('cycleScale', () => {
 
   it('returns the current scale unchanged for kinds without a size list', () => {
     expect(cycleScale('chair', { w: 2, h: 2 })).toEqual({ w: 2, h: 2 })
-    expect(cycleScale('door', { w: 1, h: 1 })).toEqual({ w: 1, h: 1 })
+    expect(cycleScale('torch', { w: 1, h: 1 })).toEqual({ w: 1, h: 1 })
   })
 })
 

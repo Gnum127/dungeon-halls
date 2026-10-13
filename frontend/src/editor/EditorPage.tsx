@@ -1,44 +1,36 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { GenerationParams } from '@/generator'
 import { createRng, generateCaves, generateDungeon } from '@/generator'
 import { CanvasView } from './components/CanvasView'
-import { GridTypePicker } from './components/GridTypePicker'
 import { LightPanel } from './components/LightPanel'
 import { MapFileActions } from './components/MapFileActions'
 import type { FileActionStatus } from './components/MapFileActions'
 import { GeneratorPanel } from './components/GeneratorPanel'
 import { ObjectPalette } from './components/ObjectPalette'
 import { RenderModePicker } from './components/RenderModePicker'
-import { RoomTools } from './components/RoomTools'
+import { RegionTools } from './components/RegionTools'
 import { SectionPanel } from './components/SectionPanel'
 import { TerrainPalette } from './components/TerrainPalette'
 import { ToolRail } from './components/ToolRail'
 import type { EditorSectionId } from './components/ToolRail'
-import { WallTools } from './components/WallTools'
-import { useEditor } from './hooks/useEditor'
 import { usePersistentBoolean } from './hooks/usePersistentBoolean'
 import { useSpriteAtlas } from './hooks/useSpriteAtlas'
 import { createEmptyMap } from './model/createEmptyMap'
 import { OBJECT_KIND_ENTRIES, cycleScale } from './model/objects'
-import { EMPTY_TILE, TILE_TYPES } from './model/types'
-import type { ObjectRotation, ObjectScale, TileValue } from './model/types'
 import type { ObjectKindId } from './model/objects'
+import type { ObjectRotation, ObjectScale, TileTypeName } from './model/types'
 import type { RenderMode } from './render/renderMode'
 import { loadRenderMode, saveRenderMode } from './render/renderMode'
 import { loadElementImage, saveElementImage } from './render/elementImage'
+import { loadDoorImageId, saveDoorImageId } from './render/doorTexture'
 import { EditorStore } from './store/EditorStore'
 import type { EditorTool } from './tools/editorTool'
 import { useEditorHotkeys } from './hooks/useEditorHotkeys'
+import { generatorResultToSnapshot } from './tools/generatorAdapter'
 import styles from './EditorPage.module.css'
 
-const DEFAULT_MAP_WIDTH = 40
-const DEFAULT_MAP_HEIGHT = 30
-
-function defaultBrushTile(): TileValue {
-  const floor = TILE_TYPES.indexOf('floor')
-  return floor >= 0 ? floor : EMPTY_TILE
-}
+const AUTO_WALLS_STORAGE_KEY = 'dungeon-halls.editor.autoWalls'
 
 function defaultScaleForKind(kindId: ObjectKindId): ObjectScale {
   const entry = OBJECT_KIND_ENTRIES.find((e) => e.id === kindId)
@@ -47,21 +39,14 @@ function defaultScaleForKind(kindId: ObjectKindId): ObjectScale {
 
 export function EditorPage() {
   const { t } = useTranslation()
-  const [store] = useState(
-    () => new EditorStore(createEmptyMap(DEFAULT_MAP_WIDTH, DEFAULT_MAP_HEIGHT)),
-  )
-  const [tool, setTool] = useState<EditorTool>(() => ({
-    type: 'terrain',
-    tile: defaultBrushTile(),
-  }))
+  const [store] = useState(() => new EditorStore(createEmptyMap()))
+  const [tileType, setTileType] = useState<TileTypeName>('floor')
+  const [tool, setTool] = useState<EditorTool>(() => ({ type: 'region-rect', tileType: 'floor' }))
+  const [doorImageId, setDoorImageId] = useState<string | null>(() => loadDoorImageId())
   const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null)
   const [fileStatus, setFileStatus] = useState<FileActionStatus | null>(null)
-  // Единый источник заливки для кисти и инструментов комнат.
-  const [brushTile, setBrushTile] = useState<TileValue>(defaultBrushTile)
   const [polygonVertexCount, setPolygonVertexCount] = useState(6)
-  // Одна панель за раз; повторный клик по активной иконке прячет панель.
   const [activeSection, setActiveSection] = useState<EditorSectionId | null>('landscape')
-  // Скрываемые панели: состояние свёрнутости персистится в localStorage.
   const [landscapeCollapsed, toggleLandscapeCollapsed] = usePersistentBoolean(
     'dungeon-halls.editor.panels.collapsed.v1.landscape',
     false,
@@ -70,21 +55,15 @@ export function EditorPage() {
     'dungeon-halls.editor.panels.collapsed.v1.elements',
     false,
   )
-  // Реактивная модель: выбор типа сетки и дизейбл генератора живут в UI страницы.
-  const model = useEditor(store)
+  const [autoWalls, toggleAutoWalls] = usePersistentBoolean(AUTO_WALLS_STORAGE_KEY, true)
 
-  // Режим отображения и атлас — настройка просмотра, не данные карты.
   const { atlas, status: atlasStatus } = useSpriteAtlas()
   const [renderMode, setRenderMode] = useState<RenderMode>(loadRenderMode)
-  // Свойства инструмента света (действуют на следующее размещение).
   const [lightRadius, setLightRadius] = useState(3)
   const [lightColor, setLightColor] = useState('#ffd682')
-
-  // Состояние объекта: rotation/scale для следующего размещения.
   const [objectRotation, setObjectRotation] = useState<ObjectRotation>(0)
   const [objectScale, setObjectScale] = useState<ObjectScale>({ w: 1, h: 1 })
 
-  // Персист выбора изображения вида: null = «по умолчанию» (defaultImage).
   const [elementImageOverrides, setElementImageOverrides] = useState<
     Partial<Record<ObjectKindId, string | null>>
   >(() => {
@@ -93,20 +72,56 @@ export function EditorPage() {
     return initial
   })
 
-  // Атлас + выбор изображений — единый контекст рендера (канвас, PNG/UVTT).
   const spriteContext =
     renderMode === 'sprites' && atlas
       ? { ...atlas, imageOverrides: elementImageOverrides }
       : undefined
 
-  // Последний непустой тайл кисти — куда возвращает клавиша B.
-  const lastBrushTileRef = useRef<TileValue>(defaultBrushTile())
-
-  function selectTerrain(tile: TileValue) {
+  function selectTile(next: TileTypeName) {
     setSelectedObjectId(null)
-    setBrushTile(tile)
-    if (tile !== EMPTY_TILE) lastBrushTileRef.current = tile
-    setTool({ type: 'terrain', tile })
+    setTileType(next)
+    setTool((current) =>
+      current.type === 'region-polygon'
+        ? { type: 'region-polygon', tileType: next, vertices: polygonVertexCount }
+        : { type: 'region-rect', tileType: next },
+    )
+  }
+
+  function selectRect() {
+    setSelectedObjectId(null)
+    setTool({ type: 'region-rect', tileType })
+  }
+
+  function selectPolygon() {
+    setSelectedObjectId(null)
+    setTool({ type: 'region-polygon', tileType, vertices: polygonVertexCount })
+  }
+
+  function selectEraser() {
+    setSelectedObjectId(null)
+    setTileType('empty')
+    setTool({ type: 'region-rect', tileType: 'empty' })
+  }
+
+  function selectWall() {
+    setSelectedObjectId(null)
+    setTool({ type: 'wall' })
+  }
+
+  function selectDoor() {
+    setSelectedObjectId(null)
+    setTool({ type: 'door', imageId: doorImageId })
+  }
+
+  function changeDoorImage(imageId: string | null) {
+    saveDoorImageId(imageId)
+    setDoorImageId(imageId)
+    if (tool.type === 'door') setTool({ type: 'door', imageId })
+  }
+
+  function changeVertexCount(count: number) {
+    setPolygonVertexCount(count)
+    if (tool.type === 'region-polygon') setTool({ ...tool, vertices: count })
   }
 
   function selectObjectKind(kindId: ObjectKindId) {
@@ -119,16 +134,6 @@ export function EditorPage() {
   function selectMoveTool() {
     setSelectedObjectId(null)
     setTool({ type: 'select' })
-  }
-
-  function selectWallTool(mode: 'wall' | 'wall-eraser' | 'door') {
-    setSelectedObjectId(null)
-    setTool({ type: mode })
-  }
-
-  function selectRoomTool(mode: 'room-rect' | 'room-polygon') {
-    setSelectedObjectId(null)
-    setTool({ type: mode })
   }
 
   function rotateObject() {
@@ -160,6 +165,14 @@ export function EditorPage() {
     setActiveSection((current) => (current === id ? null : id))
   }
 
+  function handleGenerate(params: GenerationParams) {
+    setSelectedObjectId(null)
+    const rng = createRng(params.seed)
+    const result =
+      params.type === 'dungeon' ? generateDungeon(params, rng) : generateCaves(params, rng)
+    store.dispatch({ kind: 'replaceMap', snapshot: generatorResultToSnapshot(result) })
+  }
+
   function renderSection() {
     switch (activeSection) {
       case 'landscape':
@@ -170,9 +183,21 @@ export function EditorPage() {
             collapsed={landscapeCollapsed}
             onToggleCollapsed={toggleLandscapeCollapsed}
           >
-            <TerrainPalette
-              selected={tool.type === 'terrain' ? tool.tile : -1}
-              onSelect={selectTerrain}
+            <TerrainPalette selected={tileType} onSelect={selectTile} />
+            <RegionTools
+              activeTool={tool}
+              tileType={tileType}
+              vertexCount={polygonVertexCount}
+              autoWalls={autoWalls}
+              doorImageId={doorImageId}
+              onSelectRect={selectRect}
+              onSelectPolygon={selectPolygon}
+              onSelectEraser={selectEraser}
+              onSelectWall={selectWall}
+              onSelectDoor={selectDoor}
+              onVertexCountChange={changeVertexCount}
+              onAutoWallsChange={toggleAutoWalls}
+              onDoorImageChange={changeDoorImage}
             />
           </SectionPanel>
         )
@@ -195,31 +220,6 @@ export function EditorPage() {
               onResize={resizeObject}
               elementImageOverrides={elementImageOverrides}
               onSelectElementImage={selectElementImage}
-            />
-          </SectionPanel>
-        )
-      case 'rooms':
-        return (
-          <SectionPanel title={t('editor.sections.rooms')}>
-            <WallTools
-              activeMode={
-                tool.type === 'wall' || tool.type === 'wall-eraser' || tool.type === 'door'
-                  ? tool.type
-                  : null
-              }
-              disabled={model.gridType !== 'square'}
-              onSelectWall={() => selectWallTool('wall')}
-              onSelectEraser={() => selectWallTool('wall-eraser')}
-              onSelectDoor={() => selectWallTool('door')}
-            />
-            <RoomTools
-              activeMode={tool.type === 'room-rect' || tool.type === 'room-polygon' ? tool.type : null}
-              disabled={model.gridType !== 'square'}
-              tile={brushTile}
-              vertexCount={polygonVertexCount}
-              onVertexCountChange={setPolygonVertexCount}
-              onSelectRect={() => selectRoomTool('room-rect')}
-              onSelectPolygon={() => selectRoomTool('room-polygon')}
             />
           </SectionPanel>
         )
@@ -251,17 +251,12 @@ export function EditorPage() {
               atlasStatus={atlasStatus}
               onChange={changeRenderMode}
             />
-            <GridTypePicker
-              gridType={model.gridType}
-              disabled={model.walls.length > 0 || model.doors.length > 0}
-              onChange={(gridType) => store.dispatch({ kind: 'setGridType', gridType })}
-            />
           </SectionPanel>
         )
       case 'generation':
         return (
           <SectionPanel title={t('editor.sections.generation')}>
-            <GeneratorPanel onGenerate={handleGenerate} gridDisabled={model.gridType !== 'square'} />
+            <GeneratorPanel onGenerate={handleGenerate} />
           </SectionPanel>
         )
       case 'file':
@@ -270,9 +265,7 @@ export function EditorPage() {
             <MapFileActions
               getModel={() => store.getModel()}
               sprites={spriteContext}
-              uvttDisabled={model.gridType !== 'square'}
-              pdfDisabled={model.gridType !== 'square'}
-              onLoaded={(model) => store.reset(model)}
+              onLoaded={(loaded) => store.reset(loaded)}
               onResult={setFileStatus}
             />
             {fileStatus !== null && (
@@ -287,33 +280,15 @@ export function EditorPage() {
     }
   }
 
-  function handleGenerate(params: GenerationParams) {
-    // Выделение сбрасываем: id объектов не переживают replaceMap,
-    // иначе Delete по несуществующему объекту бросит RangeError.
-    setSelectedObjectId(null)
-    const rng = createRng(params.seed)
-    const result =
-      params.type === 'dungeon' ? generateDungeon(params, rng) : generateCaves(params, rng)
-    store.dispatch({
-      kind: 'replaceMap',
-      width: result.width,
-      height: result.height,
-      tiles: result.tiles,
-    })
-  }
-
   useEditorHotkeys({
     onUndo: () => store.undo(),
     onRedo: () => store.redo(),
-    onSelectBrush: () => selectTerrain(lastBrushTileRef.current),
-    onSelectEraser: () => selectTerrain(EMPTY_TILE),
-    onSelectWalls: () => {
-      // Хоткей не должен обходить UI-гард: рёбра определены только на square.
-      if (model.gridType === 'square') selectWallTool('wall')
-    },
-    onSelectDoors: () => {
-      if (model.gridType === 'square') selectWallTool('door')
-    },
+    onSelectSelect: selectMoveTool,
+    onSelectRegionRect: selectRect,
+    onSelectRegionPolygon: selectPolygon,
+    onSelectEraser: selectEraser,
+    onSelectWalls: selectWall,
+    onSelectDoors: selectDoor,
     onSelectLights: () => {
       setSelectedObjectId(null)
       setTool({ type: 'light' })
@@ -333,8 +308,8 @@ export function EditorPage() {
           selectedObjectId={selectedObjectId}
           onSelectObject={setSelectedObjectId}
           sprites={spriteContext}
-          roomTile={brushTile}
-          polygonVertexCount={polygonVertexCount}
+          tileType={tileType}
+          autoWalls={autoWalls}
           lightRadius={lightRadius}
           lightColor={lightColor}
         />

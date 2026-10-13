@@ -110,23 +110,19 @@ export async function assemblePdf(
 /**
  * Экспорт карты в многостраничный PDF для печати: карта режется на страницы
  * по computePrintLayout, каждая страница рендерится растром через
- * renderToCanvas (square-only — guard внутри), склеивается jsPDF'ом.
- * Только square-сетка: гексы печатаются через SVG + браузерную печать.
+ * renderToCanvas, склеивается jsPDF'ом.
  */
 export async function exportMapToPdf(
   model: MapModel,
   options: BuildPdfOptions = {},
   renderPage: PageRenderer = defaultPageRenderer,
 ): Promise<Blob> {
-  if (model.gridType !== 'square') {
-    throw new RangeError('PDF export supports square grids only')
-  }
   const paper = options.paper ?? 'a4'
   const orientation = options.orientation ?? 'portrait'
   const cellInches = options.cellInches ?? 1
 
   const layout = computePrintLayout(paper, orientation, cellInches)
-  const pages = paginateMap(model.width, model.height, layout.pageCols, layout.pageRows)
+  const pages = paginateMap(model.grid.width, model.grid.height, layout.pageCols, layout.pageRows)
   const rendered = pages.map((page) =>
     renderPage(
       model,

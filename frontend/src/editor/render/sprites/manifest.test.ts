@@ -11,7 +11,7 @@ import {
 const VALID = {
   version: 1,
   tiles: { floor: 'tiles/floor.png', wall: 'tiles/wall.png' },
-  objects: { door: 'objects/door.png' },
+  objects: { table: 'objects/table.png' },
 }
 
 const VALID_ELEMENT = {
@@ -24,7 +24,7 @@ describe('validateManifest', () => {
     expect(validateManifest(VALID)).toEqual({
       version: 1,
       tiles: { floor: 'tiles/floor.png', wall: 'tiles/wall.png' },
-      objects: { door: 'objects/door.png' },
+      objects: { table: 'objects/table.png' },
     })
     expect(validateManifest({ version: 1, tiles: {}, objects: {} })).toEqual({
       version: 1,
@@ -57,12 +57,33 @@ describe('validateManifest', () => {
     expect(validateManifest({ version: 1, objects: {} })).toBeNull()
     expect(validateManifest({ version: 1, tiles: {} })).toBeNull()
     expect(validateManifest({ ...VALID, tiles: { floor: '' } })).toBeNull()
-    expect(validateManifest({ ...VALID, objects: { door: 42 } })).toBeNull()
+    expect(validateManifest({ ...VALID, objects: { table: 42 } })).toBeNull()
   })
 
   it('exposes the manifest path and schema version constants', () => {
     expect(SPRITE_MANIFEST_PATH).toBe('sprites/manifest.json')
     expect(SPRITE_MANIFEST_VERSION).toBe(1)
+  })
+
+  it('accepts a tile pool and omits the field when absent', () => {
+    const pools = { floor: ['tiles/floor_01.png', 'tiles/floor_02.png'] }
+    expect(validateManifest({ ...VALID, tilePools: pools })).toEqual({
+      version: 1,
+      tiles: { floor: 'tiles/floor.png', wall: 'tiles/wall.png' },
+      objects: { table: 'objects/table.png' },
+      tilePools: pools,
+    })
+    expect(validateManifest(VALID)).not.toHaveProperty('tilePools')
+  })
+
+  it('rejects malformed tile pools', () => {
+    expect(validateManifest({ ...VALID, tilePools: { lava: ['tiles/x.png'] } })).toBeNull()
+    expect(validateManifest({ ...VALID, tilePools: { floor: [] } })).toBeNull()
+    expect(validateManifest({ ...VALID, tilePools: { floor: [''] } })).toBeNull()
+    expect(validateManifest({ ...VALID, tilePools: { floor: [42] } })).toBeNull()
+    expect(validateManifest({ ...VALID, tilePools: { floor: 'tiles/x.png' } })).toBeNull()
+    expect(validateManifest({ ...VALID, tilePools: null })).toBeNull()
+    expect(validateManifest({ ...VALID, tilePools: [] })).toBeNull()
   })
 })
 

@@ -1,12 +1,31 @@
 import { useCallback } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react'
-import type { GridType } from '@/shared/tiles'
 import type { Viewport } from '../render/viewport'
 import { screenToCell } from '../render/viewport'
 
 /** Минимум, нужный для перевода точки в клетку карты. */
 export type ClientPoint = Pick<ReactPointerEvent<HTMLCanvasElement>, 'clientX' | 'clientY'>
+
+/** Общий перевод клиентских координат в мировые клетки (не пиксели). */
+export function useWorldPointFromEvent(
+  canvasRef: RefObject<HTMLCanvasElement | null>,
+  viewportRef: RefObject<Viewport>,
+): (point: ClientPoint) => { x: number; y: number } {
+  return useCallback(
+    (point: ClientPoint) => {
+      const canvas = canvasRef.current
+      const viewport = viewportRef.current
+      if (!canvas || !viewport) return { x: Number.NaN, y: Number.NaN }
+      const rect = canvas.getBoundingClientRect()
+      return {
+        x: (point.clientX - rect.left + viewport.offsetX) / viewport.cellSize,
+        y: (point.clientY - rect.top + viewport.offsetY) / viewport.cellSize,
+      }
+    },
+    [canvasRef, viewportRef],
+  )
+}
 
 /**
  * Общий для инструментов перевод клиентских координат события в клетку.
@@ -15,7 +34,6 @@ export type ClientPoint = Pick<ReactPointerEvent<HTMLCanvasElement>, 'clientX' |
 export function useCellFromEvent(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   viewportRef: RefObject<Viewport>,
-  gridType: GridType,
 ): (point: ClientPoint) => { x: number; y: number } {
   return useCallback(
     (point: ClientPoint) => {
@@ -23,8 +41,8 @@ export function useCellFromEvent(
       const viewport = viewportRef.current
       if (!canvas || !viewport) return { x: Number.NaN, y: Number.NaN }
       const rect = canvas.getBoundingClientRect()
-      return screenToCell(viewport, point.clientX - rect.left, point.clientY - rect.top, gridType)
+      return screenToCell(viewport, point.clientX - rect.left, point.clientY - rect.top)
     },
-    [canvasRef, viewportRef, gridType],
+    [canvasRef, viewportRef],
   )
 }

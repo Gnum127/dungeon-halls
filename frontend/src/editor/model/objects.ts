@@ -7,13 +7,6 @@ export type ObjectCategory = 'structural' | 'furniture' | 'dungeon'
  * записью сюда (+ ключи i18n), без изменения кода потребителей.
  */
 export const OBJECT_KIND_REGISTRY = {
-  door: {
-    labelKey: 'editor.objects.door',
-    color: '#b0762f',
-    category: 'structural' as const,
-    defaultImage: 'door-wooden',
-    imagePool: ['door-wooden', 'door-iron'],
-  },
   stairs: {
     labelKey: 'editor.objects.stairs',
     color: '#7a7f8c',

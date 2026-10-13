@@ -1,12 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createEmptyMap } from '../model/createEmptyMap'
-import { TILE_TYPES } from '../model/types'
+import { createTerrainRegion } from '../model/regions'
 import type { MapModel } from '../model/types'
 import { EditorStore, HISTORY_LIMIT } from './EditorStore'
 
-const FLOOR = TILE_TYPES.indexOf('floor')
-const WATER = TILE_TYPES.indexOf('water')
-const DOOR_KIND = 'door'
+const SQUARE = [
+  { x: 0, y: 0 },
+  { x: 1, y: 0 },
+  { x: 1, y: 1 },
+  { x: 0, y: 1 },
+]
+
+function region(id: string) {
+  return createTerrainRegion('floor', SQUARE, 0, id)
+}
 
 function makeStore(): EditorStore {
   return new EditorStore(createEmptyMap(3, 3))
@@ -22,7 +29,7 @@ describe('EditorStore', () => {
 
     expect(store.getModel()).toBe(store.getModel())
 
-    store.dispatch({ kind: 'setTile', x: 0, y: 0, tile: FLOOR })
+    store.dispatch({ kind: 'addRegion', region: region('a') })
     const afterDispatch = store.getModel()
     expect(store.getModel()).toBe(afterDispatch)
   })
@@ -32,11 +39,11 @@ describe('EditorStore', () => {
     const listener = vi.fn()
     const unsubscribe = store.subscribe(listener)
 
-    store.dispatch({ kind: 'setTile', x: 0, y: 0, tile: FLOOR })
+    store.dispatch({ kind: 'addRegion', region: region('a') })
     expect(listener).toHaveBeenCalledTimes(1)
 
     unsubscribe()
-    store.dispatch({ kind: 'setTile', x: 1, y: 1, tile: FLOOR })
+    store.dispatch({ kind: 'addRegion', region: region('b') })
     expect(listener).toHaveBeenCalledTimes(1)
   })
 
@@ -46,7 +53,7 @@ describe('EditorStore', () => {
     store.subscribe(listener)
 
     const before = store.getModel()
-    store.dispatch({ kind: 'setTile', x: 0, y: 0, tile: 0 })
+    store.dispatch({ kind: 'removeRegion', id: 'missing' })
 
     expect(store.getModel()).toBe(before)
     expect(listener).not.toHaveBeenCalled()
@@ -56,9 +63,9 @@ describe('EditorStore', () => {
   it('undo restores the exact previous model and redo reapplies it', () => {
     const store = makeStore()
     const initial = store.getModel()
-    store.dispatch({ kind: 'setTile', x: 0, y: 0, tile: FLOOR })
+    store.dispatch({ kind: 'addRegion', region: region('a') })
     const afterFirst = store.getModel()
-    store.dispatch({ kind: 'setTile', x: 1, y: 1, tile: WATER })
+    store.dispatch({ kind: 'addRegion', region: region('b') })
 
     expect(store.undo()).toBe(true)
     expect(store.getModel()).toBe(afterFirst)
@@ -77,11 +84,11 @@ describe('EditorStore', () => {
 
   it('a new dispatch after undo clears the redo branch', () => {
     const store = makeStore()
-    store.dispatch({ kind: 'setTile', x: 0, y: 0, tile: FLOOR })
+    store.dispatch({ kind: 'addRegion', region: region('a') })
     store.undo()
     expect(store.canRedo()).toBe(true)
 
-    store.dispatch({ kind: 'setTile', x: 2, y: 2, tile: WATER })
+    store.dispatch({ kind: 'addRegion', region: region('b') })
     expect(store.canRedo()).toBe(false)
     expect(store.redo()).toBe(false)
   })
@@ -91,7 +98,7 @@ describe('EditorStore', () => {
     const listener = vi.fn()
     store.subscribe(listener)
 
-    store.dispatch({ kind: 'setTile', x: 0, y: 0, tile: FLOOR })
+    store.dispatch({ kind: 'addRegion', region: region('a') })
     expect(listener).toHaveBeenCalledTimes(1)
 
     store.undo()
@@ -110,16 +117,26 @@ describe('EditorStore', () => {
     expect(store.redo()).toBe(false)
   })
 
-  it('replaceMap is one history entry: undo restores objects and dimensions', () => {
+  it('replaceMap is one history entry: undo restores objects and grid', () => {
     const store = makeStore()
-    store.dispatch({ kind: 'addObject', x: 0, y: 0, kindId: DOOR_KIND })
-    store.dispatch({ kind: 'addObject', x: 2, y: 2, kindId: DOOR_KIND })
+    store.dispatch({ kind: 'addObject', x: 0, y: 0, kindId: 'chair' })
+    store.dispatch({ kind: 'addObject', x: 2, y: 2, kindId: 'chair' })
     const before = store.getModel()
 
-    store.dispatch({ kind: 'replaceMap', width: 2, height: 2, tiles: [FLOOR, FLOOR, FLOOR, FLOOR] })
+    store.dispatch({
+      kind: 'replaceMap',
+      snapshot: {
+        grid: { width: 2, height: 2, cellSize: 64 },
+        regions: [],
+        walls: [],
+        doors: [],
+        objects: [],
+        lights: [],
+      },
+    })
 
     expect(store.getModel().objects).toEqual([])
-    expect(store.getModel().width).toBe(2)
+    expect(store.getModel().grid.width).toBe(2)
 
     expect(store.undo()).toBe(true)
     expect(store.getModel()).toBe(before)
@@ -127,40 +144,43 @@ describe('EditorStore', () => {
     expect(store.canRedo()).toBe(true)
   })
 
-  it('setGridType is one history entry: undo restores the type and keeps content', () => {
+  it('addRegionWithWalls is one history entry: undo restores region and walls', () => {
     const store = makeStore()
-    store.dispatch({ kind: 'setTile', x: 1, y: 1, tile: FLOOR })
-    store.dispatch({ kind: 'addObject', x: 0, y: 0, kindId: DOOR_KIND })
     const before = store.getModel()
 
-    store.dispatch({ kind: 'setGridType', gridType: 'hex-pointy' })
+    store.dispatch({
+      kind: 'addRegionWithWalls',
+      region: region('a'),
+      walls: [
+        {
+          id: 'w1',
+          points: [
+            { x: 0, y: 0 },
+            { x: 1, y: 0 },
+          ],
+          extends: 'right',
+          thickness: 0.5,
+        },
+      ],
+    })
 
-    expect(store.getModel().gridType).toBe('hex-pointy')
-    // Метаданные меняются, содержимое сохраняется.
-    expect(store.getModel().tiles).toBe(before.tiles)
-    expect(store.getModel().objects).toEqual(before.objects)
+    expect(store.getModel().regions).toHaveLength(1)
+    expect(store.getModel().walls).toHaveLength(1)
 
     expect(store.undo()).toBe(true)
     expect(store.getModel()).toBe(before)
+    expect(store.getModel().walls).toEqual([])
     expect(store.canRedo()).toBe(true)
-
-    // No-op при неизменном типе не пишет историю: стор не уведомляет.
-    store.redo()
-    const listener = vi.fn()
-    store.subscribe(listener)
-    store.dispatch({ kind: 'setGridType', gridType: 'hex-pointy' })
-    expect(listener).not.toHaveBeenCalled()
   })
 
   it('reset replaces the document and clears history', () => {
     const store = makeStore()
     const listener = vi.fn()
     store.subscribe(listener)
-    store.dispatch({ kind: 'setTile', x: 0, y: 0, tile: FLOOR })
+    store.dispatch({ kind: 'addRegion', region: region('a') })
     listener.mockClear()
 
-    const replacement = createEmptyMap(3, 3)
-    replacement.tiles[5] = WATER
+    const replacement: MapModel = createEmptyMap(3, 3)
     store.reset(replacement)
 
     expect(store.getModel()).toBe(replacement)
@@ -183,15 +203,23 @@ describe('EditorStore', () => {
   })
 
   it('keeps history depth at HISTORY_LIMIT entries and evicts the oldest states', () => {
-    const store = new EditorStore(createEmptyMap(10, 10))
+    const store = new EditorStore(createEmptyMap(320, 20))
     const snapshots: MapModel[] = [store.getModel()]
     const total = HISTORY_LIMIT + 7
     for (let i = 0; i < total; i += 1) {
       store.dispatch({
-        kind: 'setTile',
-        x: i % 10,
-        y: Math.floor(i / 10),
-        tile: FLOOR,
+        kind: 'addRegion',
+        region: createTerrainRegion(
+          'floor',
+          [
+            { x: i % 300, y: 0 },
+            { x: (i % 300) + 1, y: 0 },
+            { x: (i % 300) + 1, y: 1 },
+            { x: i % 300, y: 1 },
+          ],
+          0,
+          `r${i}`,
+        ),
       })
       snapshots.push(store.getModel())
     }
@@ -201,8 +229,6 @@ describe('EditorStore', () => {
 
     expect(undos).toBe(HISTORY_LIMIT)
     expect(store.canUndo()).toBe(false)
-    // Выживает ровно последняя HISTORY_LIMIT команд: после исчерпания undo
-    // текущая модель — состояние сразу после (total - HISTORY_LIMIT)-го dispatch.
     expect(store.getModel()).toBe(snapshots[total - HISTORY_LIMIT])
 
     let redos = 0

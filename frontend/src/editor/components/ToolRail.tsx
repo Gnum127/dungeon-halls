@@ -5,7 +5,6 @@ import styles from './ToolRail.module.css'
 export type EditorSectionId =
   | 'landscape'
   | 'elements'
-  | 'rooms'
   | 'light'
   | 'view'
   | 'generation'
@@ -19,7 +18,6 @@ export interface ToolRailProps {
 const SECTION_ORDER: readonly EditorSectionId[] = [
   'landscape',
   'elements',
-  'rooms',
   'light',
   'view',
   'generation',
@@ -36,19 +34,6 @@ function BoxIcon() {
       <path d="M4 7l8-4 8 4v10l-8 4-8-4z" />
       <path d="M4 7l8 4 8-4" />
       <path d="M12 11v10" />
-    </g>
-  )
-}
-
-function WallIcon() {
-  return (
-    <g>
-      <rect x="4" y="4" width="16" height="16" rx="1" />
-      <path d="M4 9h16" />
-      <path d="M4 15h16" />
-      <path d="M9 4v5" />
-      <path d="M14 9v6" />
-      <path d="M9 15v5" />
     </g>
   )
 }
@@ -96,7 +81,6 @@ function ExportIcon() {
 const ICONS: Record<EditorSectionId, ReactNode> = {
   landscape: <SwatchIcon />,
   elements: <BoxIcon />,
-  rooms: <WallIcon />,
   light: <BulbIcon />,
   view: <EyeIcon />,
   generation: <DiceIcon />,

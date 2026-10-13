@@ -1,8 +1,6 @@
 {
   "version": 1,
   "items": {
-    "door-wooden": "element-images/door-wooden.png",
-    "door-iron": "element-images/door-iron.png",
     "stairs-wooden": "element-images/stairs-wooden.png",
     "stairs-stone": "element-images/stairs-stone.png",
     "table-wooden": "element-images/table-wooden.png",
@@ -18,6 +16,9 @@
     "bush-green": "element-images/bush-green.png",
     "bush-barren": "element-images/bush-barren.png",
     "rock-boulder": "element-images/rock-boulder.png",
-    "rock-cave": "element-images/rock-cave.png"
+    "rock-cave": "element-images/rock-cave.png",
+    "door-wooden": "element-images/doors/door-wooden.png",
+    "door-iron": "element-images/doors/door-iron.png",
+    "door-stone": "element-images/doors/door-stone.png"
   }
 }

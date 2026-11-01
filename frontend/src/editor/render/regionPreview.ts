@@ -1,4 +1,5 @@
 import { TILE_COLORS } from './colors'
+import { wallPath } from './renderMap'
 import type { Point } from '@/shared/point'
 import type { WallSegment } from '../model/wallSegments'
 import type { TileTypeName } from '../model/types'
@@ -45,11 +46,13 @@ export function drawRegionPreview(
     ctx.lineJoin = 'round'
     for (const wall of preview.walls) {
       if (wall.points.length < 2) continue
+      const { points, closed } = wallPath(wall)
       ctx.beginPath()
-      ctx.moveTo(wall.points[0].x * cellSize - offsetX, wall.points[0].y * cellSize - offsetY)
-      for (let i = 1; i < wall.points.length; i += 1) {
-        ctx.lineTo(wall.points[i].x * cellSize - offsetX, wall.points[i].y * cellSize - offsetY)
+      ctx.moveTo(points[0].x * cellSize - offsetX, points[0].y * cellSize - offsetY)
+      for (let i = 1; i < points.length; i += 1) {
+        ctx.lineTo(points[i].x * cellSize - offsetX, points[i].y * cellSize - offsetY)
       }
+      if (closed) ctx.closePath()
       ctx.stroke()
     }
   }

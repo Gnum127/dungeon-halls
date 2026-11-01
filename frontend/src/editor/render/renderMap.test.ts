@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderMap } from './renderMap'
+import { renderMap, wallPath } from './renderMap'
 import { makeFakeCtx } from './testFakeCtx'
 import { createTerrainRegion } from '../model/regions'
 import { createWallSegment } from '../model/wallSegments'
@@ -106,6 +106,41 @@ describe('renderMap', () => {
 
     expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === WALL_BODY_COLOR)).toBe(true)
     expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === WALL_LINE_COLOR)).toBe(true)
+  })
+
+  it('draws a closed contour as one closed path', () => {
+    const wall = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+        { x: 2, y: 2 },
+        { x: 0, y: 2 },
+        { x: 0, y: 0 },
+      ],
+      { id: 'w1' },
+    )
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ walls: [wall] }), viewport)
+
+    // Only the wall closes its path (no regions in the model).
+    expect(calls.filter((c) => c.op === 'closePath')).toHaveLength(1)
+    expect(calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_BODY_COLOR)).toHaveLength(1)
+    expect(calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_LINE_COLOR)).toHaveLength(1)
+  })
+
+  it('leaves an open wall polyline unclosed', () => {
+    const wall = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 3, y: 0 },
+        { x: 3, y: 2 },
+      ],
+      { id: 'w1' },
+    )
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ walls: [wall] }), viewport)
+
+    expect(calls.some((c) => c.op === 'closePath')).toBe(false)
   })
 
   it('draws a closed door as a filled rectangle', () => {
@@ -271,5 +306,55 @@ describe('renderMap', () => {
     const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
     expect(drawn).toHaveLength(4)
     expect(drawn.every((image) => image === single)).toBe(true)
+  })
+})
+
+describe('wallPath', () => {
+  it('drops the duplicated closing point and flags a closed contour', () => {
+    const wall = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+        { x: 2, y: 2 },
+        { x: 0, y: 0 },
+      ],
+      { id: 'w1' },
+    )
+    expect(wallPath(wall)).toEqual({
+      points: [
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+        { x: 2, y: 2 },
+      ],
+      closed: true,
+    })
+  })
+
+  it('keeps an open polyline as-is', () => {
+    const wall = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 3, y: 0 },
+      ],
+      { id: 'w1' },
+    )
+    expect(wallPath(wall)).toEqual({
+      points: [
+        { x: 0, y: 0 },
+        { x: 3, y: 0 },
+      ],
+      closed: false,
+    })
+  })
+
+  it('does not treat a degenerate 2-point loop as closed', () => {
+    const wall = createWallSegment(
+      [
+        { x: 1, y: 1 },
+        { x: 1, y: 1 },
+      ],
+      { id: 'w1' },
+    )
+    expect(wallPath(wall).closed).toBe(false)
   })
 })

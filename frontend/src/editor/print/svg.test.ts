@@ -64,6 +64,22 @@ describe('buildSvg', () => {
     expect(svg).toContain('stroke-width="64"')
   })
 
+  it('closes a closed wall contour with Z and rounds joins', () => {
+    const wall = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+        { x: 2, y: 2 },
+        { x: 0, y: 2 },
+        { x: 0, y: 0 },
+      ],
+      { id: 'w1' },
+    )
+    const svg = buildSvg(model({ walls: [wall] }))
+    expect(svg).toContain('M0 0L128 0L128 128L0 128Z')
+    expect(svg).toContain('stroke-linejoin="round"')
+  })
+
   it('renders a door as a filled rectangle', () => {
     const wall = createWallSegment(
       [

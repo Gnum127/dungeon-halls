@@ -17,6 +17,7 @@ import {
   WALL_LINE_COLOR,
 } from '../render/colors'
 import { cellCenterAt } from '../render/geometry'
+import { wallPath } from '../render/renderMap'
 
 /** Единица координат SVG: толщины стен/дверей остаются пропорциональными. */
 export const SVG_UNITS_PER_CELL = 64
@@ -108,16 +109,18 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
     const byThickness = new Map<number, string>()
     for (const wall of model.walls) {
       if (wall.points.length < 2) continue
-      const seg: string[] = [`M${fmt(wall.points[0].x * s)} ${fmt(wall.points[0].y * s)}`]
-      for (let i = 1; i < wall.points.length; i += 1) {
-        seg.push(`L${fmt(wall.points[i].x * s)} ${fmt(wall.points[i].y * s)}`)
+      const { points, closed } = wallPath(wall)
+      const seg: string[] = [`M${fmt(points[0].x * s)} ${fmt(points[0].y * s)}`]
+      for (let i = 1; i < points.length; i += 1) {
+        seg.push(`L${fmt(points[i].x * s)} ${fmt(points[i].y * s)}`)
       }
+      if (closed) seg.push('Z')
       byThickness.set(wall.thickness, (byThickness.get(wall.thickness) ?? '') + seg.join(''))
     }
     for (const [thickness, path] of byThickness) {
       const bodyWidth = fmt(Math.max(3, thickness * s))
       const lineWidth = fmt(Math.max(1.5, thickness * s * 0.35))
-      const join = 'stroke-linecap="round" stroke-linejoin="miter" stroke-miterlimit="2"'
+      const join = 'stroke-linecap="round" stroke-linejoin="round"'
       parts.push(
         `<path d="${path}" fill="none" stroke="${WALL_BODY_COLOR}" stroke-width="${bodyWidth}" ${join}/>`,
       )

@@ -22,6 +22,7 @@ import {
 } from './colors'
 import { cellCenterAt, visibleCellRange } from './geometry'
 import { pickIndexFromCoords } from '@/shared/random'
+import type { Point } from '@/shared/point'
 import type { Viewport } from './viewport'
 
 export interface RenderMapOptions {
@@ -268,23 +269,40 @@ function drawObject(
   ctx.restore()
 }
 
-/** Тело стены (утолщение) + тонкий контур поверх. */
+/**
+ * Осевая линия стены для рисования: точки без дублирующей замыкающей (для
+ * замкнутого контура) и признак замкнутости `points[0] === points[last]`.
+ * Единый источник геометрии стен и для canvas, и для SVG/PDF.
+ */
+export function wallPath(wall: WallSegment): { points: readonly Point[]; closed: boolean } {
+  const points = wall.points
+  const closed =
+    points.length > 2 &&
+    points[0].x === points[points.length - 1].x &&
+    points[0].y === points[points.length - 1].y
+  return { points: closed ? points.slice(0, -1) : points, closed }
+}
+
+/** Тело стены (утолщение) + тонкий контур поверх; замкнутый контур — одним путём. */
 function drawWall(ctx: CanvasRenderingContext2D, wall: WallSegment, viewport: Viewport): void {
   if (wall.points.length < 2) return
   const { cellSize, offsetX, offsetY } = viewport
   const bodyWidth = Math.max(3, wall.thickness * cellSize)
+  const { points, closed } = wallPath(wall)
 
   ctx.lineCap = 'round'
-  ctx.lineJoin = 'miter'
-  ctx.miterLimit = 2
+  // Скруглённые углы: у замкнутого контура нет концов — только стыки.
+  ctx.lineJoin = 'round'
+
+  ctx.beginPath()
+  ctx.moveTo(points[0].x * cellSize - offsetX, points[0].y * cellSize - offsetY)
+  for (let i = 1; i < points.length; i += 1) {
+    ctx.lineTo(points[i].x * cellSize - offsetX, points[i].y * cellSize - offsetY)
+  }
+  if (closed) ctx.closePath()
 
   ctx.strokeStyle = WALL_BODY_COLOR
   ctx.lineWidth = bodyWidth
-  ctx.beginPath()
-  ctx.moveTo(wall.points[0].x * cellSize - offsetX, wall.points[0].y * cellSize - offsetY)
-  for (let i = 1; i < wall.points.length; i += 1) {
-    ctx.lineTo(wall.points[i].x * cellSize - offsetX, wall.points[i].y * cellSize - offsetY)
-  }
   ctx.stroke()
 
   ctx.strokeStyle = WALL_LINE_COLOR

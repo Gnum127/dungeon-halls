@@ -26,6 +26,7 @@
       "eraser": "Eraser",
       "wall": "Wall",
       "door": "Door",
+      "stairs": "Stairs",
       "vertices": "Vertices",
       "autoWalls": "Auto walls",
       "erases": "clears the area",

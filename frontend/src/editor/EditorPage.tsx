@@ -115,6 +115,11 @@ export function EditorPage() {
     setTool({ type: 'door', imageId: doorImageId, openAngle: doorOpenAngle })
   }
 
+  function selectStairs() {
+    setSelectedObjectId(null)
+    setTool({ type: 'stairs' })
+  }
+
   function changeDoorImage(imageId: string | null) {
     saveDoorImageId(imageId)
     setDoorImageId(imageId)
@@ -204,6 +209,7 @@ export function EditorPage() {
               onSelectEraser={selectEraser}
               onSelectWall={selectWall}
               onSelectDoor={selectDoor}
+              onSelectStairs={selectStairs}
               onVertexCountChange={changeVertexCount}
               onAutoWallsChange={toggleAutoWalls}
               onDoorImageChange={changeDoorImage}

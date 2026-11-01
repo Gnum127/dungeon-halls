@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('polygon-clipping', async (importOriginal) => {
   const actual = await importOriginal<typeof import('polygon-clipping')>()
-  return { ...actual, union: vi.fn(actual.union), difference: vi.fn(actual.difference) }
+  return { ...actual, union: vi.fn(actual.union) }
 })
 
 import { union } from 'polygon-clipping'

@@ -217,20 +217,57 @@ describe('computeCoverage (painter order)', () => {
     ).toHaveLength(4)
   })
 
-  it('keeps two nested contours for a solid region with a hole', () => {
-    expect(
-      computeAutoWalls([region('floor', 0, 0, 6, 0, 'base'), region('empty', 1, 1, 4, 1, 'hole')]),
-    ).toHaveLength(8)
+  it('keeps two nested contours (outer boundary + hole) for a solid region with a hole', () => {
+    const regions = [region('floor', 0, 0, 6, 0, 'base'), region('empty', 1, 1, 4, 1, 'hole')]
+    const coverage = computeCoverage(regions)
+    expect(coverage).toHaveLength(1)
+    expect(ringCount(coverage)).toBe(2)
+    const ids = idsOf(computeAutoWalls(regions))
+    expect(ids).toHaveLength(8)
+    expect(ids).toContain('auto:1,1;5,1')
   })
 
   it('collapses nested contours into one complex contour when the hole is bridged', () => {
-    const walls = computeAutoWalls([
+    const regions = [
       region('floor', 0, 0, 6, 0, 'base'),
       region('empty', 1, 1, 4, 1, 'hole'),
       region('floor', 1, 1, 6, 2, 'bridge'),
-    ])
+    ]
+    // Before the bridge: shell + hole = two rings. After: one complex ring.
+    expect(ringCount(computeCoverage(regions.slice(0, 2)))).toBe(2)
+    expect(ringCount(computeCoverage(regions))).toBe(1)
+
+    const walls = computeAutoWalls(regions)
     expect(walls).toHaveLength(8)
+    // The former hole edges are interior now and must not be walls.
+    const ids = idsOf(walls)
+    expect(ids).not.toContain('auto:1,1;5,1')
+    expect(ids).not.toContain('auto:1,1;1,5')
     expect(walls.every((w) => isAutoWallSegmentId(w.id))).toBe(true)
+  })
+
+  it('lets an identical higher empty region erase a lower solid one completely', () => {
+    const regions = [region('floor', 0, 0, 4, 0, 'base'), region('empty', 0, 0, 4, 1, 'erase')]
+    expect(ringCount(computeCoverage(regions))).toBe(0)
+    expect(computeAutoWalls(regions)).toEqual([])
+  })
+
+  it('keeps distinct edges for genuinely fractional coordinates', () => {
+    const fractional = createTerrainRegion(
+      'floor',
+      [
+        { x: 1.5, y: 1.5 },
+        { x: 3.5, y: 1.5 },
+        { x: 3.5, y: 3.5 },
+        { x: 1.5, y: 3.5 },
+      ],
+      0,
+      'frac',
+    )
+    const ids = idsOf(computeAutoWalls([fractional]))
+    expect(ids).toContain('auto:1.5,1.5;3.5,1.5')
+    expect(ids).toHaveLength(4)
+    expect(ids).not.toEqual(idsOf(computeAutoWalls([region('floor', 1, 1, 3, 0, 'int')])))
   })
 
   it('is deterministic regardless of the order regions were inserted', () => {
@@ -240,7 +277,7 @@ describe('computeCoverage (painter order)', () => {
   })
 })
 
-describe('computeWallsWithRegion (cached base coverage)', () => {
+describe('computeWallsWithRegion (equivalence with full recompute)', () => {
   it('matches a full recompute for a solid preview region', () => {
     const base = [squareRegion(0, 0, 3, 'a')]
     const preview = squareRegion(3, 0, 3, 'p')
@@ -257,7 +294,7 @@ describe('computeWallsWithRegion (cached base coverage)', () => {
     )
   })
 
-  it('keeps existing holes when a solid preview overlaps them (matches full recompute)', () => {
+  it('matches a full recompute when a solid preview overlaps an existing hole', () => {
     const base = [squareRegion(0, 0, 4, 'a'), emptyRegion(1, 1, 2, 'e')]
     const preview = createTerrainRegion(
       'floor',

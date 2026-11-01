@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { isValidStairsShape, stairsVertices } from './stairsPlacement'
+import {
+  isValidStairsShape,
+  MIN_STAIRS_BASE,
+  MIN_STAIRS_DEPTH,
+  stairsVertices,
+} from './stairsPlacement'
 
 describe('stairsVertices', () => {
-  it('builds a parallelogram from the base and the far corner', () => {
+  it('builds a trapezoid from the base and the far corner', () => {
     expect(stairsVertices({ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 3 })).toEqual([
       { x: 0, y: 0 },
       { x: 2, y: 0 },
@@ -13,17 +18,21 @@ describe('stairsVertices', () => {
 
   it('mirrors the far corner across the perpendicular bisector of the base', () => {
     const [p0, p1, p2, p3] = stairsVertices({ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 2 })
-    expect(p3).toEqual({ x: p0.x + p2.x - p1.x, y: p0.y + p2.y - p1.y })
+    // Base midpoint x = 2 → (4,2) reflects to (0,2).
+    expect(p0).toEqual({ x: 1, y: 1 })
+    expect(p1).toEqual({ x: 3, y: 1 })
+    expect(p2).toEqual({ x: 4, y: 2 })
+    expect(p3).toEqual({ x: 0, y: 2 })
     // The far edge is parallel to the base.
-    expect({ x: p2.x - p3.x, y: p2.y - p3.y }).toEqual({ x: p1.x - p0.x, y: p1.y - p0.y })
+    expect((p2.x - p3.x) * (p1.y - p0.y) - (p2.y - p3.y) * (p1.x - p0.x)).toBeCloseTo(0)
   })
 
   it('snaps every click to the half grid', () => {
-    expect(stairsVertices({ x: 0.2, y: 0.3 }, { x: 2.4, y: 0.1 }, { x: 2.1, y: 3.3 })).toEqual([
+    expect(stairsVertices({ x: 0.2, y: 0.3 }, { x: 2.4, y: 0.4 }, { x: 2.1, y: 3.3 })).toEqual([
       { x: 0, y: 0.5 },
-      { x: 2.5, y: 0 },
+      { x: 2.5, y: 0.5 },
       { x: 2, y: 3.5 },
-      { x: -0.5, y: 4 },
+      { x: 0.5, y: 3.5 },
     ])
   })
 })
@@ -35,12 +44,52 @@ describe('isValidStairsShape', () => {
     )
   })
 
-  it('rejects a degenerate base or depth', () => {
+  it('accepts the exact minimum base and depth', () => {
+    const shape = stairsVertices(
+      { x: 0, y: 0 },
+      { x: MIN_STAIRS_BASE, y: 0 },
+      { x: MIN_STAIRS_BASE / 2, y: MIN_STAIRS_DEPTH },
+    )
+    expect(isValidStairsShape(shape)).toBe(true)
+  })
+
+  it('rejects a degenerate base', () => {
     expect(isValidStairsShape(stairsVertices({ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 2, y: 2 }))).toBe(
       false,
     )
-    expect(isValidStairsShape(stairsVertices({ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 1, y: 0 }))).toBe(
-      false,
-    )
+  })
+
+  it('rejects a far corner collinear with the base, even beyond its end', () => {
+    expect(
+      isValidStairsShape([
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+        { x: 4, y: 0 },
+        { x: -2, y: 0 },
+      ]),
+    ).toBe(false)
+    expect(stairsVertices({ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 4, y: 0 })).toHaveLength(4)
+  })
+
+  it('rejects depth below the minimum (off the lattice)', () => {
+    // Perpendicular height to the base line is 0.25 < MIN_STAIRS_DEPTH.
+    expect(
+      isValidStairsShape([
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+        { x: 1, y: 0.25 },
+        { x: 0, y: 0 },
+      ]),
+    ).toBe(false)
+  })
+
+  it('rejects a wrong vertex count', () => {
+    expect(
+      isValidStairsShape([
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 1, y: 1 },
+      ]),
+    ).toBe(false)
   })
 })

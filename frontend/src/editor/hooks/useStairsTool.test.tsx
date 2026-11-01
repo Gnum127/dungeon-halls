@@ -95,7 +95,7 @@ describe('useStairsTool', () => {
   it('places stairs after three snapped clicks', () => {
     const { click, onCommit } = setup()
     click(0.2 * CELL, 0.3 * CELL)
-    click(2.4 * CELL, 0.1 * CELL)
+    click(2.4 * CELL, 0.4 * CELL)
     click(2.1 * CELL, 3.3 * CELL)
 
     expect(onCommit).toHaveBeenCalledTimes(1)
@@ -103,9 +103,9 @@ describe('useStairsTool', () => {
       kind: 'addStairs',
       polygon: [
         { x: 0, y: 0.5 },
-        { x: 2.5, y: 0 },
+        { x: 2.5, y: 0.5 },
         { x: 2, y: 3.5 },
-        { x: -0.5, y: 4 },
+        { x: 0.5, y: 3.5 },
       ],
     })
   })
@@ -138,6 +138,14 @@ describe('useStairsTool', () => {
     click(0, 0)
     click(2 * CELL, 0)
     click(1 * CELL, 0)
+    expect(onCommit).not.toHaveBeenCalled()
+  })
+
+  it('does not commit a third click collinear past the base end', () => {
+    const { click, onCommit } = setup()
+    click(0, 0)
+    click(2 * CELL, 0)
+    click(4 * CELL, 0)
     expect(onCommit).not.toHaveBeenCalled()
   })
 

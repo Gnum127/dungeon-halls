@@ -95,6 +95,8 @@ export function useStairsTool(options: StairsToolOptions): {
       const hit = stairsHitTest(world, model.stairs)
       if (!hit) return
       event.preventDefault()
+      setClicks([])
+      setCursor(null)
       setSelectedId(null)
       onCommit({ kind: 'removeStairs', id: hit })
       return

@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react'
 import type { MapModel } from '../model/types'
+import type { Point } from '@/shared/point'
 import { isInsideMap } from '../tools/isInsideMap'
 import type { Viewport } from '../render/viewport'
-import { useCellFromEvent } from './useCellFromEvent'
+import { useCellFromEvent, useWorldPointFromEvent } from './useCellFromEvent'
 
 interface HoverCellOptions {
   canvasRef: RefObject<HTMLCanvasElement | null>
@@ -14,12 +15,18 @@ interface HoverCellOptions {
   model: MapModel
 }
 
+interface HoverState {
+  readonly cell: { x: number; y: number }
+  readonly world: Point
+}
+
 /**
- * Клетка под курсором для подсветки и статусбара. Пересчитывается и при
- * движении мыши, и при смене вьюпорта/модели под неподвижным курсором.
+ * Клетка и мировая точка под курсором для подсветки и статусбара. Пересчёт —
+ * и при движении мыши, и при смене вьюпорта/модели под неподвижным курсором.
  */
 export function useHoverCell(options: HoverCellOptions): {
   hoverCell: { x: number; y: number } | null
+  hoverWorld: Point | null
   recompute: () => void
   handlers: {
     onPointerMove: (event: ReactPointerEvent<HTMLCanvasElement>) => void
@@ -28,22 +35,30 @@ export function useHoverCell(options: HoverCellOptions): {
 } {
   const { canvasRef, viewportRef, viewport, model } = options
   const clientPointRef = useRef<{ clientX: number; clientY: number } | null>(null)
-  const [cell, setCell] = useState<{ x: number; y: number } | null>(null)
+  const [hover, setHover] = useState<HoverState | null>(null)
 
   const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
+  const worldFromEvent = useWorldPointFromEvent(canvasRef, viewportRef)
 
   const recompute = useCallback(() => {
     const point = clientPointRef.current
     if (!point) return
-    const next = cellFromEvent(point)
-    if (!isInsideMap(model, next.x, next.y)) {
-      setCell(null)
+    const cell = cellFromEvent(point)
+    if (!isInsideMap(model, cell.x, cell.y)) {
+      setHover(null)
       return
     }
-    setCell((previous) =>
-      previous && previous.x === next.x && previous.y === next.y ? previous : next,
+    const world = worldFromEvent(point)
+    setHover((previous) =>
+      previous &&
+      previous.cell.x === cell.x &&
+      previous.cell.y === cell.y &&
+      previous.world.x === world.x &&
+      previous.world.y === world.y
+        ? previous
+        : { cell, world },
     )
-  }, [cellFromEvent, model])
+  }, [cellFromEvent, worldFromEvent, model])
 
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -55,7 +70,7 @@ export function useHoverCell(options: HoverCellOptions): {
 
   const onPointerLeave = useCallback(() => {
     clientPointRef.current = null
-    setCell(null)
+    setHover(null)
   }, [])
 
   // Пан/зум под неподвижным курсором меняют клетку — пересчитываем.
@@ -64,7 +79,8 @@ export function useHoverCell(options: HoverCellOptions): {
   }, [viewport, recompute])
 
   return {
-    hoverCell: cell,
+    hoverCell: hover?.cell ?? null,
+    hoverWorld: hover?.world ?? null,
     recompute,
     handlers: { onPointerMove, onPointerLeave },
   }

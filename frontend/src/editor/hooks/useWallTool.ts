@@ -2,6 +2,8 @@ import { useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Command } from '../model/commands'
 import { createWallSegment } from '../model/wallSegments'
+import { snapToCellCharacteristics } from '../model/snap'
+import type { MapModel } from '../model/types'
 import type { Point } from '@/shared/point'
 import type { Viewport } from '../render/viewport'
 import { useWorldPointFromEvent } from './useCellFromEvent'
@@ -9,6 +11,7 @@ import { useWorldPointFromEvent } from './useCellFromEvent'
 interface WallToolOptions {
   canvasRef: RefObject<HTMLCanvasElement | null>
   active: boolean
+  model: MapModel
   viewportRef: RefObject<Viewport>
   onCommit: (command: Command | null) => void
 }
@@ -19,16 +22,11 @@ export interface WallPreview {
 }
 
 const LEFT_BUTTON = 0
-const SNAP = 0.5
-
-/** Привязка мировой точки к полуклеточной сетке (грани и центры клеток). */
-function snap(point: Point): Point {
-  return { x: Math.round(point.x / SNAP) * SNAP, y: Math.round(point.y / SNAP) * SNAP }
-}
 
 /**
- * Ручной инструмент стен: протяжка ЛКМ создаёт один сегмент стены (привязка к
- * полуклетке — грани и центры клеток). Для перегородок при выключенных авто-стенах.
+ * Ручной инструмент стен: протяжка ЛКМ создаёт один сегмент стены. Концы
+ * привязываются к характеристическим точкам клетки (9 при покрытии, 4 угла без).
+ * Для перегородок при выключенных авто-стенах.
  */
 export function useWallTool(options: WallToolOptions): {
   preview: WallPreview | null
@@ -39,14 +37,14 @@ export function useWallTool(options: WallToolOptions): {
     onPointerCancel: () => void
   }
 } {
-  const { canvasRef, active, viewportRef, onCommit } = options
+  const { canvasRef, active, model, viewportRef, onCommit } = options
   const worldFromEvent = useWorldPointFromEvent(canvasRef, viewportRef)
   const dragRef = useRef<{ pointerId: number; a: Point; b: Point } | null>(null)
   const [preview, setPreview] = useState<WallPreview | null>(null)
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (!active || event.button !== LEFT_BUTTON || dragRef.current !== null) return
-    const world = snap(worldFromEvent(event))
+    const world = snapToCellCharacteristics(model, worldFromEvent(event))
     event.preventDefault()
     try {
       canvasRef.current?.setPointerCapture(event.pointerId)
@@ -64,7 +62,7 @@ export function useWallTool(options: WallToolOptions): {
       finishDrag()
       return
     }
-    const world = snap(worldFromEvent(event))
+    const world = snapToCellCharacteristics(model, worldFromEvent(event))
     drag.b = world
     setPreview({ a: drag.a, b: world })
   }

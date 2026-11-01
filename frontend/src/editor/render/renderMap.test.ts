@@ -9,7 +9,7 @@ import { MAP_VERSION } from '../model/types'
 import {
   CANVAS_BACKGROUND_COLOR,
   DOOR_FILL_COLOR,
-  GRID_LINE_COLOR,
+  GRID_POINT_COLOR,
   LIGHT_MARKER_COLOR,
   STAIRS_OUTLINE_COLOR,
   STAIRS_STEP_COLOR,
@@ -86,8 +86,10 @@ describe('renderMap', () => {
     expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === STAIRS_OUTLINE_COLOR)).toBe(true)
     expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === STAIRS_STEP_COLOR)).toBe(true)
     expect(calls.some((c) => c.op === 'clip')).toBe(true)
-    // Stairs are an overlay: no coverage fill.
-    expect(calls.some((c) => c.op === 'fill')).toBe(false)
+    // Stairs are an overlay: the point grid is the only fill they contribute.
+    const fills = calls.filter((c) => c.op === 'fill')
+    expect(fills.length).toBeGreaterThan(0)
+    expect(fills.every((c) => c.fillStyle === GRID_POINT_COLOR)).toBe(true)
   })
 
   it('draws stairs before objects (layer order)', () => {
@@ -113,17 +115,24 @@ describe('renderMap', () => {
     const objectFill = calls.findIndex(
       (c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch,
     )
-    const gridIndex = calls.findIndex((c) => c.op === 'stroke' && c.fillStyle === GRID_LINE_COLOR)
+    const gridIndex = calls.findIndex((c) => c.op === 'fill' && c.fillStyle === GRID_POINT_COLOR)
     expect(stepIndex).toBeGreaterThanOrEqual(0)
     expect(gridIndex).toBeGreaterThan(stepIndex)
     expect(objectFill).toBeGreaterThan(stepIndex)
   })
 
-  it('draws grid lines with the grid colour', () => {
-    const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel(), viewport)
+  it('draws coverage point grid only where there is coverage', () => {
+    const empty = makeFakeCtx()
+    renderMap(empty.ctx, baseModel(), viewport)
+    expect(empty.calls.some((c) => c.op === 'fill' && c.fillStyle === GRID_POINT_COLOR)).toBe(false)
 
-    expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === GRID_LINE_COLOR)).toBe(true)
+    const region = createTerrainRegion('floor', square(0, 0, 2, 2), 0, 'r')
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ regions: [region] }), viewport)
+    const dots = calls.filter((c) => c.op === 'fill' && c.fillStyle === GRID_POINT_COLOR)
+    // A 2×2 covered block shares lattice corners → 3×3 = 9 unique points.
+    expect(dots).toHaveLength(9)
+    expect(calls.filter((c) => c.op === 'arc')).toHaveLength(9)
   })
 
   it('draws walls with a body and an outline', () => {

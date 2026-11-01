@@ -68,6 +68,9 @@ describe('computeAutoWalls (one segment per contour)', () => {
     expect(isAutoWallSegmentId(wall.id)).toBe(true)
     expect(wall.points).toHaveLength(5)
     expect(isClosed(wall.points)).toBe(true)
+    // Canonical start: the lexicographically smallest vertex — independent of the
+    // orientation/starting vertex polygon-clipping returns.
+    expect(wall.points[0]).toEqual({ x: 1, y: 1 })
     expect(wall.points).toEqual(
       expect.arrayContaining([
         { x: 1, y: 1 },
@@ -165,7 +168,7 @@ describe('computeAutoWalls (one segment per contour)', () => {
 
 describe('isAutoWallSegmentId', () => {
   it('recognizes auto ids and rejects manual ones', () => {
-    expect(isAutoWallSegmentId(`${AUTO_WALL_ID_PREFIX}0,0;1,0`)).toBe(true)
+    expect(isAutoWallSegmentId(`${AUTO_WALL_ID_PREFIX}deadbeef`)).toBe(true)
     expect(isAutoWallSegmentId('w1')).toBe(false)
   })
 })

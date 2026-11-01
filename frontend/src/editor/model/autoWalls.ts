@@ -75,17 +75,20 @@ function hashText(text: string): string {
 }
 
 /**
- * Детерминированный id контура: кольцо канонизируется (старт с минимальной
- * вершины, из двух ориентаций берётся лексикографически меньшая) и хешируется.
- * Инвариантен к порядку/ориентации ring, которую polygon-clipping не гарантирует.
+ * Канонический контур: без замыкающей точки, старт с лексикографически
+ * минимальной вершины, из двух ориентаций берётся лексикографически меньшая.
+ * Инвариант к порядку/ориентации ring, которую polygon-clipping не гарантирует,
+ * поэтому и id, и хранимая геометрия стены детерминированы.
  */
-function contourId(ring: Ring): string {
+function canonicalContour(ring: Ring): Array<[number, number]> {
   const points = ringVertices(ring)
   const forward = rotateToMin(points)
   const reversed = rotateToMin([...points].reverse())
-  const canonical = compareRings(forward, reversed) <= 0 ? forward : reversed
-  const signature = canonical.map(([x, y]) => `${x},${y}`).join(';')
-  return `${AUTO_WALL_ID_PREFIX}${hashText(signature)}`
+  return compareRings(forward, reversed) <= 0 ? forward : reversed
+}
+
+function contourSignature(points: Array<[number, number]>): string {
+  return points.map(([x, y]) => `${x},${y}`).join(';')
 }
 
 /** Вычитание из покрытия; пустой операнд polygon-clipping не принимает. */
@@ -120,28 +123,23 @@ export function computeCoverage(regions: readonly TerrainRegion[]): MultiPolygon
   return coverage
 }
 
-/** Точки кольца как замкнутый контур: первая точка дублируется в конце. */
-function closedContourPoints(ring: Ring): Point[] {
-  const points: Point[] = ring.map(([x, y]) => ({ x, y }))
-  const first = points[0]
-  const last = points[points.length - 1]
-  if (first.x !== last.x || first.y !== last.y) points.push({ x: first.x, y: first.y })
-  return points
-}
-
 /**
  * Каждое кольцо покрытия (внешняя граница или дыра) → ОДИН замкнутый
  * `WallSegment` с `points[0] === points[last]`. Вложенные контуры (граница
- * комнаты и граница дыры) — отдельные сегменты.
+ * комнаты и граница дыры) — отдельные сегменты. Точки хранятся в каноническом
+ * порядке, id — хеш канонического контура (уникальность подстраховывается
+ * суффиксом на случай коллизии).
  */
 function coverageToWalls(coverage: MultiPolygon): WallSegment[] {
   const walls: WallSegment[] = []
   const seenIds = new Set<string>()
   for (const polygon of coverage) {
     for (const ring of polygon) {
-      const points = closedContourPoints(ring)
-      if (points.length < 4) continue
-      const baseId = contourId(ring)
+      const contour = canonicalContour(ring)
+      if (contour.length < 3) continue
+      const points: Point[] = contour.map(([x, y]) => ({ x, y }))
+      points.push({ x: contour[0][0], y: contour[0][1] })
+      const baseId = `${AUTO_WALL_ID_PREFIX}${hashText(contourSignature(contour))}`
       let id = baseId
       let suffix = 1
       while (seenIds.has(id)) {

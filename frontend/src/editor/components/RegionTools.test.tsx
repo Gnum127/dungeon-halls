@@ -61,12 +61,30 @@ describe('RegionTools', () => {
     expect(props.onDoorAngleChange).toHaveBeenCalledWith(45)
   })
 
-  it('ignores a door angle outside 0..150', () => {
+  it('ignores non-integer or out-of-range angles', () => {
+    const props = renderTools()
+    const field = screen.getByRole('spinbutton', { name: 'Leaf angle' })
+    fireEvent.change(field, { target: { value: '999' } })
+    fireEvent.change(field, { target: { value: '-5' } })
+    fireEvent.change(field, { target: { value: '45.5' } })
+    expect(props.onDoorAngleChange).not.toHaveBeenCalled()
+  })
+
+  it('accepts the 0 and 150 bounds', () => {
+    const props = renderTools()
+    const field = screen.getByRole('spinbutton', { name: 'Leaf angle' })
+    fireEvent.change(field, { target: { value: '0' } })
+    fireEvent.change(field, { target: { value: '150' } })
+    expect(props.onDoorAngleChange).toHaveBeenNthCalledWith(1, 0)
+    expect(props.onDoorAngleChange).toHaveBeenNthCalledWith(2, 150)
+  })
+
+  it('treats a cleared field as angle 0', () => {
     const props = renderTools()
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Leaf angle' }), {
-      target: { value: '999' },
+      target: { value: '' },
     })
-    expect(props.onDoorAngleChange).not.toHaveBeenCalled()
+    expect(props.onDoorAngleChange).toHaveBeenCalledWith(0)
   })
 
   it('hides the door angle field for non-door tools', () => {

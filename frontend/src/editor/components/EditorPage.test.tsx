@@ -48,4 +48,22 @@ describe('EditorPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'File & export' }))
     expect(screen.queryByRole('group', { name: 'Build tools' })).not.toBeInTheDocument()
   })
+
+  it('keeps the chosen door leaf angle across tool switches', async () => {
+    await act(async () => {
+      render(<EditorPage />)
+    })
+
+    const tools = screen.getByRole('group', { name: 'Build tools' })
+    fireEvent.click(within(tools).getByRole('button', { name: 'Door' }))
+    const angle = screen.getByRole('spinbutton', { name: 'Leaf angle' })
+    expect(angle).toHaveValue(30)
+
+    fireEvent.change(angle, { target: { value: '45' } })
+    expect(angle).toHaveValue(45)
+
+    fireEvent.click(within(tools).getByRole('button', { name: 'Wall' }))
+    fireEvent.click(within(tools).getByRole('button', { name: 'Door' }))
+    expect(screen.getByRole('spinbutton', { name: 'Leaf angle' })).toHaveValue(45)
+  })
 })

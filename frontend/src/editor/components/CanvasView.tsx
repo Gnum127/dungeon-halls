@@ -252,7 +252,8 @@ export function CanvasView({
       ctx.lineCap = 'butt'
       const ax = doorPreview.a.x * viewport.cellSize - viewport.offsetX
       const ay = doorPreview.a.y * viewport.cellSize - viewport.offsetY
-      // Открывающийся проём + створка под углом панели.
+      // Линия проёма — подсказка о месте двери (на финальном рендере проём
+      // вырезается в стене); створка — под углом панели.
       ctx.beginPath()
       ctx.moveTo(ax, ay)
       ctx.lineTo(

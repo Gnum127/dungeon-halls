@@ -191,6 +191,14 @@ describe('buildSvg', () => {
     expect(svg).toMatch(/width="64"/)
   })
 
+  it('anchors the SVG leaf rotation at the hinge', () => {
+    const door = { id: 'd1', a: { x: 2, y: 3 }, b: { x: 3, y: 3 }, openAngle: 90, imageId: null }
+    // 64 units/cell → hinge at (128, 192).
+    expect(buildSvg(model({ doors: [door] }))).toContain(
+      'transform="translate(128 192) rotate(90)"',
+    )
+  })
+
   it('draws a stairs entity contour and steps clipped to it', () => {
     const stairs = [
       {

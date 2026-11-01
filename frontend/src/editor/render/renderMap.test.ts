@@ -298,6 +298,15 @@ describe('renderMap', () => {
     expect(raw.lastRotate).toBeCloseTo(Math.PI / 4)
   })
 
+  it('anchors the door translation at the hinge point', () => {
+    const door = { id: 'd1', a: { x: 2, y: 3 }, b: { x: 3, y: 3 }, openAngle: 0, imageId: null }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ doors: [door] }), viewport)
+
+    const translate = calls.find((c) => c.op === 'translate')
+    expect(translate?.args).toEqual([2 * 32, 3 * 32])
+  })
+
   it('falls back to a colour ellipse for objects without a sprite', () => {
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'torch', x: 1, y: 1 }] }), viewport)

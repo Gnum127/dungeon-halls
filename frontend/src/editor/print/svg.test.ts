@@ -125,6 +125,24 @@ describe('buildSvg', () => {
     expect(svg).not.toContain('Z')
   })
 
+  it('breaks the wall path around a door opening', () => {
+    const wall = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+      ],
+      { id: 'w1' },
+    )
+    const door = { id: 'd1', a: { x: 1.5, y: 0 }, b: { x: 2.5, y: 0 }, openAngle: 0, imageId: null }
+    const svg = buildSvg(model({ walls: [wall], doors: [door] }))
+    const body = svg.split('\n').find((line) => line.includes(`stroke="${WALL_BODY_COLOR}"`))
+    expect(body).toBeDefined()
+    expect((body?.match(/M/g) ?? []).length).toBe(2)
+    // 64 units/cell: opening 1.5..2.5 ± 1/6 → 85.333 and 170.667.
+    expect(svg).toContain('M0 0L85.333 0')
+    expect(svg).toContain('M170.667 0L256 0')
+  })
+
   it('draws a coverage point grid (only where covered)', () => {
     const empty = buildSvg(model())
     expect(empty).not.toContain(GRID_POINT_COLOR)

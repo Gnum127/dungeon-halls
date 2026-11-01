@@ -58,6 +58,129 @@ export function wallPath(wall: WallSegment): { points: readonly Point[]; closed:
   return { points: closed ? points.slice(0, -1) : points, closed }
 }
 
+/** Зазор по краям проёма двери при разрыве стены (доля клетки). */
+export const DOOR_GAP_CLEARANCE = 1 / 6
+
+const EPSILON = 1e-9
+
+function lerp(a: Point, b: Point, t: number): Point {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
+}
+
+/** Интервалы [t0, t1] вдоль ребра p→q, попадающие под проёмы (плюс зазор). */
+function edgeDoorCuts(
+  p: Point,
+  q: Point,
+  doors: readonly Segment[],
+  clearance: number,
+): [number, number][] {
+  const dx = q.x - p.x
+  const dy = q.y - p.y
+  const lengthSq = dx * dx + dy * dy
+  if (lengthSq === 0) return []
+  const length = Math.sqrt(lengthSq)
+
+  const cuts: [number, number][] = []
+  for (const door of doors) {
+    const distA = Math.abs((door.a.x - p.x) * dy - (door.a.y - p.y) * dx) / length
+    const distB = Math.abs((door.b.x - p.x) * dy - (door.b.y - p.y) * dx) / length
+    // Разрыв делаем только для дверей, лежащих на этой стене.
+    if (distA > clearance + EPSILON || distB > clearance + EPSILON) continue
+
+    const ta = ((door.a.x - p.x) * dx + (door.a.y - p.y) * dy) / lengthSq
+    const tb = ((door.b.x - p.x) * dx + (door.b.y - p.y) * dy) / lengthSq
+    const t0 = Math.max(0, Math.min(ta, tb) - clearance / length)
+    const t1 = Math.min(1, Math.max(ta, tb) + clearance / length)
+    if (t1 > t0) cuts.push([t0, t1])
+  }
+
+  cuts.sort((a, b) => a[0] - b[0])
+  const merged: [number, number][] = []
+  for (const cut of cuts) {
+    const last = merged[merged.length - 1]
+    if (last && cut[0] <= last[1]) last[1] = Math.max(last[1], cut[1])
+    else merged.push([...cut])
+  }
+  return merged
+}
+
+/**
+ * Разрыв ломаной стены по проёмам дверей: интервал двери плюс зазор
+ * `clearance` с каждой стороны вырезается, оставшиеся участки возвращаются
+ * отдельными ломаными. Единый источник разрыва для canvas и SVG/PDF.
+ */
+export function splitWallByDoorGaps(
+  points: readonly Point[],
+  doors: readonly Segment[],
+  clearance: number,
+): Point[][] {
+  const polylines: Point[][] = []
+  let run: Point[] | null = null
+
+  const append = (point: Point) => {
+    if (!run) {
+      run = [point]
+      return
+    }
+    const last = run[run.length - 1]
+    if (last.x !== point.x || last.y !== point.y) run.push(point)
+  }
+  const flush = () => {
+    if (run && run.length >= 2) polylines.push(run)
+    run = null
+  }
+
+  for (let i = 0; i + 1 < points.length; i += 1) {
+    const p = points[i]
+    const q = points[i + 1]
+    const cuts = edgeDoorCuts(p, q, doors, clearance)
+    if (cuts.length === 0) {
+      append(p)
+      append(q)
+      continue
+    }
+    let cursor = 0
+    for (const [c0, c1] of cuts) {
+      if (c0 > cursor) {
+        append(lerp(p, q, cursor))
+        append(lerp(p, q, c0))
+      }
+      flush()
+      cursor = Math.max(cursor, c1)
+    }
+    if (cursor < 1) {
+      append(lerp(p, q, cursor))
+      append(q)
+    }
+  }
+  flush()
+  return polylines
+}
+
+/**
+ * Прогоны осевой линии стены с вырезанными проёмами — единая обвязка для canvas
+ * и SVG/PDF. Замкнутый контур разворачивается в кольцо; если разрыв пришёлся на
+ * «шов», замыкающий прогон склеивается с начальным (один открытый прогон).
+ */
+export function wallRuns(
+  wall: WallSegment,
+  doors: readonly Segment[],
+  clearance: number,
+): Point[][] {
+  const { points, closed } = wallPath(wall)
+  if (!closed) return splitWallByDoorGaps(points, doors, clearance)
+
+  const runs = splitWallByDoorGaps([...points, points[0]], doors, clearance)
+  if (runs.length < 2) return runs
+
+  const first = runs[0]
+  const last = runs[runs.length - 1]
+  const head = last[last.length - 1]
+  const tail = first[0]
+  if (head.x !== tail.x || head.y !== tail.y) return runs
+  return [[...last, ...first.slice(1)], ...runs.slice(1, -1)]
+}
+
 export interface Bounds {
   readonly minX: number
   readonly minY: number

@@ -3,6 +3,7 @@ import type { MultiPolygon, Polygon, Ring } from 'polygon-clipping'
 import { createWallSegment, DEFAULT_WALL_THICKNESS } from './wallSegments'
 import type { WallSegment } from './wallSegments'
 import type { TerrainRegion } from './regions'
+import type { Point } from '@/shared/point'
 
 /** Префикс id авто-стен: отличает их от ручных и позволяет пересобирать слой. */
 export const AUTO_WALL_ID_PREFIX = 'auto:'
@@ -31,63 +32,122 @@ function regionToPolygon(region: TerrainRegion): Polygon {
   return [regionToRing(region)]
 }
 
-function lexicographicallyFirst(a: [number, number], b: [number, number]): boolean {
-  return a[0] < b[0] || (a[0] === b[0] && a[1] < b[1])
+/** Сравнение точек в лексикографическом порядке (сначала x, затем y). */
+function comparePoint(a: [number, number], b: [number, number]): number {
+  return a[0] - b[0] || a[1] - b[1]
+}
+
+/** Вершины кольца без дублирующей замыкающей точки, округлённые до стабильных. */
+function ringVertices(ring: Ring): Array<[number, number]> {
+  const points: Array<[number, number]> = ring.map(([x, y]) => [roundCoord(x), roundCoord(y)])
+  const first = points[0]
+  const last = points[points.length - 1]
+  if (points.length > 1 && first[0] === last[0] && first[1] === last[1]) points.pop()
+  return points
+}
+
+/** Поворот кольца к старту с лексикографически минимальной вершины. */
+function rotateToMin(points: Array<[number, number]>): Array<[number, number]> {
+  let minIndex = 0
+  for (let i = 1; i < points.length; i += 1) {
+    if (comparePoint(points[i], points[minIndex]) < 0) minIndex = i
+  }
+  return [...points.slice(minIndex), ...points.slice(0, minIndex)]
+}
+
+function compareRings(a: Array<[number, number]>, b: Array<[number, number]>): number {
+  const length = Math.min(a.length, b.length)
+  for (let i = 0; i < length; i += 1) {
+    const diff = comparePoint(a[i], b[i])
+    if (diff !== 0) return diff
+  }
+  return a.length - b.length
+}
+
+/** FNV-1a: короткий детерминированный ключ контура (id не должен дублировать геометрию). */
+function hashText(text: string): string {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0')
 }
 
 /**
- * Canonical id ребра (порядок концов не важен): инвариант к ориентации ring,
- * которую polygon-clipping не гарантирует. Двери на неизменном ребре переживают
- * пересборку контура.
+ * Канонический контур: без замыкающей точки, старт с лексикографически
+ * минимальной вершины, из двух ориентаций берётся лексикографически меньшая.
+ * Инвариант к порядку/ориентации ring, которую polygon-clipping не гарантирует,
+ * поэтому и id, и хранимая геометрия стены детерминированы.
  */
-function edgeId(a: [number, number], b: [number, number]): string {
-  const [p, q] = lexicographicallyFirst(a, b) ? [a, b] : [b, a]
-  return `${AUTO_WALL_ID_PREFIX}${p[0]},${p[1]};${q[0]},${q[1]}`
+function canonicalContour(ring: Ring): Array<[number, number]> {
+  const points = ringVertices(ring)
+  const forward = rotateToMin(points)
+  const reversed = rotateToMin([...points].reverse())
+  return compareRings(forward, reversed) <= 0 ? forward : reversed
 }
 
-type Geom = Polygon | MultiPolygon
-
-/** Union геометрий, пропуская пустые (polygon-clipping не принимает пустой Geom). */
-function unionGeoms(...geoms: Geom[]): MultiPolygon {
-  const nonEmpty = geoms.filter((geom) => geom.length > 0)
-  if (nonEmpty.length === 0) return []
-  return union(nonEmpty[0], ...nonEmpty.slice(1))
+function contourSignature(points: Array<[number, number]>): string {
+  return points.map(([x, y]) => `${x},${y}`).join(';')
 }
 
-function subtract(coverage: MultiPolygon, holes: MultiPolygon): MultiPolygon {
-  if (coverage.length === 0 || holes.length === 0) return coverage
-  return difference(coverage, holes)
+/** Вычитание из покрытия; пустой операнд polygon-clipping не принимает. */
+function subtract(coverage: MultiPolygon, geom: Polygon | MultiPolygon): MultiPolygon {
+  if (coverage.length === 0 || geom.length === 0) return coverage
+  return difference(coverage, geom)
 }
 
-interface BaseCoverage {
-  readonly solid: MultiPolygon
-  readonly holes: MultiPolygon
+/**
+ * Наносит один регион на покрытие по правилу «верхний побеждает»: `empty`
+ * вычитает уже нанесённое (дыра), любой другой тип добавляет.
+ */
+function paintRegion(coverage: MultiPolygon, region: TerrainRegion): MultiPolygon {
+  const geom = regionToPolygon(region)
+  if (region.tileType === 'empty') return subtract(coverage, geom)
+  if (coverage.length === 0) return [geom]
+  return union(coverage, geom)
 }
 
-/** Отдельно union «твёрдых» регионов и union `empty` (дыр) — независимо от превью. */
-function baseCoverageOf(regions: readonly TerrainRegion[]): BaseCoverage {
-  return {
-    solid: unionGeoms(...regions.filter((r) => r.tileType !== 'empty').map(regionToPolygon)),
-    holes: unionGeoms(...regions.filter((r) => r.tileType === 'empty').map(regionToPolygon)),
+/**
+ * Покрытие карты: регионы наносятся в порядке zOrder (возрастание), каждый
+ * верхний «перекрывает» нижний — `empty` вырезает дыру, остальные добавляют.
+ * Заменяет прежнюю формулу `union(solid) − union(holes)`: заливка поверх
+ * стёртого корректно восстанавливает покрытие и не оставляет «призрачных» стен.
+ */
+export function computeCoverage(regions: readonly TerrainRegion[]): MultiPolygon {
+  const sorted = [...regions].sort((a, b) => a.zOrder - b.zOrder)
+  let coverage: MultiPolygon = []
+  for (const region of sorted) {
+    coverage = paintRegion(coverage, region)
   }
+  return coverage
 }
 
-/** Каждое ребро каждого кольца (внешнего и дыр) → отдельный `WallSegment`. */
+/**
+ * Каждое кольцо покрытия (внешняя граница или дыра) → ОДИН замкнутый
+ * `WallSegment` с `points[0] === points[last]`. Вложенные контуры (граница
+ * комнаты и граница дыры) — отдельные сегменты. Точки хранятся в каноническом
+ * порядке, id — хеш канонического контура (уникальность подстраховывается
+ * суффиксом на случай коллизии).
+ */
 function coverageToWalls(coverage: MultiPolygon): WallSegment[] {
   const walls: WallSegment[] = []
+  const seenIds = new Set<string>()
   for (const polygon of coverage) {
     for (const ring of polygon) {
-      for (let i = 0; i + 1 < ring.length; i += 1) {
-        const a = ring[i]
-        const b = ring[i + 1]
-        if (a[0] === b[0] && a[1] === b[1]) continue
-        walls.push(
-          createWallSegment([{ x: a[0], y: a[1] }, { x: b[0], y: b[1] }], {
-            thickness: DEFAULT_WALL_THICKNESS,
-            id: edgeId(a, b),
-          }),
-        )
+      const contour = canonicalContour(ring)
+      if (contour.length < 3) continue
+      const points: Point[] = contour.map(([x, y]) => ({ x, y }))
+      points.push({ x: contour[0][0], y: contour[0][1] })
+      const baseId = `${AUTO_WALL_ID_PREFIX}${hashText(contourSignature(contour))}`
+      let id = baseId
+      let suffix = 1
+      while (seenIds.has(id)) {
+        id = `${baseId}#${suffix}`
+        suffix += 1
       }
+      seenIds.add(id)
+      walls.push(createWallSegment(points, { thickness: DEFAULT_WALL_THICKNESS, id }))
     }
   }
   return walls
@@ -95,50 +155,38 @@ function coverageToWalls(coverage: MultiPolygon): WallSegment[] {
 
 /**
  * Кэш покрытия базовых регионов по ссылке на массив. Модель иммутабельна: между
- * коммитами `model.regions` — тот же массив, поэтому при живом превью union
- * считается один раз, а не на каждом pointermove. Solid и holes кэшируются
- * раздельно, чтобы превью не «заращивало» дыры.
+ * коммитами `model.regions` — тот же массив, поэтому при живом превью покрытие
+ * считается один раз, а не на каждом pointermove.
  */
-const baseCoverageCache = new WeakMap<readonly TerrainRegion[], BaseCoverage>()
+const baseCoverageCache = new WeakMap<readonly TerrainRegion[], MultiPolygon>()
 
-function cachedBaseCoverage(regions: readonly TerrainRegion[]): BaseCoverage {
+function cachedBaseCoverage(regions: readonly TerrainRegion[]): MultiPolygon {
   const cached = baseCoverageCache.get(regions)
   if (cached) return cached
-  const coverage = baseCoverageOf(regions)
+  const coverage = computeCoverage(regions)
   baseCoverageCache.set(regions, coverage)
   return coverage
 }
 
 /**
- * Авто-стены: точная граница объединения «твёрдых» регионов (tileType ≠ empty)
- * за вычетом `empty` (ластик = дыра). Boolean-union (polygon-clipping) даёт
- * точные кромки без «лесенки»; id рёбер детерминированы по координатам, поэтому
- * двери на неизменных рёбрах переживают пересборку, а `replaceWallLayer`
- * сохраняет ручные стены.
+ * Авто-стены: точная граница покрытия карты (см. `computeCoverage`).
+ * Boolean-union (polygon-clipping) даёт точные кромки без «лесенки»;
+ * id контуров детерминированы по координатам, а `replaceWallLayer` сохраняет
+ * ручные стены.
  */
 export function computeAutoWalls(regions: readonly TerrainRegion[]): WallSegment[] {
-  const { solid, holes } = baseCoverageOf(regions)
-  return coverageToWalls(subtract(solid, holes))
+  return coverageToWalls(computeCoverage(regions))
 }
 
 /**
- * Стены для живого превью: покрытие базовых регионов берётся из кэша и
- * объединяется лишь с одним строящимся регионом. Алгебраически совпадает с
- * полным `computeAutoWalls([...base, preview])`:
- * solid-превью → `(solid ∪ preview) \ holes`; empty-превью → `solid \ (holes ∪ preview)`.
+ * Стены после добавления региона поверх текущего покрытия: базовое покрытие
+ * берётся из кэша, новый регион наносится последним (верхним слоем). Совпадает
+ * с `computeAutoWalls` при максимальном zOrder у нового региона; используется и
+ * для живого превью, и для коммита (одна геометрия — одни стены).
  */
-export function computePreviewWalls(
+export function computeWallsWithRegion(
   base: readonly TerrainRegion[],
-  preview: TerrainRegion,
+  region: TerrainRegion,
 ): WallSegment[] {
-  const baseCoverage = cachedBaseCoverage(base)
-  const previewPoly = regionToPolygon(preview)
-
-  if (preview.tileType === 'empty') {
-    const holes = unionGeoms(baseCoverage.holes, previewPoly)
-    return coverageToWalls(subtract(baseCoverage.solid, holes))
-  }
-
-  const solid = unionGeoms(baseCoverage.solid, previewPoly)
-  return coverageToWalls(subtract(solid, baseCoverage.holes))
+  return coverageToWalls(paintRegion(cachedBaseCoverage(base), region))
 }

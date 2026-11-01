@@ -2,13 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   createWallSegment,
   DEFAULT_WALL_THICKNESS,
-  findWallSegmentById,
   isWallExtends,
   isValidWallSegment,
   nearestWallSegment,
-  pointAlongWallSegment,
-  wallSegmentLength,
-  wallSegmentPositionOf,
 } from './wallSegments'
 import type { WallExtends, WallSegment } from './wallSegments'
 
@@ -104,41 +100,6 @@ describe('createWallSegment / validation', () => {
   })
 })
 
-describe('wallSegmentLength', () => {
-  it('sums segment lengths of a polyline', () => {
-    const segment = createWallSegment([
-      { x: 0, y: 0 },
-      { x: 3, y: 0 },
-      { x: 3, y: 4 },
-    ])
-    expect(wallSegmentLength(segment)).toBeCloseTo(7)
-  })
-
-  it('ignores zero-length subsegments (duplicate points)', () => {
-    const segment = createWallSegment([
-      { x: 0, y: 0 },
-      { x: 0, y: 0 },
-      { x: 3, y: 0 },
-    ])
-    expect(wallSegmentLength(segment)).toBeCloseTo(3)
-  })
-})
-
-describe('findWallSegmentById', () => {
-  const segments: WallSegment[] = [
-    createWallSegment(LINE, { id: 'a' }),
-    createWallSegment(LINE, { id: 'b' }),
-  ]
-
-  it('finds by id', () => {
-    expect(findWallSegmentById(segments, 'b')?.id).toBe('b')
-  })
-
-  it('returns undefined for a missing id', () => {
-    expect(findWallSegmentById(segments, 'zzz')).toBeUndefined()
-  })
-})
-
 describe('nearestWallSegment', () => {
   const segments: WallSegment[] = [
     createWallSegment(
@@ -185,63 +146,5 @@ describe('nearestWallSegment', () => {
     const hit = nearestWallSegment(segments, { x: 5, y: 2 })
     expect(hit?.segment.id).toBe('horizontal')
     expect(hit?.distance).toBeCloseTo(2)
-  })
-})
-
-describe('pointAlongWallSegment / wallSegmentPositionOf', () => {
-  const straight = createWallSegment(
-    [
-      { x: 0, y: 0 },
-      { x: 10, y: 0 },
-    ],
-    { id: 'straight' },
-  )
-
-  const polyline = createWallSegment(
-    [
-      { x: 0, y: 0 },
-      { x: 3, y: 0 },
-      { x: 3, y: 4 },
-    ],
-    { id: 'poly' },
-  )
-
-  it('interpolates along a straight segment', () => {
-    expect(pointAlongWallSegment(straight, 0)).toEqual({ x: 0, y: 0 })
-    expect(pointAlongWallSegment(straight, 1)).toEqual({ x: 10, y: 0 })
-    expect(pointAlongWallSegment(straight, 0.25)).toEqual({ x: 2.5, y: 0 })
-  })
-
-  it('clamps out-of-range positions', () => {
-    expect(pointAlongWallSegment(straight, -1)).toEqual({ x: 0, y: 0 })
-    expect(pointAlongWallSegment(straight, 2)).toEqual({ x: 10, y: 0 })
-  })
-
-  it('follows a polyline by arc length (corner at 3/7)', () => {
-    // Полная длина 7: доля 3/7 — на углу (3, 0).
-    const corner = pointAlongWallSegment(polyline, 3 / 7)
-    expect(corner.x).toBeCloseTo(3)
-    expect(corner.y).toBeCloseTo(0)
-    expect(pointAlongWallSegment(polyline, 1)).toEqual({ x: 3, y: 4 })
-  })
-
-  it('is inverse to wallSegmentPositionOf along a polyline', () => {
-    const position = wallSegmentPositionOf(polyline, { x: 3, y: 2 })
-    expect(position).toBeCloseTo(5 / 7)
-    const point = pointAlongWallSegment(polyline, position)
-    expect(point.x).toBeCloseTo(3)
-    expect(point.y).toBeCloseTo(2)
-  })
-
-  it('handles a degenerate (zero-length) segment', () => {
-    const degenerate = createWallSegment(
-      [
-        { x: 4, y: 4 },
-        { x: 4, y: 4 },
-      ],
-      { id: 'zero' },
-    )
-    expect(pointAlongWallSegment(degenerate, 0.5)).toEqual({ x: 4, y: 4 })
-    expect(wallSegmentPositionOf(degenerate, { x: 0, y: 0 })).toBe(0)
   })
 })

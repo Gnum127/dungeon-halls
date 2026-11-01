@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { renderMap } from './renderMap'
+import { wallPath } from './geometry'
 import { makeFakeCtx } from './testFakeCtx'
 import { createTerrainRegion } from '../model/regions'
 import { createWallSegment } from '../model/wallSegments'
@@ -10,6 +11,7 @@ import {
   DOOR_FILL_COLOR,
   GRID_LINE_COLOR,
   LIGHT_MARKER_COLOR,
+  STAIRS_OUTLINE_COLOR,
   STAIRS_STEP_COLOR,
   TILE_COLORS,
   WALL_BODY_COLOR,
@@ -35,6 +37,7 @@ function baseModel(overrides: Partial<MapModel> = {}): MapModel {
     regions: [],
     walls: [],
     doors: [],
+    stairs: [],
     objects: [],
     lights: [],
     ...overrides,
@@ -65,25 +68,55 @@ describe('renderMap', () => {
     expect(grassIndex).toBeGreaterThan(floorIndex)
   })
 
-  it('draws step lines for a stairs region', () => {
-    const region = createTerrainRegion('stairs', square(0, 0, 2, 2), 0, 'r')
+  it('draws a stairs entity outline and step lines without filling it', () => {
+    const stairs = [
+      {
+        id: 's1',
+        polygon: [
+          { x: 0, y: 0 },
+          { x: 4, y: 0 },
+          { x: 4, y: 1 },
+          { x: 0, y: 1 },
+        ],
+      },
+    ]
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ regions: [region] }), viewport)
+    renderMap(ctx, baseModel({ stairs }), viewport)
 
+    expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === STAIRS_OUTLINE_COLOR)).toBe(true)
     expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === STAIRS_STEP_COLOR)).toBe(true)
+    expect(calls.some((c) => c.op === 'clip')).toBe(true)
+    // Stairs are an overlay: no coverage fill.
+    expect(calls.some((c) => c.op === 'fill')).toBe(false)
   })
 
-  it('draws steps after tiling a stairs region (layer order)', () => {
-    const sprite = {} as HTMLImageElement
-    const sprites = { tiles: { stairs: sprite }, objects: {}, elementImages: {}, tilePools: {} }
-    const region = createTerrainRegion('stairs', square(0, 0, 2, 2), 0, 'r')
+  it('draws stairs before objects (layer order)', () => {
+    const stairs = [
+      {
+        id: 's1',
+        polygon: [
+          { x: 0, y: 0 },
+          { x: 4, y: 0 },
+          { x: 4, y: 1 },
+          { x: 0, y: 1 },
+        ],
+      },
+    ]
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ regions: [region] }), viewport, sprites)
+    renderMap(
+      ctx,
+      baseModel({ stairs, objects: [{ id: 1, kindId: 'torch', x: 1, y: 1 }] }),
+      viewport,
+    )
 
-    const drawIndex = calls.findIndex((c) => c.op === 'drawImage')
     const stepIndex = calls.findIndex((c) => c.op === 'stroke' && c.fillStyle === STAIRS_STEP_COLOR)
-    expect(drawIndex).toBeGreaterThanOrEqual(0)
-    expect(stepIndex).toBeGreaterThan(drawIndex)
+    const objectFill = calls.findIndex(
+      (c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch,
+    )
+    const gridIndex = calls.findIndex((c) => c.op === 'stroke' && c.fillStyle === GRID_LINE_COLOR)
+    expect(stepIndex).toBeGreaterThanOrEqual(0)
+    expect(gridIndex).toBeGreaterThan(stepIndex)
+    expect(objectFill).toBeGreaterThan(stepIndex)
   })
 
   it('draws grid lines with the grid colour', () => {
@@ -108,85 +141,125 @@ describe('renderMap', () => {
     expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === WALL_LINE_COLOR)).toBe(true)
   })
 
-  it('draws a closed door as a filled rectangle', () => {
+  it('draws a closed contour as one closed path', () => {
+    const wall = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+        { x: 2, y: 2 },
+        { x: 0, y: 2 },
+        { x: 0, y: 0 },
+      ],
+      { id: 'w1' },
+    )
+    const { ctx, raw, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ walls: [wall] }), viewport)
+
+    // Only the wall closes its path (no regions in the model).
+    expect(calls.filter((c) => c.op === 'closePath')).toHaveLength(1)
+    expect(calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_BODY_COLOR)).toHaveLength(
+      1,
+    )
+    expect(calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_LINE_COLOR)).toHaveLength(
+      1,
+    )
+    expect(raw.lineJoin).toBe('round')
+  })
+
+  it('leaves an open wall polyline unclosed', () => {
     const wall = createWallSegment(
       [
         { x: 0, y: 0 },
         { x: 3, y: 0 },
+        { x: 3, y: 2 },
       ],
       { id: 'w1' },
     )
-    const door = { id: 'd1', wallSegmentId: 'w1', position: 0.5, open: false, imageId: null }
+    const { ctx, raw, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ walls: [wall] }), viewport)
+
+    expect(calls.some((c) => c.op === 'closePath')).toBe(false)
+    expect(raw.lineCap).toBe('round')
+  })
+
+  it('draws a closed door as a filled rectangle along its opening', () => {
+    const door = { id: 'd1', a: { x: 1, y: 0 }, b: { x: 2, y: 0 }, openAngle: 0, imageId: null }
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ walls: [wall], doors: [door] }), viewport)
+    renderMap(ctx, baseModel({ doors: [door] }), viewport)
 
     const doorRects = calls.filter((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR)
     expect(doorRects).toHaveLength(1)
   })
 
   it('falls back to a filled door when its texture is missing from the pool', () => {
-    const wall = createWallSegment(
-      [
-        { x: 0, y: 0 },
-        { x: 3, y: 0 },
-      ],
-      { id: 'w1' },
-    )
-    const door = { id: 'd1', wallSegmentId: 'w1', position: 0.5, open: false, imageId: 'door-iron' }
+    const door = {
+      id: 'd1',
+      a: { x: 1, y: 0 },
+      b: { x: 2, y: 0 },
+      openAngle: 0,
+      imageId: 'door-iron',
+    }
     const sprites = { tiles: {}, objects: {}, elementImages: {}, tilePools: {} }
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ walls: [wall], doors: [door] }), viewport, sprites)
+    renderMap(ctx, baseModel({ doors: [door] }), viewport, sprites)
 
     expect(calls.some((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR)).toBe(true)
     expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
   })
 
-  it('draws a textured door from the element image pool', () => {
-    const wall = createWallSegment(
-      [
-        { x: 0, y: 0 },
-        { x: 3, y: 0 },
-      ],
-      { id: 'w1' },
-    )
-    const door = { id: 'd1', wallSegmentId: 'w1', position: 0.5, open: false, imageId: 'door-iron' }
+  it('draws a textured closed door from the element image pool', () => {
+    const door = {
+      id: 'd1',
+      a: { x: 1, y: 0 },
+      b: { x: 2, y: 0 },
+      openAngle: 0,
+      imageId: 'door-iron',
+    }
     const image = {} as HTMLImageElement
     const sprites = { tiles: {}, objects: {}, elementImages: { 'door-iron': image }, tilePools: {} }
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ walls: [wall], doors: [door] }), viewport, sprites)
+    renderMap(ctx, baseModel({ doors: [door] }), viewport, sprites)
 
     expect(calls.some((c) => c.op === 'drawImage' && c.args[0] === image)).toBe(true)
     expect(calls.some((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR)).toBe(false)
   })
 
-  it('draws an open door as two segments', () => {
-    const wall = createWallSegment(
-      [
-        { x: 0, y: 0 },
-        { x: 3, y: 0 },
-      ],
-      { id: 'w1' },
-    )
-    const door = { id: 'd1', wallSegmentId: 'w1', position: 0.5, open: true, imageId: null }
-    const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ walls: [wall], doors: [door] }), viewport)
+  it('draws an open door as a leaf strip (no texture rotation)', () => {
+    // A textured door, but open → the leaf is a plain fill, not the texture.
+    const door = {
+      id: 'd1',
+      a: { x: 1, y: 1 },
+      b: { x: 2, y: 1 },
+      openAngle: 90,
+      imageId: 'door-iron',
+    }
+    const image = {} as HTMLImageElement
+    const sprites = { tiles: {}, objects: {}, elementImages: { 'door-iron': image }, tilePools: {} }
+    const { ctx, raw, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ doors: [door] }), viewport, sprites)
 
-    const doorRects = calls.filter((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR)
-    expect(doorRects).toHaveLength(2)
+    expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
+    expect(
+      calls.filter((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR),
+    ).toHaveLength(1)
+    // 90° rotation about the hinge maps the leaf onto the vertical axis.
+    expect(raw.lastRotate).toBeCloseTo(Math.PI / 2)
   })
 
   it('falls back to a colour ellipse for objects without a sprite', () => {
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'torch', x: 1, y: 1 }] }), viewport)
 
-    expect(
-      calls.some((c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch),
-    ).toBe(true)
+    expect(calls.some((c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch)).toBe(true)
   })
 
   it('draws light glow and marker by default', () => {
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ lights: [{ id: 1, x: 1, y: 1, radius: 2, color: '#ffdd88' }] }), viewport)
+    renderMap(
+      ctx,
+      baseModel({ lights: [{ id: 1, x: 1, y: 1, radius: 2, color: '#ffdd88' }] }),
+      viewport,
+    )
 
     expect(calls.some((c) => c.op === 'arc')).toBe(true)
     expect(calls.some((c) => c.op === 'fill' && c.fillStyle === LIGHT_MARKER_COLOR)).toBe(true)
@@ -271,5 +344,55 @@ describe('renderMap', () => {
     const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
     expect(drawn).toHaveLength(4)
     expect(drawn.every((image) => image === single)).toBe(true)
+  })
+})
+
+describe('wallPath', () => {
+  it('drops the duplicated closing point and flags a closed contour', () => {
+    const wall = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+        { x: 2, y: 2 },
+        { x: 0, y: 0 },
+      ],
+      { id: 'w1' },
+    )
+    expect(wallPath(wall)).toEqual({
+      points: [
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+        { x: 2, y: 2 },
+      ],
+      closed: true,
+    })
+  })
+
+  it('keeps an open polyline as-is', () => {
+    const wall = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 3, y: 0 },
+      ],
+      { id: 'w1' },
+    )
+    expect(wallPath(wall)).toEqual({
+      points: [
+        { x: 0, y: 0 },
+        { x: 3, y: 0 },
+      ],
+      closed: false,
+    })
+  })
+
+  it('does not treat a degenerate 2-point loop as closed', () => {
+    const wall = createWallSegment(
+      [
+        { x: 1, y: 1 },
+        { x: 1, y: 1 },
+      ],
+      { id: 'w1' },
+    )
+    expect(wallPath(wall).closed).toBe(false)
   })
 })

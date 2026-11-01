@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import en from './locales/en.json'
 import ru from './locales/ru.json'
 import { DOOR_CATALOG } from '../../editor/model/doorCatalog'
-
 function leafKeys(value: unknown, prefix = ''): string[] {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return [prefix]
   const keys: string[] = []
@@ -32,10 +31,5 @@ describe('i18n locales', () => {
       expect(enDoors[entry.labelKey]).toBeTruthy()
       expect(ruDoors[entry.labelKey]).toBeTruthy()
     }
-  })
-
-  it('defines the stairs tile label in both locales', () => {
-    expect((en.editor as { tiles: Record<string, string> }).tiles.stairs).toBe('Stairs')
-    expect((ru.editor as { tiles: Record<string, string> }).tiles.stairs).toBeTruthy()
   })
 })

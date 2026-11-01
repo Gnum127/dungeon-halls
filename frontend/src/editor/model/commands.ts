@@ -9,22 +9,19 @@ import {
 import { findLightById, isValidLightColor, isValidLightRadius, nextLightId } from './lights'
 import { assertValidRegion, nextZOrder } from './regions'
 import { isAutoWallSegmentId } from './autoWalls'
-import { assertValidWallSegment, findWallSegmentById } from './wallSegments'
-import {
-  assertValidDoor,
-  createDoor,
-  DOOR_POSITION_TOLERANCE,
-  doorPlacementConflict,
-  findDoorById,
-} from './doors'
+import { assertValidWallSegment } from './wallSegments'
+import { assertValidDoor, createDoor, findDoorById, isValidDoorOpenAngle } from './doors'
+import { assertValidStairsPolygon, createStairsPolygon } from './stairs'
 import { isMapDimension } from '@/config/map.config'
 import { MAP_VERSION } from './types'
 import type { MapGrid, MapModel } from './types'
 import type { TerrainRegion } from './regions'
 import type { WallSegment } from './wallSegments'
 import type { Door } from './doors'
+import type { StairsPolygon } from './stairs'
 import type { MapLight } from './lights'
 import type { MapObject, ObjectRotation, ObjectScale } from './types'
+import type { Point } from '@/shared/point'
 
 /** Пакетное изменение стен: present=true — добавить/обновить, false — снять. */
 export interface WallUpdate {
@@ -34,13 +31,14 @@ export interface WallUpdate {
 
 /**
  * Полная замена документа (результат генерации/загрузки): атомарно заменяет
- * сетку, регионы, стены, двери, объекты и свет; одна запись истории.
+ * сетку, регионы, стены, двери, лестницы, объекты и свет; одна запись истории.
  */
 export interface MapSnapshot {
   readonly grid: MapGrid
   readonly regions: readonly TerrainRegion[]
   readonly walls: readonly WallSegment[]
   readonly doors: readonly Door[]
+  readonly stairs: readonly StairsPolygon[]
   readonly objects: readonly MapObject[]
   readonly lights: readonly MapLight[]
 }
@@ -56,12 +54,15 @@ export type Command =
   | { readonly kind: 'setWalls'; readonly updates: readonly WallUpdate[] }
   | {
       readonly kind: 'addDoor'
-      readonly wallSegmentId: string
-      readonly position: number
+      readonly a: Point
+      readonly b: Point
+      readonly openAngle?: number
       readonly imageId?: string | null
     }
   | { readonly kind: 'removeDoor'; readonly id: string }
-  | { readonly kind: 'setDoorOpen'; readonly id: string; readonly open: boolean }
+  | { readonly kind: 'setDoorAngle'; readonly id: string; readonly openAngle: number }
+  | { readonly kind: 'addStairs'; readonly polygon: readonly Point[] }
+  | { readonly kind: 'removeStairs'; readonly id: string }
   | {
       readonly kind: 'addObject'
       readonly x: number
@@ -103,7 +104,17 @@ function cloneWall(wall: WallSegment): WallSegment {
 }
 
 function cloneDoor(door: Door): Door {
-  return { ...door }
+  return {
+    id: door.id,
+    a: { x: door.a.x, y: door.a.y },
+    b: { x: door.b.x, y: door.b.y },
+    openAngle: door.openAngle,
+    imageId: door.imageId,
+  }
+}
+
+function cloneStairs(stairs: StairsPolygon): StairsPolygon {
+  return { id: stairs.id, polygon: stairs.polygon.map((p) => ({ x: p.x, y: p.y })) }
 }
 
 function cloneObject(object: MapObject): MapObject {
@@ -152,21 +163,6 @@ function assertUniqueIds(items: readonly { readonly id: string }[], label: strin
       throw new RangeError(`Duplicate ${label} id: ${item.id}`)
     }
     seen.add(item.id)
-  }
-}
-
-function assertNoDoorConflicts(doors: readonly Door[]): void {
-  for (let i = 0; i < doors.length; i += 1) {
-    for (let j = i + 1; j < doors.length; j += 1) {
-      const a = doors[i]
-      const b = doors[j]
-      if (
-        a.wallSegmentId === b.wallSegmentId &&
-        Math.abs(a.position - b.position) < DOOR_POSITION_TOLERANCE
-      ) {
-        throw new RangeError('Two doors are placed too close on the same wall segment')
-      }
-    }
   }
 }
 
@@ -238,6 +234,7 @@ function validateSnapshot(snapshot: MapSnapshot): void {
   assertUniqueIds(snapshot.regions, 'region')
   assertUniqueIds(snapshot.walls, 'wall')
   assertUniqueIds(snapshot.doors, 'door')
+  assertUniqueIds(snapshot.stairs, 'stairs')
   assertUniqueIdsObjects(snapshot.objects)
   assertUniqueIdsLights(snapshot.lights)
 
@@ -248,9 +245,11 @@ function validateSnapshot(snapshot: MapSnapshot): void {
     assertValidWallSegment(wall)
   }
   for (const door of snapshot.doors) {
-    assertValidDoor(door, snapshot.walls)
+    assertValidDoor(door)
   }
-  assertNoDoorConflicts(snapshot.doors)
+  for (const stairs of snapshot.stairs) {
+    assertValidStairsPolygon(stairs)
+  }
 
   const seenCells = new Set<string>()
   for (const object of snapshot.objects) {
@@ -307,15 +306,13 @@ function removeRegion(model: MapModel, id: string): MapModel {
 
 /**
  * Пересобирает слой авто-стен: ручные стены сохраняются, авто-стены заменяются.
- * id авто-стен детерминированы по координатам ребра контура, поэтому двери на
- * уцелевших рёбрах остаются; двери на исчезнувших авто-стенах каскадно удаляются.
+ * Двери теперь самостоятельные сущности (не привязаны к стене), поэтому
+ * пересборка стен их НЕ трогает.
  */
 function replaceWallLayer(model: MapModel, walls: readonly WallSegment[]): MapModel {
   const manual = model.walls.filter((wall) => !isAutoWallSegmentId(wall.id))
   const merged = [...manual, ...walls.map(cloneWall)]
-  const ids = new Set(merged.map((wall) => wall.id))
-  const doors = model.doors.filter((door) => ids.has(door.wallSegmentId))
-  return { ...model, walls: merged, doors }
+  return { ...model, walls: merged }
 }
 
 /**
@@ -332,12 +329,10 @@ function addRegionWithWalls(
 
 /**
  * Set-семантика по id: present=true — добавить или обновить сегмент (в т.ч.
- * геометрию/толщину), false — снять. Снятие стены каскадно удаляет двери на
- * этом сегменте той же командой (одна запись истории).
+ * геометрию/толщину), false — снять. Двери независимы от стен — не каскадят.
  */
 function setWalls(model: MapModel, updates: readonly WallUpdate[]): MapModel {
   const wallsById = new Map(model.walls.map((wall) => [wall.id, wall]))
-  const removedIds = new Set<string>()
   let changed = false
   for (const { segment, present } of updates) {
     if (present) {
@@ -349,29 +344,22 @@ function setWalls(model: MapModel, updates: readonly WallUpdate[]): MapModel {
       }
     } else if (wallsById.has(segment.id)) {
       wallsById.delete(segment.id)
-      removedIds.add(segment.id)
       changed = true
     }
   }
   if (!changed) return model
 
-  const keptDoors = model.doors.filter((door) => !removedIds.has(door.wallSegmentId))
-  return { ...model, walls: [...wallsById.values()], doors: keptDoors }
+  return { ...model, walls: [...wallsById.values()] }
 }
 
 function addDoor(
   model: MapModel,
-  wallSegmentId: string,
-  position: number,
+  a: Point,
+  b: Point,
+  openAngle: number,
   imageId: string | null,
 ): MapModel {
-  if (!findWallSegmentById(model.walls, wallSegmentId)) {
-    throw new RangeError('A door can only be placed on an existing wall segment')
-  }
-  if (doorPlacementConflict(model.doors, wallSegmentId, position)) {
-    throw new RangeError('Another door is already placed too close on this wall segment')
-  }
-  const door = createDoor(wallSegmentId, position, { imageId })
+  const door = createDoor(a, b, { openAngle, imageId })
   return { ...model, doors: [...model.doors, door] }
 }
 
@@ -382,18 +370,32 @@ function removeDoor(model: MapModel, id: string): MapModel {
   return { ...model, doors: model.doors.filter((door) => door.id !== id) }
 }
 
-function setDoorOpen(model: MapModel, id: string, open: boolean): MapModel {
+function setDoorAngle(model: MapModel, id: string, openAngle: number): MapModel {
+  if (!isValidDoorOpenAngle(openAngle)) {
+    throw new RangeError(`Door openAngle out of range: ${String(openAngle)}`)
+  }
   const door = findDoorById(model.doors, id)
   if (!door) {
     throw new RangeError(`Door ${id} not found`)
   }
-  if (door.open === open) return model
+  if (door.openAngle === openAngle) return model
   return {
     ...model,
     doors: model.doors.map((candidate) =>
-      candidate.id === id ? { ...candidate, open } : candidate,
+      candidate.id === id ? { ...candidate, openAngle } : candidate,
     ),
   }
+}
+
+function addStairs(model: MapModel, polygon: readonly Point[]): MapModel {
+  const stairs = createStairsPolygon(polygon)
+  return { ...model, stairs: [...model.stairs, stairs] }
+}
+
+function removeStairs(model: MapModel, id: string): MapModel {
+  const next = model.stairs.filter((stairs) => stairs.id !== id)
+  if (next.length === model.stairs.length) return model
+  return { ...model, stairs: next }
 }
 
 function addObject(
@@ -488,6 +490,7 @@ function replaceMap(model: MapModel, snapshot: MapSnapshot): MapModel {
     deepEqual(model.regions, snapshot.regions) &&
     deepEqual(model.walls, snapshot.walls) &&
     deepEqual(model.doors, snapshot.doors) &&
+    deepEqual(model.stairs, snapshot.stairs) &&
     deepEqual(model.objects, snapshot.objects) &&
     deepEqual(model.lights, snapshot.lights)
   if (identical) return model
@@ -498,6 +501,7 @@ function replaceMap(model: MapModel, snapshot: MapSnapshot): MapModel {
     regions: snapshot.regions.map(cloneRegion),
     walls: snapshot.walls.map(cloneWall),
     doors: snapshot.doors.map(cloneDoor),
+    stairs: snapshot.stairs.map(cloneStairs),
     objects: snapshot.objects.map(cloneObject),
     lights: snapshot.lights.map(cloneLight),
   }
@@ -514,11 +518,15 @@ export function applyCommand(model: MapModel, command: Command): MapModel {
     case 'setWalls':
       return setWalls(model, command.updates)
     case 'addDoor':
-      return addDoor(model, command.wallSegmentId, command.position, command.imageId ?? null)
+      return addDoor(model, command.a, command.b, command.openAngle ?? 0, command.imageId ?? null)
     case 'removeDoor':
       return removeDoor(model, command.id)
-    case 'setDoorOpen':
-      return setDoorOpen(model, command.id, command.open)
+    case 'setDoorAngle':
+      return setDoorAngle(model, command.id, command.openAngle)
+    case 'addStairs':
+      return addStairs(model, command.polygon)
+    case 'removeStairs':
+      return removeStairs(model, command.id)
     case 'addObject':
       return addObject(model, command.x, command.y, command.kindId, command.rotation, command.scale)
     case 'moveObject':

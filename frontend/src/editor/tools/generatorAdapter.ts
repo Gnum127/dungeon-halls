@@ -53,6 +53,7 @@ export function generatorResultToSnapshot(result: GeneratorResult): MapSnapshot 
     regions,
     walls: [],
     doors: [],
+    stairs: [],
     objects: [],
     lights: [],
   }

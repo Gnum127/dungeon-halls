@@ -3,7 +3,7 @@ import { applyCommand } from './commands'
 import { createEmptyMap } from './createEmptyMap'
 import { createTerrainRegion } from './regions'
 import { createWallSegment } from './wallSegments'
-import { DOOR_POSITION_TOLERANCE, findDoorById } from './doors'
+import { findDoorById } from './doors'
 import type { MapModel } from './types'
 
 const SQUARE = [
@@ -89,12 +89,12 @@ describe('setWalls', () => {
     expect(applyCommand(model, { kind: 'setWalls', updates: [] })).toBe(model)
   })
 
-  it('cascades: removing a wall removes its doors in the same command', () => {
+  it('keeps doors when a wall is removed (doors are independent)', () => {
     let model = applyCommand(makeMap(), {
       kind: 'setWalls',
       updates: [{ segment: wall('w1'), present: true }],
     })
-    model = applyCommand(model, { kind: 'addDoor', wallSegmentId: 'w1', position: 0.5 })
+    model = applyCommand(model, { kind: 'addDoor', a: { x: 1, y: 0 }, b: { x: 2, y: 0 } })
     expect(model.doors).toHaveLength(1)
 
     model = applyCommand(model, {
@@ -102,7 +102,7 @@ describe('setWalls', () => {
       updates: [{ segment: wall('w1'), present: false }],
     })
     expect(model.walls).toEqual([])
-    expect(model.doors).toEqual([])
+    expect(model.doors).toHaveLength(1)
   })
 
   it('rejects an invalid wall segment', () => {
@@ -114,80 +114,109 @@ describe('setWalls', () => {
 })
 
 describe('doors', () => {
-  const withWall = () =>
-    applyCommand(makeMap(), { kind: 'setWalls', updates: [{ segment: wall('w1'), present: true }] })
-
-  it('adds a door on an existing wall segment', () => {
-    const model = applyCommand(withWall(), {
+  const addDoor = (model: MapModel) =>
+    applyCommand(model, {
       kind: 'addDoor',
-      wallSegmentId: 'w1',
-      position: 0.3,
+      a: { x: 1, y: 0 },
+      b: { x: 2, y: 0 },
       imageId: 'door-wooden',
     })
+
+  it('adds a door as an independent segment with the given angle', () => {
+    const model = addDoor(makeMap())
     expect(model.doors).toHaveLength(1)
     expect(model.doors[0]).toMatchObject({
-      wallSegmentId: 'w1',
-      position: 0.3,
+      a: { x: 1, y: 0 },
+      b: { x: 2, y: 0 },
+      openAngle: 0,
       imageId: 'door-wooden',
     })
   })
 
-  it('rejects a door on an unknown segment', () => {
-    expect(() =>
-      applyCommand(makeMap(), { kind: 'addDoor', wallSegmentId: 'nope', position: 0.5 }),
-    ).toThrow(/existing wall segment/)
+  it('does not require a wall (doors are independent of walls)', () => {
+    const model = addDoor(makeMap())
+    expect(model.walls).toEqual([])
+    expect(model.doors).toHaveLength(1)
   })
 
-  it('rejects a door too close to another on the same segment', () => {
-    const model = applyCommand(withWall(), { kind: 'addDoor', wallSegmentId: 'w1', position: 0.5 })
+  it('rejects coinciding endpoints', () => {
     expect(() =>
-      applyCommand(model, { kind: 'addDoor', wallSegmentId: 'w1', position: 0.52 }),
-    ).toThrow(/too close/)
+      applyCommand(makeMap(), { kind: 'addDoor', a: { x: 1, y: 1 }, b: { x: 1, y: 1 } }),
+    ).toThrow(/coincide/)
   })
 
-  it('uses a strict tolerance boundary (exactly at tolerance is allowed)', () => {
-    const model = applyCommand(withWall(), { kind: 'addDoor', wallSegmentId: 'w1', position: 0.5 })
+  it('rejects an out-of-range openAngle at creation', () => {
     expect(() =>
-      applyCommand(model, {
+      applyCommand(makeMap(), {
         kind: 'addDoor',
-        wallSegmentId: 'w1',
-        position: 0.5 + DOOR_POSITION_TOLERANCE,
+        a: { x: 1, y: 0 },
+        b: { x: 2, y: 0 },
+        openAngle: 200,
       }),
-    ).not.toThrow()
-    expect(() =>
-      applyCommand(model, {
-        kind: 'addDoor',
-        wallSegmentId: 'w1',
-        position: 0.5 + DOOR_POSITION_TOLERANCE - 1e-6,
-      }),
-    ).toThrow(/too close/)
+    ).toThrow(/openAngle/)
   })
 
-  it('rejects an out-of-range door position', () => {
+  it('throws when setting an angle on an unknown door', () => {
     expect(() =>
-      applyCommand(withWall(), { kind: 'addDoor', wallSegmentId: 'w1', position: 1.5 }),
-    ).toThrow(/position/)
+      applyCommand(makeMap(), { kind: 'setDoorAngle', id: 'nope', openAngle: 30 }),
+    ).toThrow(/not found/)
   })
 
-  it('throws when toggling an unknown door', () => {
-    expect(() => applyCommand(makeMap(), { kind: 'setDoorOpen', id: 'nope', open: true })).toThrow(
-      /not found/,
+  it('sets the angle and no-ops on the same value', () => {
+    const model = addDoor(makeMap())
+    const id = model.doors[0].id
+    const opened = applyCommand(model, { kind: 'setDoorAngle', id, openAngle: -30 })
+    expect(findDoorById(opened.doors, id)?.openAngle).toBe(-30)
+    expect(applyCommand(opened, { kind: 'setDoorAngle', id, openAngle: -30 })).toBe(opened)
+  })
+
+  it('rejects an out-of-range angle at set time', () => {
+    const model = addDoor(makeMap())
+    const id = model.doors[0].id
+    expect(() => applyCommand(model, { kind: 'setDoorAngle', id, openAngle: 999 })).toThrow(
+      /out of range/,
     )
   })
 
-  it('toggles open state and no-ops on same value', () => {
-    const model = applyCommand(withWall(), { kind: 'addDoor', wallSegmentId: 'w1', position: 0.5 })
-    const id = model.doors[0].id
-    const opened = applyCommand(model, { kind: 'setDoorOpen', id, open: true })
-    expect(findDoorById(opened.doors, id)?.open).toBe(true)
-    expect(applyCommand(opened, { kind: 'setDoorOpen', id, open: true })).toBe(opened)
-  })
-
   it('removes a door and throws for an unknown id', () => {
-    const model = applyCommand(withWall(), { kind: 'addDoor', wallSegmentId: 'w1', position: 0.5 })
+    const model = addDoor(makeMap())
     const id = model.doors[0].id
     expect(applyCommand(model, { kind: 'removeDoor', id }).doors).toEqual([])
     expect(() => applyCommand(model, { kind: 'removeDoor', id: 'nope' })).toThrow(/not found/)
+  })
+})
+
+describe('stairs', () => {
+  const squareStairs = [
+    { x: 1, y: 1 },
+    { x: 3, y: 1 },
+    { x: 3, y: 2 },
+    { x: 1, y: 2 },
+  ]
+
+  it('adds a stairs entity and removes it by id', () => {
+    const model = applyCommand(makeMap(), { kind: 'addStairs', polygon: squareStairs })
+    expect(model.stairs).toHaveLength(1)
+    const id = model.stairs[0].id
+    expect(model.stairs[0].polygon).toHaveLength(4)
+    expect(applyCommand(model, { kind: 'removeStairs', id }).stairs).toEqual([])
+  })
+
+  it('is a no-op when removing an unknown stairs id', () => {
+    const model = makeMap()
+    expect(applyCommand(model, { kind: 'removeStairs', id: 'missing' })).toBe(model)
+  })
+
+  it('rejects a degenerate stairs polygon', () => {
+    expect(() =>
+      applyCommand(makeMap(), {
+        kind: 'addStairs',
+        polygon: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ],
+      }),
+    ).toThrow(RangeError)
   })
 })
 
@@ -246,6 +275,7 @@ describe('replaceMap', () => {
           regions: model.regions,
           walls: model.walls,
           doors: model.doors,
+          stairs: model.stairs,
           objects: model.objects,
           lights: model.lights,
         },
@@ -260,6 +290,7 @@ describe('replaceMap', () => {
       regions: [region('a')],
       walls: [wall('w1')],
       doors: [],
+      stairs: [],
       objects: [],
       lights: [],
     }
@@ -267,6 +298,38 @@ describe('replaceMap', () => {
     expect(next.grid).toEqual({ width: 10, height: 10, cellSize: 64 })
     expect(next.regions).toHaveLength(1)
     expect(next.objects).toEqual([])
+  })
+
+  it('replaces stairs and rejects an invalid stairs polygon', () => {
+    const snapshot = {
+      grid: { width: 10, height: 10, cellSize: 64 },
+      regions: [],
+      walls: [],
+      doors: [],
+      stairs: [
+        {
+          id: 's1',
+          polygon: [
+            { x: 1, y: 1 },
+            { x: 3, y: 1 },
+            { x: 3, y: 2 },
+            { x: 1, y: 2 },
+          ],
+        },
+      ],
+      objects: [],
+      lights: [],
+    }
+    const next = applyCommand(makeMap(), { kind: 'replaceMap', snapshot })
+    expect(next.stairs).toHaveLength(1)
+    expect(next.stairs[0]).not.toBe(snapshot.stairs[0])
+
+    expect(() =>
+      applyCommand(makeMap(), {
+        kind: 'replaceMap',
+        snapshot: { ...snapshot, stairs: [{ id: 's2', polygon: [{ x: 0, y: 0 }, { x: 1, y: 1 }] }] },
+      }),
+    ).toThrow(RangeError)
   })
 
   it('rejects an invalid snapshot grid', () => {
@@ -279,6 +342,7 @@ describe('replaceMap', () => {
           regions: [],
           walls: [],
           doors: [],
+          stairs: [],
           objects: [],
           lights: [],
         },
@@ -390,13 +454,14 @@ describe('replaceMap (invariants & aliasing)', () => {
       })),
       walls: [],
       doors: [],
+      stairs: [],
       objects: [],
       lights: [],
     }
     expect(applyCommand(base, { kind: 'replaceMap', snapshot })).toBe(base)
   })
 
-  it('rejects a snapshot with a door on an unknown wall segment', () => {
+  it('rejects a snapshot with a door whose endpoints coincide', () => {
     expect(() =>
       applyCommand(makeMap(), {
         kind: 'replaceMap',
@@ -404,14 +469,13 @@ describe('replaceMap (invariants & aliasing)', () => {
           grid: { width: 10, height: 10, cellSize: 64 },
           regions: [],
           walls: [],
-          doors: [
-            { id: 'd1', wallSegmentId: 'missing', position: 0.5, open: false, imageId: null },
-          ],
+          doors: [{ id: 'd1', a: { x: 1, y: 1 }, b: { x: 1, y: 1 }, openAngle: 0, imageId: null }],
+          stairs: [],
           objects: [],
           lights: [],
         },
       }),
-    ).toThrow(/unknown wall/)
+    ).toThrow(/coincide/)
   })
 
   it('rejects a snapshot with an invalid region or object', () => {
@@ -433,6 +497,7 @@ describe('replaceMap (invariants & aliasing)', () => {
           ],
           walls: [],
           doors: [],
+          stairs: [],
           objects: [],
           lights: [],
         },
@@ -446,6 +511,7 @@ describe('replaceMap (invariants & aliasing)', () => {
           regions: [],
           walls: [],
           doors: [],
+          stairs: [],
           objects: [{ id: 1, kindId: 'dragon', x: 0, y: 0 }],
           lights: [],
         },
@@ -462,6 +528,7 @@ describe('replaceMap (invariants & aliasing)', () => {
           regions: [],
           walls: [],
           doors: [],
+          stairs: [],
           objects: [
             { id: 1, kindId: 'chair', x: 0, y: 0 },
             { id: 2, kindId: 'chair', x: 0, y: 0 },
@@ -478,6 +545,7 @@ describe('replaceMap (invariants & aliasing)', () => {
           regions: [],
           walls: [],
           doors: [],
+          stairs: [],
           objects: [
             { id: 1, kindId: 'chair', x: 0, y: 0 },
             { id: 1, kindId: 'chair', x: 2, y: 2 },
@@ -494,6 +562,7 @@ describe('replaceMap (invariants & aliasing)', () => {
           regions: [],
           walls: [],
           doors: [],
+          stairs: [],
           objects: [],
           lights: [
             { id: 1, x: 0, y: 0, radius: 3, color: '#ffdd88' },
@@ -512,6 +581,7 @@ describe('replaceMap (invariants & aliasing)', () => {
       regions: [regionEntry],
       walls: [],
       doors: [],
+      stairs: [],
       objects: [],
       lights: [],
     }
@@ -534,7 +604,7 @@ describe('replaceMap (invariants & aliasing)', () => {
 })
 
 describe('addRegionWithWalls', () => {
-  it('rebuilds auto walls while keeping manual walls and doors on surviving edges', () => {
+  it('rebuilds auto walls while keeping manual walls, and leaves doors untouched', () => {
     const manual = createWallSegment([
       { x: 10, y: 10 },
       { x: 12, y: 10 },
@@ -562,9 +632,9 @@ describe('addRegionWithWalls', () => {
         { segment: autoGone, present: true },
       ],
     })
-    model = applyCommand(model, { kind: 'addDoor', wallSegmentId: 'auto:h:0,0', position: 0.5 })
-    model = applyCommand(model, { kind: 'addDoor', wallSegmentId: 'auto:h:1,0', position: 0.5 })
-    expect(model.doors).toHaveLength(2)
+    // Doors are independent of walls → survive the wall rebuild.
+    model = applyCommand(model, { kind: 'addDoor', a: { x: 0, y: 0 }, b: { x: 1, y: 0 } })
+    expect(model.doors).toHaveLength(1)
 
     const recomputed = createWallSegment(
       [
@@ -583,7 +653,7 @@ describe('addRegionWithWalls', () => {
     expect(ids).toContain(manual.id)
     expect(ids).toContain('auto:h:0,0')
     expect(ids).not.toContain('auto:h:1,0')
-    expect(next.doors.map((d) => d.wallSegmentId)).toEqual(['auto:h:0,0'])
+    expect(next.doors).toHaveLength(1)
     expect(next.regions.map((r) => r.id)).toContain('r2')
   })
 })

@@ -21,7 +21,10 @@ describe('buildRegionCommand', () => {
     expect(command.kind).toBe('addRegionWithWalls')
     if (command.kind === 'addRegionWithWalls') {
       expect(command.region.tileType).toBe('floor')
-      expect(command.walls).toHaveLength(4)
+      // One closed contour → a single wall segment whose ends coincide.
+      expect(command.walls).toHaveLength(1)
+      const [wall] = command.walls
+      expect(wall.points[0]).toEqual(wall.points[wall.points.length - 1])
     }
   })
 

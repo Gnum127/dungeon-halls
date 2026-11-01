@@ -130,6 +130,7 @@ describe('EditorStore', () => {
         regions: [],
         walls: [],
         doors: [],
+        stairs: [],
         objects: [],
         lights: [],
       },

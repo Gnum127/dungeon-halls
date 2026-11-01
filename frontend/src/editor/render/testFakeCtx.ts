@@ -6,6 +6,9 @@ export interface FakeCtx {
   globalAlpha: number
   strokeStyle: string
   lineWidth: number
+  lineCap: string
+  lineJoin: string
+  lastRotate: number
   imageSmoothingEnabled: boolean
   fillRect(...args: unknown[]): void
   beginPath(): void
@@ -42,6 +45,9 @@ export function makeFakeCtx(
     globalAlpha: 1,
     strokeStyle: '',
     lineWidth: 1,
+    lineCap: 'butt',
+    lineJoin: 'miter',
+    lastRotate: 0,
     imageSmoothingEnabled: true,
     fillRect(...args: unknown[]) {
       calls.push({ op: 'fillRect', args, fillStyle: this.fillStyle })
@@ -92,6 +98,7 @@ export function makeFakeCtx(
       calls.push({ op: 'translate', args, fillStyle: this.fillStyle })
     },
     rotate(...args: unknown[]) {
+      if (typeof args[0] === 'number') this.lastRotate = args[0]
       calls.push({ op: 'rotate', args, fillStyle: this.fillStyle })
     },
   }

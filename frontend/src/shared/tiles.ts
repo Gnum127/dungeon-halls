@@ -1,13 +1,4 @@
-export const TILE_TYPES = [
-  'empty',
-  'floor',
-  'grass',
-  'water',
-  'stone',
-  'sand',
-  'wall',
-  'stairs',
-] as const
+export const TILE_TYPES = ['empty', 'floor', 'grass', 'water', 'stone', 'sand', 'wall'] as const
 
 export type TileTypeName = (typeof TILE_TYPES)[number]
 

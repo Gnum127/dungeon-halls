@@ -1,4 +1,4 @@
-import { computeAutoWalls } from '../model/autoWalls'
+import { computeWallsWithRegion } from '../model/autoWalls'
 import { createTerrainRegion } from '../model/regions'
 import type { Command } from '../model/commands'
 import type { MapModel, TileTypeName } from '../model/types'
@@ -20,6 +20,6 @@ export function buildRegionCommand(
   if (!autoWalls) {
     return { kind: 'addRegion', region }
   }
-  const walls = computeAutoWalls([...model.regions, region])
+  const walls = computeWallsWithRegion(model.regions, region)
   return { kind: 'addRegionWithWalls', region, walls }
 }

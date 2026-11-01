@@ -6,10 +6,11 @@
 ## tiles.ts
 
 Палитра покрытий `TILE_TYPES` (`empty`/`floor`/`grass`/`water`/`stone`/`sand`/
-`wall`/`stairs`), типы `TileTypeName` / `TileGrid` (Uint8Array — только
-внутренняя сетка генератора) и лимит `MAX_MAP_DIMENSION` для генераторов.
-`stairs` — фигура покрытия (поперечные ступени); генератор её не эмитит.
-Сетка карты теперь только квадратная: гекс-типы и `GridType` удалены (этап 14).
+`wall`), типы `TileTypeName` / `TileGrid` (Uint8Array — только внутренняя сетка
+генератора) и лимит `MAX_MAP_DIMENSION` для генераторов. Лестницы больше НЕ
+покрытие: это отдельная сущность `StairsPolygon` в модели (`editor/model/stairs.ts`),
+тайл `stairs` удалён (этап 15). Сетка карты только квадратная: гекс-типы и
+`GridType` удалены (этап 14).
 
 ## point.ts — геометрия
 

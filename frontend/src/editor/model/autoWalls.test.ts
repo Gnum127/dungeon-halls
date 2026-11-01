@@ -102,6 +102,35 @@ describe('computeAutoWalls (one segment per contour)', () => {
     expect(idsOf(walls)).toEqual(idsOf(computeAutoWalls([squareRegion(1, 1, 1, 'orig')])))
   })
 
+  it('is invariant to the winding orientation of the input polygon', () => {
+    const ccw = createTerrainRegion(
+      'floor',
+      [
+        { x: 1, y: 1 },
+        { x: 2, y: 1 },
+        { x: 2, y: 2 },
+        { x: 1, y: 2 },
+      ],
+      0,
+      'ccw',
+    )
+    const cw = createTerrainRegion(
+      'floor',
+      [
+        { x: 1, y: 1 },
+        { x: 1, y: 2 },
+        { x: 2, y: 2 },
+        { x: 2, y: 1 },
+      ],
+      0,
+      'cw',
+    )
+    const [ccwWall] = computeAutoWalls([ccw])
+    const [cwWall] = computeAutoWalls([cw])
+    expect(ccwWall.points).toEqual(cwWall.points)
+    expect(ccwWall.id).toBe(cwWall.id)
+  })
+
   it('produces identical ids on repeated calls (stable across rebuilds)', () => {
     expect(idsOf(computeAutoWalls([squareRegion(0, 0, 2)]))).toEqual(
       idsOf(computeAutoWalls([squareRegion(0, 0, 2)])),

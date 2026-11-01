@@ -8,7 +8,7 @@ import {
 import { createEmptyMap } from './createEmptyMap'
 import { MAP_VERSION } from './types'
 
-describe('createEmptyMap (v5)', () => {
+describe('createEmptyMap (v6)', () => {
   it('uses config defaults', () => {
     const model = createEmptyMap()
     expect(model.version).toBe(MAP_VERSION)
@@ -20,6 +20,7 @@ describe('createEmptyMap (v5)', () => {
     expect(model.regions).toEqual([])
     expect(model.walls).toEqual([])
     expect(model.doors).toEqual([])
+    expect(model.stairs).toEqual([])
     expect(model.objects).toEqual([])
     expect(model.lights).toEqual([])
   })

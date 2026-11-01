@@ -113,7 +113,9 @@ describe('renderMap', () => {
     const objectFill = calls.findIndex(
       (c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch,
     )
+    const gridIndex = calls.findIndex((c) => c.op === 'stroke' && c.fillStyle === GRID_LINE_COLOR)
     expect(stepIndex).toBeGreaterThanOrEqual(0)
+    expect(gridIndex).toBeGreaterThan(stepIndex)
     expect(objectFill).toBeGreaterThan(stepIndex)
   })
 

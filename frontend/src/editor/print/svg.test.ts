@@ -147,6 +147,8 @@ describe('buildSvg', () => {
     expect(svg).toContain(`stroke="${STAIRS_OUTLINE_COLOR}"`)
     expect(svg).toContain('clip-path="url(#stairs-0)"')
     expect(svg).toContain('<clipPath id="stairs-0">')
+    // The step path is not empty (at least one M…L… subpath).
+    expect(svg).toMatch(/d="M[^"]*L[^"]*"[^>]*clip-path="url\(#stairs-0\)"/)
   })
 
   it('omits lights unless includeLight is set', () => {

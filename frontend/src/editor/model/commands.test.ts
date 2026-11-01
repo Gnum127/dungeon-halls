@@ -300,6 +300,38 @@ describe('replaceMap', () => {
     expect(next.objects).toEqual([])
   })
 
+  it('replaces stairs and rejects an invalid stairs polygon', () => {
+    const snapshot = {
+      grid: { width: 10, height: 10, cellSize: 64 },
+      regions: [],
+      walls: [],
+      doors: [],
+      stairs: [
+        {
+          id: 's1',
+          polygon: [
+            { x: 1, y: 1 },
+            { x: 3, y: 1 },
+            { x: 3, y: 2 },
+            { x: 1, y: 2 },
+          ],
+        },
+      ],
+      objects: [],
+      lights: [],
+    }
+    const next = applyCommand(makeMap(), { kind: 'replaceMap', snapshot })
+    expect(next.stairs).toHaveLength(1)
+    expect(next.stairs[0]).not.toBe(snapshot.stairs[0])
+
+    expect(() =>
+      applyCommand(makeMap(), {
+        kind: 'replaceMap',
+        snapshot: { ...snapshot, stairs: [{ id: 's2', polygon: [{ x: 0, y: 0 }, { x: 1, y: 1 }] }] },
+      }),
+    ).toThrow(RangeError)
+  })
+
   it('rejects an invalid snapshot grid', () => {
     const model = makeMap()
     expect(() =>

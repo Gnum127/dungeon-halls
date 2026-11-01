@@ -24,7 +24,7 @@ import type { RenderMode } from './render/renderMode'
 import { loadRenderMode, saveRenderMode } from './render/renderMode'
 import { loadElementImage, saveElementImage } from './render/elementImage'
 import { loadDoorImageId, saveDoorImageId } from './render/doorTexture'
-import { DEFAULT_DOOR_OPEN_ANGLE } from './model/doors'
+import { DEFAULT_DOOR_OPEN_ANGLE, MAX_DOOR_OPEN_ANGLE } from './model/doors'
 import { EditorStore } from './store/EditorStore'
 import type { EditorTool } from './tools/editorTool'
 import { useEditorHotkeys } from './hooks/useEditorHotkeys'
@@ -44,6 +44,7 @@ export function EditorPage() {
   const [tileType, setTileType] = useState<TileTypeName>('floor')
   const [tool, setTool] = useState<EditorTool>(() => ({ type: 'region-rect', tileType: 'floor' }))
   const [doorImageId, setDoorImageId] = useState<string | null>(() => loadDoorImageId())
+  const [doorOpenAngle, setDoorOpenAngle] = useState(DEFAULT_DOOR_OPEN_ANGLE)
   const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null)
   const [fileStatus, setFileStatus] = useState<FileActionStatus | null>(null)
   const [polygonVertexCount, setPolygonVertexCount] = useState(6)
@@ -111,13 +112,19 @@ export function EditorPage() {
 
   function selectDoor() {
     setSelectedObjectId(null)
-    setTool({ type: 'door', imageId: doorImageId, openAngle: DEFAULT_DOOR_OPEN_ANGLE })
+    setTool({ type: 'door', imageId: doorImageId, openAngle: doorOpenAngle })
   }
 
   function changeDoorImage(imageId: string | null) {
     saveDoorImageId(imageId)
     setDoorImageId(imageId)
     if (tool.type === 'door') setTool({ ...tool, imageId })
+  }
+
+  function changeDoorOpenAngle(angle: number) {
+    if (angle < 0 || angle > MAX_DOOR_OPEN_ANGLE) return
+    setDoorOpenAngle(angle)
+    if (tool.type === 'door') setTool({ ...tool, openAngle: angle })
   }
 
   function changeVertexCount(count: number) {
@@ -191,6 +198,7 @@ export function EditorPage() {
               vertexCount={polygonVertexCount}
               autoWalls={autoWalls}
               doorImageId={doorImageId}
+              doorOpenAngle={doorOpenAngle}
               onSelectRect={selectRect}
               onSelectPolygon={selectPolygon}
               onSelectEraser={selectEraser}
@@ -199,6 +207,7 @@ export function EditorPage() {
               onVertexCountChange={changeVertexCount}
               onAutoWallsChange={toggleAutoWalls}
               onDoorImageChange={changeDoorImage}
+              onDoorAngleChange={changeDoorOpenAngle}
             />
           </SectionPanel>
         )

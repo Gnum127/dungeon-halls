@@ -28,8 +28,13 @@ function withWall(): MapModel {
   })
 }
 
-function withDoor(position = 0.5): MapModel {
-  return applyCommand(withWall(), { kind: 'addDoor', wallSegmentId: 'w1', position, imageId: null })
+function withDoor(): MapModel {
+  return applyCommand(withWall(), {
+    kind: 'addDoor',
+    a: { x: 4.5, y: 0 },
+    b: { x: 5.5, y: 0 },
+    imageId: null,
+  })
 }
 
 interface HarnessProps {
@@ -83,28 +88,29 @@ function setup(model: MapModel, imageId: string | null = null, viewport?: Partia
 describe('useDoorTool', () => {
   it('places a door on the nearest wall with the chosen texture', () => {
     const { canvas, onCommit } = setup(withWall(), 'door-iron')
-    // Мир (5, 0) — середина стены.
+    // Мир (5, 0) — середина стены. Клик ставит проём 1 клетка вдоль касательной.
     fireEvent.pointerDown(canvas, { button: 0, pointerId: 1, clientX: 5 * CELL, clientY: 0 })
 
     expect(onCommit).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: 'addDoor',
-        wallSegmentId: 'w1',
+        a: { x: 4.5, y: 0 },
+        b: { x: 5.5, y: 0 },
         imageId: 'door-iron',
-        position: 0.5,
+        openAngle: 0,
       }),
     )
   })
 
-  it('toggles an existing door open on a left click at its centre', () => {
+  it('cycles the leaf angle on a left click at a door', () => {
     const model = withDoor()
     const { canvas, onCommit } = setup(model)
     fireEvent.pointerDown(canvas, { button: 0, pointerId: 1, clientX: 5 * CELL, clientY: 0 })
 
     expect(onCommit).toHaveBeenCalledWith({
-      kind: 'setDoorOpen',
+      kind: 'setDoorAngle',
       id: model.doors[0].id,
-      open: true,
+      openAngle: 30,
     })
   })
 

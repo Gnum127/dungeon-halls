@@ -3,12 +3,14 @@ import { isValidLightColor, isValidLightRadius } from './lights'
 import { isMapDimension } from '@/config/map.config'
 import { assertValidRegion, isTileTypeName, isValidPolygon } from './regions'
 import { isWallExtends } from './wallSegments'
-import { DOOR_POSITION_TOLERANCE, isValidDoorPosition } from './doors'
+import { isValidDoorOpenAngle } from './doors'
+import { assertValidStairsPolygon } from './stairs'
 import { MAP_VERSION } from './types'
 import type { MapGrid, MapModel } from './types'
 import type { TerrainRegion } from './regions'
 import type { WallSegment } from './wallSegments'
 import type { Door } from './doors'
+import type { StairsPolygon } from './stairs'
 import type { MapLight } from './lights'
 import type { MapObject, ObjectRotation, ObjectScale } from './types'
 import type { Point } from '@/shared/point'
@@ -113,47 +115,57 @@ function parseWalls(value: unknown): WallSegment[] {
   return walls
 }
 
-function parseDoors(value: unknown, walls: readonly WallSegment[]): Door[] {
+function parseDoors(value: unknown): Door[] {
   if (!Array.isArray(value)) throw new MapLoadError('doors must be an array')
   const seen = new Set<string>()
-  const wallIds = new Set(walls.map((wall) => wall.id))
   const doors: Door[] = []
   for (const candidate of value) {
     if (typeof candidate !== 'object' || candidate === null) {
       throw new MapLoadError('Every door must be a JSON object')
     }
-    const { id, wallSegmentId, position, open, imageId } = candidate as Record<string, unknown>
+    const { id, a, b, openAngle, imageId } = candidate as Record<string, unknown>
     if (typeof id !== 'string' || id.length === 0) {
       throw new MapLoadError('Door id must be a non-empty string')
     }
     if (seen.has(id)) throw new MapLoadError(`Duplicate door id: ${id}`)
     seen.add(id)
-    if (typeof wallSegmentId !== 'string' || !wallIds.has(wallSegmentId)) {
-      throw new MapLoadError(`Door references unknown wall segment: ${String(wallSegmentId)}`)
+    const pointA = parsePoint(a)
+    const pointB = parsePoint(b)
+    if (pointA.x === pointB.x && pointA.y === pointB.y) {
+      throw new MapLoadError(`Door ${id} endpoints must not coincide`)
     }
-    if (!isValidDoorPosition(position)) {
-      throw new MapLoadError(`Door position must be in [0, 1], got ${String(position)}`)
-    }
-    if (typeof open !== 'boolean') {
-      throw new MapLoadError('Door open must be a boolean')
+    if (!isValidDoorOpenAngle(openAngle)) {
+      throw new MapLoadError(`Door openAngle must be within ±150°, got ${String(openAngle)}`)
     }
     if (imageId !== null && (typeof imageId !== 'string' || imageId.length === 0)) {
       throw new MapLoadError('Door imageId must be null or a non-empty string')
     }
-    doors.push({ id, wallSegmentId, position, open, imageId })
-  }
-
-  for (let i = 0; i < doors.length; i += 1) {
-    for (let j = i + 1; j < doors.length; j += 1) {
-      if (
-        doors[i].wallSegmentId === doors[j].wallSegmentId &&
-        Math.abs(doors[i].position - doors[j].position) < DOOR_POSITION_TOLERANCE
-      ) {
-        throw new MapLoadError('Two doors are placed too close on the same wall segment')
-      }
-    }
+    doors.push({ id, a: pointA, b: pointB, openAngle, imageId })
   }
   return doors
+}
+
+function parseStairs(value: unknown): StairsPolygon[] {
+  if (!Array.isArray(value)) throw new MapLoadError('stairs must be an array')
+  const seen = new Set<string>()
+  const stairs: StairsPolygon[] = []
+  for (const candidate of value) {
+    if (typeof candidate !== 'object' || candidate === null) {
+      throw new MapLoadError('Every stairs entry must be a JSON object')
+    }
+    const { id, polygon } = candidate as Record<string, unknown>
+    if (typeof id !== 'string' || id.length === 0) {
+      throw new MapLoadError('Stairs id must be a non-empty string')
+    }
+    if (seen.has(id)) throw new MapLoadError(`Duplicate stairs id: ${id}`)
+    seen.add(id)
+    if (!Array.isArray(polygon)) throw new MapLoadError('Stairs polygon must be an array')
+    const points = polygon.map(parsePoint)
+    const entry: StairsPolygon = { id, polygon: points }
+    assertValidStairsPolygon(entry)
+    stairs.push(entry)
+  }
+  return stairs
 }
 
 function parseObjects(value: unknown, grid: MapGrid): MapObject[] {
@@ -275,7 +287,17 @@ export function serializeMap(model: MapModel): string {
       extends: wall.extends,
       thickness: wall.thickness,
     })),
-    doors: model.doors.map((door) => ({ ...door })),
+    doors: model.doors.map((door) => ({
+      id: door.id,
+      a: [door.a.x, door.a.y],
+      b: [door.b.x, door.b.y],
+      openAngle: door.openAngle,
+      imageId: door.imageId,
+    })),
+    stairs: model.stairs.map((entry) => ({
+      id: entry.id,
+      polygon: entry.polygon.map((p) => [p.x, p.y]),
+    })),
     objects: model.objects.map((object) => ({
       id: object.id,
       kindId: object.kindId,
@@ -310,9 +332,10 @@ export function deserializeMap(json: string): MapModel {
   const grid = parseGrid(raw.grid)
   const regions = parseRegions(raw.regions)
   const walls = parseWalls(raw.walls)
-  const doors = parseDoors(raw.doors, walls)
+  const doors = parseDoors(raw.doors)
+  const stairs = parseStairs(raw.stairs)
   const objects = parseObjects(raw.objects, grid)
   const lights = parseLights(raw.lights, grid)
 
-  return { version: MAP_VERSION, grid, regions, walls, doors, objects, lights }
+  return { version: MAP_VERSION, grid, regions, walls, doors, stairs, objects, lights }
 }

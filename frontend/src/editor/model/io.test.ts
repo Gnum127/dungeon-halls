@@ -50,9 +50,19 @@ function richModel(): MapModel {
   })
   model = applyCommand(model, {
     kind: 'addDoor',
-    wallSegmentId: 'w1',
-    position: 0.5,
+    a: { x: 0, y: 0 },
+    b: { x: 1, y: 0 },
+    openAngle: -30,
     imageId: 'door-wooden',
+  })
+  model = applyCommand(model, {
+    kind: 'addStairs',
+    polygon: [
+      { x: 8, y: 1 },
+      { x: 10, y: 1 },
+      { x: 10, y: 3 },
+      { x: 8, y: 3 },
+    ],
   })
   model = applyCommand(model, {
     kind: 'addObject',
@@ -69,7 +79,7 @@ function rawOf(model: MapModel): Record<string, unknown> {
   return JSON.parse(serializeMap(model)) as Record<string, unknown>
 }
 
-describe('serializeMap / deserializeMap (v5)', () => {
+describe('serializeMap / deserializeMap (v6)', () => {
   it('roundtrips a rich model', () => {
     const model = richModel()
     const restored = deserializeMap(serializeMap(model))
@@ -81,9 +91,9 @@ describe('serializeMap / deserializeMap (v5)', () => {
     expect(deserializeMap(serializeMap(model))).toEqual(model)
   })
 
-  it('writes version 5 and grid as an object', () => {
+  it('writes version 6 and grid as an object', () => {
     const raw = rawOf(createEmptyMap(5, 5, 40))
-    expect(raw.version).toBe(5)
+    expect(raw.version).toBe(6)
     expect(raw.grid).toEqual({ width: 5, height: 5, cellSize: 40 })
   })
 
@@ -95,9 +105,9 @@ describe('serializeMap / deserializeMap (v5)', () => {
     expect(() => deserializeMap('[]')).toThrow(MapLoadError)
   })
 
-  it('rejects an unsupported version', () => {
+  it('rejects an unsupported version (v5 is no longer read)', () => {
     const raw = rawOf(createEmptyMap(5, 5))
-    raw.version = 4
+    raw.version = 5
     expect(() => deserializeMap(JSON.stringify(raw))).toThrow(/Unsupported map version/)
   })
 
@@ -131,10 +141,10 @@ describe('serializeMap / deserializeMap (v5)', () => {
     expect(() => deserializeMap(JSON.stringify(raw))).toThrow(/Duplicate region id/)
   })
 
-  it('rejects a door referencing an unknown wall segment', () => {
+  it('rejects a door whose endpoints coincide', () => {
     const raw = rawOf(richModel())
-    ;(raw.doors as Record<string, unknown>[])[0].wallSegmentId = 'missing'
-    expect(() => deserializeMap(JSON.stringify(raw))).toThrow(/unknown wall segment/)
+    ;(raw.doors as Record<string, unknown>[])[0].b = [0, 0]
+    expect(() => deserializeMap(JSON.stringify(raw))).toThrow(/coincide/)
   })
 
   it('rejects an object placed out of bounds', () => {
@@ -180,6 +190,9 @@ describe('deserializeMap rejects malformed sections', () => {
     )
     expect(() => deserializeMap(JSON.stringify(withRaw((raw) => (raw.doors = {}))))).toThrow(
       /doors must be an array/,
+    )
+    expect(() => deserializeMap(JSON.stringify(withRaw((raw) => (raw.stairs = {}))))).toThrow(
+      /stairs must be an array/,
     )
     expect(() => deserializeMap(JSON.stringify(withRaw((raw) => (raw.objects = {}))))).toThrow(
       /objects must be an array/,
@@ -245,21 +258,21 @@ describe('deserializeMap rejects malformed sections', () => {
     ).toThrow(/at least 2/)
   })
 
-  it('rejects a door with a bad position, non-boolean open or bad imageId', () => {
+  it('rejects a door with a bad openAngle, coinciding endpoints or bad imageId', () => {
     expect(() =>
       deserializeMap(
         JSON.stringify(
-          withRaw((raw) => ((raw.doors as Record<string, unknown>[])[0].position = 2)),
+          withRaw((raw) => ((raw.doors as Record<string, unknown>[])[0].openAngle = 999)),
         ),
       ),
-    ).toThrow(/position/)
+    ).toThrow(/openAngle/)
     expect(() =>
       deserializeMap(
         JSON.stringify(
-          withRaw((raw) => ((raw.doors as Record<string, unknown>[])[0].open = 'yes')),
+          withRaw((raw) => ((raw.doors as Record<string, unknown>[])[0].b = [0, 0])),
         ),
       ),
-    ).toThrow(/open/)
+    ).toThrow(/coincide/)
     expect(() =>
       deserializeMap(
         JSON.stringify(
@@ -269,17 +282,24 @@ describe('deserializeMap rejects malformed sections', () => {
     ).toThrow(/imageId/)
   })
 
-  it('rejects two doors placed too close on one segment', () => {
+  it('rejects a stairs entry with a degenerate polygon or duplicate id', () => {
+    expect(() =>
+      deserializeMap(
+        JSON.stringify(
+          withRaw((raw) => ((raw.stairs as Record<string, unknown>[])[0].polygon = [[0, 0], [1, 1]])),
+        ),
+      ),
+    ).toThrow(/Stairs polygon/)
     expect(() =>
       deserializeMap(
         JSON.stringify(
           withRaw((raw) => {
-            const doors = raw.doors as Record<string, unknown>[]
-            doors.push({ ...doors[0], id: 'door-2', position: 0.51 })
+            const stairs = raw.stairs as Record<string, unknown>[]
+            stairs.push({ ...stairs[0] })
           }),
         ),
       ),
-    ).toThrow(/too close/)
+    ).toThrow(/Duplicate stairs id/)
   })
 
   it('rejects an object with bad rotation, scale or duplicate id', () => {

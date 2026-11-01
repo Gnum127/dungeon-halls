@@ -1,22 +1,22 @@
 import { isKnownKind, OBJECT_COLORS } from '../model/objects'
-import { pointAlongWallSegment } from '../model/wallSegments'
+import { doorLeafEnd } from '../model/doors'
 import type { MapModel } from '../model/types'
 import {
   CANVAS_BACKGROUND_COLOR,
   DOOR_FILL_COLOR,
-  DOOR_LENGTH_FRACTION,
   DOOR_THICKNESS_FRACTION,
   FALLBACK_OBJECT_COLOR,
   GRID_LINE_COLOR,
   LIGHT_GLOW_COLOR,
   LIGHT_MARKER_COLOR,
   OBJECT_OUTLINE_COLOR,
+  STAIRS_OUTLINE_COLOR,
   STAIRS_STEP_COLOR,
   TILE_COLORS,
   WALL_BODY_COLOR,
   WALL_LINE_COLOR,
 } from '../render/colors'
-import { cellCenterAt, wallPath } from '../render/geometry'
+import { cellCenterAt, stairsStepSegments, wallPath } from '../render/geometry'
 
 /** Единица координат SVG: толщины стен/дверей остаются пропорциональными. */
 export const SVG_UNITS_PER_CELL = 64
@@ -55,30 +55,27 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
   )
 
   const sortedRegions = [...model.regions].sort((a, b) => a.zOrder - b.zOrder)
-  let stairsIndex = 0
   for (const region of sortedRegions) {
     const points = region.polygon.map((p) => `${fmt(p.x * s)},${fmt(p.y * s)}`).join(' ')
     parts.push(`<polygon points="${points}" fill="${TILE_COLORS[region.tileType]}"/>`)
-
-    if (region.tileType === 'stairs') {
-      const clipId = `stairs-${stairsIndex}`
-      stairsIndex += 1
-      const xs = region.polygon.map((p) => p.x * s)
-      const ys = region.polygon.map((p) => p.y * s)
-      const minX = Math.min(...xs)
-      const maxX = Math.max(...xs)
-      const minY = Math.min(...ys)
-      const maxY = Math.max(...ys)
-      const steps: string[] = []
-      for (let y = minY; y <= maxY; y += s * 0.25) {
-        steps.push(`M${fmt(minX)} ${fmt(y)}L${fmt(maxX)} ${fmt(y)}`)
-      }
-      parts.push(`<clipPath id="${clipId}"><polygon points="${points}"/></clipPath>`)
-      parts.push(
-        `<path d="${steps.join('')}" clip-path="url(#${clipId})" fill="none" stroke="${STAIRS_STEP_COLOR}" stroke-width="${fmt(Math.max(1, s * 0.05))}"/>`,
-      )
-    }
   }
+
+  model.stairs.forEach((entry, index) => {
+    const points = entry.polygon.map((p) => `${fmt(p.x * s)},${fmt(p.y * s)}`).join(' ')
+    const clipId = `stairs-${index}`
+    parts.push(
+      `<clipPath id="${clipId}"><polygon points="${points}"/></clipPath>`,
+    )
+    const steps = stairsStepSegments(entry.polygon)
+      .map((segment) => `M${fmt(segment.a.x * s)} ${fmt(segment.a.y * s)}L${fmt(segment.b.x * s)} ${fmt(segment.b.y * s)}`)
+      .join('')
+    parts.push(
+      `<path d="${steps}" clip-path="url(#${clipId})" fill="none" stroke="${STAIRS_STEP_COLOR}" stroke-width="${fmt(Math.max(1, s * 0.05))}"/>`,
+    )
+    parts.push(
+      `<polygon points="${points}" fill="none" stroke="${STAIRS_OUTLINE_COLOR}" stroke-width="${fmt(Math.max(1.5, s * 0.06))}" stroke-linejoin="round"/>`,
+    )
+  })
 
   const lines: string[] = []
   for (let col = 0; col <= model.grid.width; col += 1) {
@@ -130,17 +127,13 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
   }
 
   for (const door of model.doors) {
-    const wall = model.walls.find((candidate) => candidate.id === door.wallSegmentId)
-    if (!wall) continue
-    const point = pointAlongWallSegment(wall, door.position)
-    const ahead = pointAlongWallSegment(wall, Math.min(1, door.position + 0.001))
-    const behind = pointAlongWallSegment(wall, Math.max(0, door.position - 0.001))
-    const angleDeg = (Math.atan2(ahead.y - behind.y, ahead.x - behind.x) * 180) / Math.PI
-    const length = s * DOOR_LENGTH_FRACTION
+    const leaf = doorLeafEnd(door)
+    const length = Math.hypot(door.b.x - door.a.x, door.b.y - door.a.y) * s
     const thickness = Math.max(4, s * DOOR_THICKNESS_FRACTION)
-    const transform = `translate(${fmt(point.x * s)} ${fmt(point.y * s)}) rotate(${fmt(angleDeg)}) translate(${fmt(-length / 2)} ${fmt(-thickness / 2)})`
+    const angleDeg = (Math.atan2(leaf.y - door.a.y, leaf.x - door.a.x) * 180) / Math.PI
+    const transform = `translate(${fmt(door.a.x * s)} ${fmt(door.a.y * s)}) rotate(${fmt(angleDeg)})`
     parts.push(
-      `<rect x="0" y="0" width="${fmt(length)}" height="${fmt(thickness)}" fill="${DOOR_FILL_COLOR}" transform="${transform}"/>`,
+      `<rect x="0" y="${fmt(-thickness / 2)}" width="${fmt(length)}" height="${fmt(thickness)}" fill="${DOOR_FILL_COLOR}" transform="${transform}"/>`,
     )
   }
 

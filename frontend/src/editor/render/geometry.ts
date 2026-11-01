@@ -57,3 +57,70 @@ export function wallPath(wall: WallSegment): { points: readonly Point[]; closed:
     points[0].y === points[points.length - 1].y
   return { points: closed ? points.slice(0, -1) : points, closed }
 }
+
+export interface Bounds {
+  readonly minX: number
+  readonly minY: number
+  readonly maxX: number
+  readonly maxY: number
+}
+
+export function polygonBounds(polygon: readonly Point[]): Bounds {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const { x, y } of polygon) {
+    if (x < minX) minX = x
+    if (y < minY) minY = y
+    if (x > maxX) maxX = x
+    if (y > maxY) maxY = y
+  }
+  return { minX, minY, maxX, maxY }
+}
+
+export interface Segment {
+  readonly a: Point
+  readonly b: Point
+}
+
+/** Шаг линий-ступеней лестницы (в клетках). */
+export const STAIRS_STEP_SPACING = 0.25
+
+/**
+ * Линии-ступени лестницы в мировых координатах (клетки). Ось — от середины
+ * базы (p0–p1) к середине дальнего края (p2–p3), ступени перпендикулярны оси;
+ * для полигонов ≠4 вершин — горизонтальный фолбэк по bounding box.
+ */
+export function stairsStepSegments(polygon: readonly Point[]): Segment[] {
+  if (polygon.length < 3) return []
+  const bounds = polygonBounds(polygon)
+  const extent = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY)
+
+  if (polygon.length !== 4) {
+    const segments: Segment[] = []
+    for (let y = bounds.minY; y <= bounds.maxY; y += STAIRS_STEP_SPACING) {
+      segments.push({ a: { x: bounds.minX, y }, b: { x: bounds.maxX, y } })
+    }
+    return segments
+  }
+
+  const base = { x: (polygon[0].x + polygon[1].x) / 2, y: (polygon[0].y + polygon[1].y) / 2 }
+  const far = { x: (polygon[2].x + polygon[3].x) / 2, y: (polygon[2].y + polygon[3].y) / 2 }
+  const axisLength = Math.hypot(far.x - base.x, far.y - base.y)
+  const dirX = axisLength === 0 ? 1 : (far.x - base.x) / axisLength
+  const dirY = axisLength === 0 ? 0 : (far.y - base.y) / axisLength
+  const normalX = -dirY
+  const normalY = dirX
+  const span = extent + axisLength
+  const segments: Segment[] = []
+  for (let distance = 0; distance <= axisLength; distance += STAIRS_STEP_SPACING) {
+    const px = base.x + dirX * distance
+    const py = base.y + dirY * distance
+    segments.push({
+      a: { x: px - normalX * span, y: py - normalY * span },
+      b: { x: px + normalX * span, y: py + normalY * span },
+    })
+  }
+  return segments
+}

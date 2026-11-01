@@ -1,26 +1,28 @@
 import { isKnownKind, OBJECT_COLORS, OBJECT_KIND_ENTRIES } from '../model/objects'
 import { regionBounds } from '../model/regions'
-import { pointAlongWallSegment } from '../model/wallSegments'
+import { doorLeafEnd } from '../model/doors'
 import type { WallSegment } from '../model/wallSegments'
 import type { MapModel } from '../model/types'
 import type { TerrainRegion } from '../model/regions'
+import type { StairsPolygon } from '../model/stairs'
+import type { Point } from '@/shared/point'
 import type { SpriteRenderContext } from './sprites/loader'
 import {
   CANVAS_BACKGROUND_COLOR,
   DOOR_FILL_COLOR,
-  DOOR_LENGTH_FRACTION,
   DOOR_THICKNESS_FRACTION,
   FALLBACK_OBJECT_COLOR,
   GRID_LINE_COLOR,
   LIGHT_GLOW_COLOR,
   LIGHT_MARKER_COLOR,
   OBJECT_OUTLINE_COLOR,
+  STAIRS_OUTLINE_COLOR,
   STAIRS_STEP_COLOR,
   TILE_COLORS,
   WALL_BODY_COLOR,
   WALL_LINE_COLOR,
 } from './colors'
-import { cellCenterAt, visibleCellRange, wallPath } from './geometry'
+import { cellCenterAt, stairsStepSegments, visibleCellRange, wallPath } from './geometry'
 import { pickIndexFromCoords } from '@/shared/random'
 import type { Viewport } from './viewport'
 
@@ -83,6 +85,10 @@ export function renderMap(
     drawRegion(ctx, region, viewport, sprites)
   }
 
+  for (const stairs of model.stairs) {
+    drawStairs(ctx, stairs, viewport)
+  }
+
   drawGrid(ctx, model, viewport)
 
   for (const object of model.objects) {
@@ -94,7 +100,7 @@ export function renderMap(
   }
 
   for (const door of model.doors) {
-    drawDoor(ctx, model, door, viewport, sprites)
+    drawDoor(ctx, door, viewport, sprites)
   }
 
   if (sprites) ctx.imageSmoothingEnabled = smoothingBefore
@@ -162,39 +168,57 @@ function drawRegion(
     }
     ctx.restore()
   }
-
-  if (region.tileType === 'stairs') {
-    drawStairsSteps(ctx, region, viewport)
-  }
 }
 
 /**
- * Поперечные линии-ступени внутри региона лестницы: рисуются по bounding box
- * региона с clip по его полигону. Шаг линий — четверть клетки.
+ * Поперечные линии-ступени внутри лестницы: ось — от середины базы (p0–p1) к
+ * середине дальнего края (p2–p3), ступени перпендикулярны оси. Контур — без
+ * заливки; линии обрезаны по контуру. Для полигонов ≠4 вершин — горизонтальный
+ * фолбэк по bounding box.
  */
-function drawStairsSteps(
+function drawStairs(
   ctx: CanvasRenderingContext2D,
-  region: TerrainRegion,
+  stairs: StairsPolygon,
   viewport: Viewport,
 ): void {
   const { cellSize, offsetX, offsetY } = viewport
-  const bounds = regionBounds(region)
+  const polygon = stairs.polygon
+  if (polygon.length < 3) return
+
   ctx.save()
-  tracePolygon(ctx, region.polygon, viewport)
+  tracePolygonPoints(ctx, polygon, viewport)
+  ctx.strokeStyle = STAIRS_OUTLINE_COLOR
+  ctx.lineWidth = Math.max(1.5, cellSize * 0.06)
+  ctx.lineJoin = 'round'
+  ctx.stroke()
   ctx.clip()
 
   ctx.strokeStyle = STAIRS_STEP_COLOR
   ctx.lineWidth = Math.max(1, cellSize * 0.05)
-  const step = cellSize * 0.25
-  const left = bounds.minX * cellSize - offsetX
-  const right = bounds.maxX * cellSize - offsetX
-  for (let y = bounds.minY * cellSize - offsetY; y <= bounds.maxY * cellSize - offsetY; y += step) {
+  for (const segment of stairsStepSegments(stairs.polygon)) {
     ctx.beginPath()
-    ctx.moveTo(left, y)
-    ctx.lineTo(right, y)
+    ctx.moveTo(segment.a.x * cellSize - offsetX, segment.a.y * cellSize - offsetY)
+    ctx.lineTo(segment.b.x * cellSize - offsetX, segment.b.y * cellSize - offsetY)
     ctx.stroke()
   }
   ctx.restore()
+}
+
+/** Трассирует замкнутый путь произвольного полигона (для stroke/clip). */
+function tracePolygonPoints(
+  ctx: CanvasRenderingContext2D,
+  polygon: readonly Point[],
+  viewport: Viewport,
+): void {
+  const { cellSize, offsetX, offsetY } = viewport
+  ctx.beginPath()
+  polygon.forEach((point, index) => {
+    const x = point.x * cellSize - offsetX
+    const y = point.y * cellSize - offsetY
+    if (index === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  })
+  ctx.closePath()
 }
 
 /** Линии сетки (квадратная сетка). */
@@ -297,43 +321,34 @@ function drawWall(ctx: CanvasRenderingContext2D, wall: WallSegment, viewport: Vi
   ctx.stroke()
 }
 
-/** Дверь на стеновом сегменте: текстура, иначе жирное полотно. */
+/**
+ * Дверь — самостоятельный проём: закрытая створка лежит на отрезке `a`–`b`,
+ * открытая повёрнута вокруг петли `a` на `openAngle`. Закрытая рисуется
+ * текстурой (по проёму) или жирной заливкой; открытая — заливкой-полосой по
+ * створке (текстура не поворачивается).
+ */
 function drawDoor(
   ctx: CanvasRenderingContext2D,
-  model: MapModel,
   door: MapModel['doors'][number],
   viewport: Viewport,
   sprites?: SpriteRenderContext,
 ): void {
-  const wall = model.walls.find((candidate) => candidate.id === door.wallSegmentId)
-  if (!wall) return
   const { cellSize, offsetX, offsetY } = viewport
-
-  const point = pointAlongWallSegment(wall, door.position)
-  const ahead = pointAlongWallSegment(wall, Math.min(1, door.position + 0.001))
-  const behind = pointAlongWallSegment(wall, Math.max(0, door.position - 0.001))
-  const tangentX = ahead.x - behind.x
-  const tangentY = ahead.y - behind.y
-  const angle = Math.atan2(tangentY, tangentX)
-
-  const length = cellSize * DOOR_LENGTH_FRACTION
   const thickness = Math.max(4, cellSize * DOOR_THICKNESS_FRACTION)
+  const leaf = doorLeafEnd(door)
+  const length = Math.hypot(door.b.x - door.a.x, door.b.y - door.a.y) * cellSize
+  const angle = Math.atan2(leaf.y - door.a.y, leaf.x - door.a.x)
 
   ctx.save()
-  ctx.translate(point.x * cellSize - offsetX, point.y * cellSize - offsetY)
+  ctx.translate(door.a.x * cellSize - offsetX, door.a.y * cellSize - offsetY)
   ctx.rotate(angle)
 
-  const image = door.imageId ? sprites?.elementImages[door.imageId] : undefined
+  const image = door.imageId && door.openAngle === 0 ? sprites?.elementImages[door.imageId] : undefined
+  ctx.fillStyle = DOOR_FILL_COLOR
   if (image) {
-    ctx.drawImage(image, -length / 2, -thickness / 2, length, thickness)
-  } else if (door.open) {
-    const segment = length * 0.3
-    ctx.fillStyle = DOOR_FILL_COLOR
-    ctx.fillRect(-length / 2, -thickness / 2, segment, thickness)
-    ctx.fillRect(length / 2 - segment, -thickness / 2, segment, thickness)
+    ctx.drawImage(image, 0, -thickness / 2, length, thickness)
   } else {
-    ctx.fillStyle = DOOR_FILL_COLOR
-    ctx.fillRect(-length / 2, -thickness / 2, length, thickness)
+    ctx.fillRect(0, -thickness / 2, length, thickness)
   }
 
   ctx.restore()

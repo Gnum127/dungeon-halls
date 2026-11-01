@@ -6,6 +6,7 @@ import { MAP_VERSION } from '../model/types'
 import {
   DOOR_FILL_COLOR,
   LIGHT_MARKER_COLOR,
+  STAIRS_OUTLINE_COLOR,
   STAIRS_STEP_COLOR,
   TILE_COLORS,
   WALL_BODY_COLOR,
@@ -27,6 +28,7 @@ function model(overrides: Partial<MapModel> = {}): MapModel {
     regions: [],
     walls: [],
     doors: [],
+    stairs: [],
     objects: [],
     lights: [],
     ...overrides,
@@ -105,25 +107,42 @@ describe('buildSvg', () => {
     expect((bodyPaths[0].match(/Z/g) ?? []).length).toBe(2)
   })
 
-  it('renders a door as a filled rectangle', () => {
+  it('does not close an open wall polyline in SVG', () => {
     const wall = createWallSegment(
       [
         { x: 0, y: 0 },
-        { x: 3, y: 0 },
+        { x: 2, y: 0 },
+        { x: 2, y: 2 },
       ],
       { id: 'w1' },
     )
-    const door = { id: 'd1', wallSegmentId: 'w1', position: 0.5, open: false, imageId: null }
-    const svg = buildSvg(model({ walls: [wall], doors: [door] }))
+    const svg = buildSvg(model({ walls: [wall] }))
+    expect(svg).toContain('M0 0L128 0L128 128')
+    expect(svg).not.toContain('Z')
+  })
+
+  it('renders a door as a filled rectangle along its opening', () => {
+    const door = { id: 'd1', a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, openAngle: 0, imageId: null }
+    const svg = buildSvg(model({ doors: [door] }))
 
     expect(svg).toContain(`fill="${DOOR_FILL_COLOR}"`)
   })
 
-  it('draws stair steps clipped to a stairs region', () => {
-    const svg = buildSvg(
-      model({ regions: [createTerrainRegion('stairs', square(0, 0, 2, 2), 0, 'r')] }),
-    )
+  it('draws a stairs entity contour and steps clipped to it', () => {
+    const stairs = [
+      {
+        id: 's1',
+        polygon: [
+          { x: 0, y: 0 },
+          { x: 2, y: 0 },
+          { x: 2, y: 1 },
+          { x: 0, y: 1 },
+        ],
+      },
+    ]
+    const svg = buildSvg(model({ stairs }))
     expect(svg).toContain(`stroke="${STAIRS_STEP_COLOR}"`)
+    expect(svg).toContain(`stroke="${STAIRS_OUTLINE_COLOR}"`)
     expect(svg).toContain('clip-path="url(#stairs-0)"')
     expect(svg).toContain('<clipPath id="stairs-0">')
   })

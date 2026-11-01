@@ -1,6 +1,7 @@
 import type { TerrainRegion } from './regions'
 import type { WallSegment } from './wallSegments'
 import type { Door } from './doors'
+import type { StairsPolygon } from './stairs'
 import type { MapLight } from './lights'
 
 export { TILE_TYPES, MAX_MAP_DIMENSION } from '@/shared/tiles'
@@ -8,10 +9,11 @@ export type { TileTypeName } from '@/shared/tiles'
 export type { TerrainRegion } from './regions'
 export type { WallExtends, WallSegment } from './wallSegments'
 export type { Door } from './doors'
+export type { StairsPolygon } from './stairs'
 export type { MapLight } from './lights'
 
 /** Версия векторной модели карты. Пишем/читаем только её (миграций нет). */
-export const MAP_VERSION = 5
+export const MAP_VERSION = 6
 
 export type ObjectRotation = 0 | 90 | 180 | 270
 
@@ -41,9 +43,9 @@ export interface MapGrid {
 }
 
 /**
- * Векторная модель карты (v5). Покрытие — регионы-полигоны, границы —
- * стеновые сегменты с телом, двери — на сегментах. Объекты и свет остаются
- * клеточными и опираются на grid.
+ * Векторная модель карты (v6). Покрытие — регионы-полигоны, границы — стены
+ * (тело), двери — самостоятельные проёмы (отрезок + угол створки), лестницы —
+ * отдельные сущности-контуры. Объекты и свет остаются клеточными (grid).
  */
 export interface MapModel {
   readonly version: typeof MAP_VERSION
@@ -51,6 +53,7 @@ export interface MapModel {
   readonly regions: readonly TerrainRegion[]
   readonly walls: readonly WallSegment[]
   readonly doors: readonly Door[]
+  readonly stairs: readonly StairsPolygon[]
   readonly objects: readonly MapObject[]
   readonly lights: readonly MapLight[]
 }

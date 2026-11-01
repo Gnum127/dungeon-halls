@@ -9,11 +9,12 @@ export const TILE_COLORS: Record<TileTypeName, string> = {
   stone: '#6e6e78',
   sand: '#c9b476',
   wall: '#3c3550',
-  stairs: '#7a6a52',
 }
 
-/** Цвет поперечных линий-ступеней внутри региона лестницы. */
+/** Цвет поперечных линий-ступеней внутри лестницы (отдельная сущность). */
 export const STAIRS_STEP_COLOR = '#2c2519'
+/** Цвет контура лестницы (без заливки). */
+export const STAIRS_OUTLINE_COLOR = '#6b5a3c'
 
 export const GRID_LINE_COLOR = '#00000033'
 export const CANVAS_BACKGROUND_COLOR = '#101018'
@@ -24,8 +25,6 @@ export const WALL_LINE_COLOR = '#1d1a2e'
 /** Цвет тела стены (утолщение от осевой линии). */
 export const WALL_BODY_COLOR = '#332c4a'
 export const DOOR_FILL_COLOR = '#b0762f'
-/** Длина полотна двери в долях клетки. */
-export const DOOR_LENGTH_FRACTION = 0.6
 /** Толщина полотна двери в долях клетки. */
 export const DOOR_THICKNESS_FRACTION = 0.18
 export const LIGHT_GLOW_COLOR = 'rgba(255, 214, 130, 0.28)'

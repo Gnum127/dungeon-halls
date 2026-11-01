@@ -33,6 +33,7 @@ export function createEmptyMap(
     regions: [],
     walls: [],
     doors: [],
+    stairs: [],
     objects: [],
     lights: [],
   }

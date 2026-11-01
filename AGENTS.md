@@ -41,7 +41,7 @@ frontend/src/
   editor/     canvas-движок: векторная модель, рендер, инструменты, undo/redo, save/load
     model/    MapModel v6: TerrainRegion, WallSegment, Door, StairsPolygon, MapObject, MapLight;
               regions.ts/wallSegments.ts/doors.ts/stairs.ts, autoWalls.ts, commands.ts, io.ts, objects.ts, lights.ts
-    render/   векторный рендер: renderMap (регионы/лестницы/сетка/объекты/стены/двери/свет),
+    render/   векторный рендер: renderMap (регионы/лестницы/точечная сетка/объекты/стены/двери/свет),
               geometry.ts, regionPreview, cellHighlight, ghostPreview, colors, sprites/
     tools/    инструменты: regions (rect/polygon), regionCommit, autoWalls-коммит,
               wall/door/object/light, generatorAdapter, pngExport
@@ -137,7 +137,7 @@ npm run build      # production-сборка в dist/ (включает пров
 - **Свет**: источники с радиусом и цветом.
 - **Рендер**: векторные регионы (заливка; в режиме спрайтов — тайлинг, включая
   пул вариантов текстуры с детерминированным выбором по клетке), лестницы
-  (контур + ступени), сетка, объекты, стены с телом, двери, свет.
+  (контур + ступени), точечная сетка, объекты, стены с телом, двери, свет.
 - **Экспорт**: PNG, SVG (векторный), многостраничный PDF (jsPDF ленивым чанком).
 - **Сохранение/загрузка** JSON (формат v6, миграций нет).
 - **Генератор**: данжи и пещеры (клеточная сетка → адаптер в регионы).

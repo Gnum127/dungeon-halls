@@ -16,7 +16,11 @@ export const STAIRS_STEP_COLOR = '#2c2519'
 /** Цвет контура лестницы (без заливки). */
 export const STAIRS_OUTLINE_COLOR = '#6b5a3c'
 
-export const GRID_LINE_COLOR = '#00000033'
+export const GRID_POINT_COLOR = '#4a4a63'
+/** Радиус точки сетки в экранных пикселях (постоянный, не зависит от зума). */
+export const GRID_POINT_RADIUS = 1.5
+/** Радиус точки сетки в SVG (доля клетки) — для печати. */
+export const GRID_POINT_RADIUS_RATIO = 0.04
 export const CANVAS_BACKGROUND_COLOR = '#101018'
 export const FALLBACK_OBJECT_COLOR = '#888888'
 export const OBJECT_OUTLINE_COLOR = '#00000066'

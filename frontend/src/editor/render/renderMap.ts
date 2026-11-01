@@ -1,5 +1,6 @@
 import { isKnownKind, OBJECT_COLORS, OBJECT_KIND_ENTRIES } from '../model/objects'
 import { regionBounds } from '../model/regions'
+import { coverageGridPoints } from '../model/coverage'
 import { doorLeafEnd, doorLength } from '../model/doors'
 import type { WallSegment } from '../model/wallSegments'
 import type { MapModel } from '../model/types'
@@ -12,7 +13,8 @@ import {
   DOOR_FILL_COLOR,
   DOOR_THICKNESS_FRACTION,
   FALLBACK_OBJECT_COLOR,
-  GRID_LINE_COLOR,
+  GRID_POINT_COLOR,
+  GRID_POINT_RADIUS,
   LIGHT_GLOW_COLOR,
   LIGHT_MARKER_COLOR,
   OBJECT_OUTLINE_COLOR,
@@ -89,7 +91,7 @@ export function renderMap(
     drawStairs(ctx, stairs, viewport)
   }
 
-  drawGrid(ctx, model, viewport)
+  drawGridPoints(ctx, model, viewport)
 
   for (const object of model.objects) {
     drawObject(ctx, object, viewport, sprites)
@@ -198,26 +200,27 @@ function drawStairs(
   ctx.restore()
 }
 
-/** Линии сетки (квадратная сетка). */
-function drawGrid(ctx: CanvasRenderingContext2D, model: MapModel, viewport: Viewport): void {
-  const { width, height, cellSize, offsetX, offsetY } = viewport
+/**
+ * Точечная сетка: точки в углах покрытых клеток (см. `coverageGridPoints`).
+ * Радиус постоянный (экранные пиксели), не зависит от зума.
+ */
+function drawGridPoints(ctx: CanvasRenderingContext2D, model: MapModel, viewport: Viewport): void {
+  const { cellSize, offsetX, offsetY } = viewport
   const { width: cols, height: rows } = model.grid
   const range = visibleCellRange(viewport, cols, rows)
 
-  ctx.strokeStyle = GRID_LINE_COLOR
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  for (let col = range.firstCol; col <= range.lastCol + 1; col += 1) {
-    const x = Math.floor(col * cellSize - offsetX) + 0.5
-    ctx.moveTo(x, Math.max(0, -offsetY))
-    ctx.lineTo(x, Math.min(height, rows * cellSize - offsetY))
+  ctx.fillStyle = GRID_POINT_COLOR
+  for (const point of coverageGridPoints(model, range)) {
+    ctx.beginPath()
+    ctx.arc(
+      point.x * cellSize - offsetX,
+      point.y * cellSize - offsetY,
+      GRID_POINT_RADIUS,
+      0,
+      Math.PI * 2,
+    )
+    ctx.fill()
   }
-  for (let row = range.firstRow; row <= range.lastRow + 1; row += 1) {
-    const y = Math.floor(row * cellSize - offsetY) + 0.5
-    ctx.moveTo(Math.max(0, -offsetX), y)
-    ctx.lineTo(Math.min(width, cols * cellSize - offsetX), y)
-  }
-  ctx.stroke()
 }
 
 function drawObject(

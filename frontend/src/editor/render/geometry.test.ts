@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DOOR_GAP_CLEARANCE, splitWallByDoorGaps, wallRuns } from './geometry'
+import { DOOR_GAP_CLEARANCE, splitWallByDoorGaps, stairsStepSegments, wallRuns } from './geometry'
 import { createWallSegment } from '../model/wallSegments'
 import type { Point } from '@/shared/point'
 
@@ -124,6 +124,45 @@ describe('splitWallByDoorGaps', () => {
 
   it('ignores a degenerate edge', () => {
     expect(splitWallByDoorGaps(line(0, 0, 0, 0), [gap(0, 0, 1, 0)], DOOR_GAP_CLEARANCE)).toEqual([])
+  })
+})
+
+describe('stairsStepSegments', () => {
+  const rectangle = [
+    { x: 0, y: 0 },
+    { x: 2, y: 0 },
+    { x: 2, y: 3 },
+    { x: 0, y: 3 },
+  ]
+
+  it('draws steps perpendicular to the axis, across the base midpoint', () => {
+    const steps = stairsStepSegments(rectangle)
+    // Axis base midpoint (1,0) → far midpoint (1,3); 0.25 spacing → 13 steps.
+    expect(steps).toHaveLength(13)
+
+    for (const { a, b } of steps) {
+      // Steps are horizontal (perpendicular to the vertical axis)…
+      expect(a.y).toBeCloseTo(b.y)
+      // …and their midpoint lies on the axis x = 1.
+      expect((a.x + b.x) / 2).toBeCloseTo(1)
+    }
+    expect(steps[0].a.y).toBeCloseTo(0)
+    expect(steps[1].a.y).toBeCloseTo(0.25)
+  })
+
+  it('falls back to bounding-box rows for non-rectangular polygons', () => {
+    const triangle = [
+      { x: 0, y: 0 },
+      { x: 2, y: 0 },
+      { x: 1, y: 2 },
+    ]
+    const steps = stairsStepSegments(triangle)
+    expect(steps.length).toBeGreaterThan(0)
+    for (const { a, b } of steps) {
+      expect(a.y).toBeCloseTo(b.y)
+      expect(a.x).toBeCloseTo(0)
+      expect(b.x).toBeCloseTo(2)
+    }
   })
 })
 

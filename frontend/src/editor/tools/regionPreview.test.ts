@@ -38,9 +38,9 @@ describe('drawRegionWithWalls', () => {
 
     drawRegionWithWalls(ctx, model, viewport, 'floor', rect, true)
 
-    // A rectangular preview contour has four edges → four stroke calls.
+    // One closed preview contour → a single wall segment, one stroke.
     const strokes = calls.filter((c) => c.op === 'stroke')
-    expect(strokes).toHaveLength(4)
+    expect(strokes).toHaveLength(1)
   })
 
   it('skips degenerate polygons (fewer than 3 points)', () => {
@@ -81,8 +81,10 @@ describe('drawRegionWithWalls', () => {
     // Preview overlaps the base → union is an 8-edge polygon.
     drawRegionWithWalls(ctx, base, viewport, 'floor', rectPolygon(1, 1, 3, 3, 12, 12), true)
 
+    // Preview merges with the base → a single contour, one stroke.
+    // (A regression that skips the union would leave two separate contours.)
     const strokes = calls.filter((c) => c.op === 'stroke')
-    expect(strokes.length).toBeGreaterThan(4)
+    expect(strokes).toHaveLength(1)
   })
 
   it('draws no wall strokes when auto walls are disabled', () => {

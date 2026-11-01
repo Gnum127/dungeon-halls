@@ -36,51 +36,80 @@ const emptyRegion = (x: number, y: number, size: number, id = 'e') =>
 
 const idsOf = (walls: ReturnType<typeof computeAutoWalls>) => walls.map((w) => w.id).sort()
 
-describe('computeAutoWalls', () => {
+const isClosed = (points: readonly { x: number; y: number }[]) =>
+  points.length >= 2 &&
+  points[0].x === points[points.length - 1].x &&
+  points[0].y === points[points.length - 1].y
+
+const hasEdge = (
+  points: readonly { x: number; y: number }[],
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+) =>
+  points.some((p, i) => {
+    if (i + 1 >= points.length) return false
+    const q = points[i + 1]
+    return (
+      (p.x === a.x && p.y === a.y && q.x === b.x && q.y === b.y) ||
+      (p.x === b.x && p.y === b.y && q.x === a.x && q.y === a.y)
+    )
+  })
+
+describe('computeAutoWalls (one segment per contour)', () => {
   it('returns no walls without solid regions', () => {
     expect(computeAutoWalls([])).toEqual([])
     expect(computeAutoWalls([emptyRegion(1, 1, 1)])).toEqual([])
   })
 
-  it('builds an exact contour around an interior cell with deterministic edge ids', () => {
+  it('builds a single closed contour around an interior cell', () => {
     const walls = computeAutoWalls([squareRegion(1, 1, 1)])
-    expect(idsOf(walls)).toEqual(['auto:1,1;1,2', 'auto:1,1;2,1', 'auto:1,2;2,2', 'auto:2,1;2,2'])
-    expect(walls.every((w) => isAutoWallSegmentId(w.id))).toBe(true)
+    expect(walls).toHaveLength(1)
+    const [wall] = walls
+    expect(isAutoWallSegmentId(wall.id)).toBe(true)
+    expect(wall.points).toHaveLength(5)
+    expect(isClosed(wall.points)).toBe(true)
+    expect(wall.points).toEqual(
+      expect.arrayContaining([
+        { x: 1, y: 1 },
+        { x: 2, y: 1 },
+        { x: 2, y: 2 },
+        { x: 1, y: 2 },
+      ]),
+    )
   })
 
   it('produces identical ids on repeated calls (stable across rebuilds)', () => {
-    const first = idsOf(computeAutoWalls([squareRegion(0, 0, 2)]))
-    const second = idsOf(computeAutoWalls([squareRegion(0, 0, 2)]))
-    expect(first).toEqual(second)
+    expect(idsOf(computeAutoWalls([squareRegion(0, 0, 2)]))).toEqual(
+      idsOf(computeAutoWalls([squareRegion(0, 0, 2)])),
+    )
   })
 
-  it('keeps a closed contour even along the map boundary (no open outer ring)', () => {
-    expect(idsOf(computeAutoWalls([squareRegion(0, 0, 10)]))).toEqual([
-      'auto:0,0;0,10',
-      'auto:0,0;10,0',
-      'auto:0,10;10,10',
-      'auto:10,0;10,10',
-    ])
+  it('keeps a single closed contour along the map boundary', () => {
+    const walls = computeAutoWalls([squareRegion(0, 0, 10)])
+    expect(walls).toHaveLength(1)
+    expect(walls[0].points).toHaveLength(5)
+    expect(isClosed(walls[0].points)).toBe(true)
   })
 
-  it('merges adjacent solid regions and drops the shared edge', () => {
+  it('merges adjacent solid regions into one contour without an internal seam', () => {
     const walls = computeAutoWalls([squareRegion(0, 0, 2, 'a'), squareRegion(2, 0, 2, 'b')])
-    // Union is the rectangle 0,0..4,2 → four outer edges, no wall at x=2.
-    expect(walls).toHaveLength(4)
-    expect(walls.every((w) => w.points[0].x !== 2 || w.points[1].x !== 2)).toBe(true)
+    expect(walls).toHaveLength(1)
+    // Union is the rectangle 0,0..4,2 → no vertex on the internal seam x=2.
+    const seam = walls[0].points.filter((p) => p.x === 2 && p.y !== 0 && p.y !== 2)
+    expect(seam).toHaveLength(0)
   })
 
-  it('cuts a hole for an empty region (eraser subtracts coverage)', () => {
-    const solid = squareRegion(0, 0, 4)
-    const hole = emptyRegion(1, 1, 2)
-    const walls = computeAutoWalls([solid, hole])
-    // Outer square (4 edges) + hole square (4 edges).
-    expect(walls).toHaveLength(8)
-    expect(idsOf(walls)).toContain('auto:1,1;3,1')
-    expect(idsOf(walls)).toContain('auto:1,1;1,3')
+  it('cuts a separate nested contour for an empty region', () => {
+    const walls = computeAutoWalls([squareRegion(0, 0, 4), emptyRegion(1, 1, 2)])
+    expect(walls).toHaveLength(2)
+    expect(new Set(idsOf(walls)).size).toBe(2)
+    expect(walls.every((w) => isClosed(w.points))).toBe(true)
+    // one outer contour (4 edges) and one hole contour (4 edges), both 5 points.
+    expect(walls.map((w) => w.points.length).sort()).toEqual([5, 5])
+    expect(walls.some((w) => hasEdge(w.points, { x: 1, y: 1 }, { x: 3, y: 1 }))).toBe(true)
   })
 
-  it('creates diagonal walls without stair-stepping for a polygon region', () => {
+  it('creates a diagonal contour without stair-stepping for a polygon region', () => {
     const triangle = createTerrainRegion(
       'floor',
       [
@@ -92,17 +121,10 @@ describe('computeAutoWalls', () => {
       't',
     )
     const walls = computeAutoWalls([triangle])
-    expect(walls).toHaveLength(3)
+    expect(walls).toHaveLength(1)
+    expect(walls[0].points).toHaveLength(4)
     // The hypotenuse is one straight segment (4,0)–(0,4), not many cell steps.
-    const hypotenuse = walls.find(
-      (w) =>
-        (w.points[0].x === 4 &&
-          w.points[0].y === 0 &&
-          w.points[1].x === 0 &&
-          w.points[1].y === 4) ||
-        (w.points[0].x === 0 && w.points[0].y === 4 && w.points[1].x === 4 && w.points[1].y === 0),
-    )
-    expect(hypotenuse).toBeDefined()
+    expect(hasEdge(walls[0].points, { x: 4, y: 0 }, { x: 0, y: 4 })).toBe(true)
   })
 
   it('unions overlapping regions of different tile types into one contour', () => {
@@ -118,11 +140,13 @@ describe('computeAutoWalls', () => {
       1,
       'b',
     )
-    // Two offset squares overlap in 1,1..3,3 → union is an 8-edge polygon.
-    expect(computeAutoWalls([floor, water])).toHaveLength(8)
+    const walls = computeAutoWalls([floor, water])
+    expect(walls).toHaveLength(1)
+    // Offset squares overlap in 1,1..3,3 → union is an 8-vertex contour.
+    expect(walls[0].points).toHaveLength(9)
   })
 
-  it('normalises near-identical fractional coordinates to the same edge ids', () => {
+  it('normalises near-identical fractional coordinates to the same contour id', () => {
     const near = (dx: number) =>
       createTerrainRegion(
         'floor',
@@ -171,50 +195,35 @@ describe('computeCoverage (painter order)', () => {
     coverage.reduce((total, polygon) => total + polygon.length, 0)
 
   it('applies regions bottom-up: a higher solid re-adds what a lower empty cut out', () => {
-    const coverage = computeCoverage([
+    const regions = [
       region('floor', 0, 0, 6, 0, 'base'),
       region('empty', 1, 1, 4, 1, 'hole'),
       region('floor', 2, 2, 2, 2, 'island'),
-    ])
-    // shell ring + its hole ring + the island ring that the top solid restored.
-    expect(ringCount(coverage)).toBe(3)
-    expect(
-      computeAutoWalls([
-        region('floor', 0, 0, 6, 0, 'base'),
-        region('empty', 1, 1, 4, 1, 'hole'),
-        region('floor', 2, 2, 2, 2, 'island'),
-      ]),
-    ).toHaveLength(12)
+    ]
+    // shell ring + its hole ring + the island ring that the top solid restored = 3 contours.
+    expect(ringCount(computeCoverage(regions))).toBe(3)
+    expect(computeAutoWalls(regions)).toHaveLength(3)
   })
 
-  it('repainting over an erased area leaves a solid region with no interior walls', () => {
-    const coverage = computeCoverage([
+  it('repainting over an erased area leaves one solid contour with no interior walls', () => {
+    const regions = [
       region('floor', 0, 0, 4, 0, 'base'),
       region('empty', 1, 1, 2, 1, 'hole'),
       region('floor', 1, 1, 2, 2, 'repaint'),
-    ])
-    expect(ringCount(coverage)).toBe(1)
-    expect(
-      computeAutoWalls([
-        region('floor', 0, 0, 4, 0, 'base'),
-        region('empty', 1, 1, 2, 1, 'hole'),
-        region('floor', 1, 1, 2, 2, 'repaint'),
-      ]),
-    ).toHaveLength(4)
+    ]
+    expect(ringCount(computeCoverage(regions))).toBe(1)
+    const walls = computeAutoWalls(regions)
+    expect(walls).toHaveLength(1)
+    expect(hasEdge(walls[0].points, { x: 1, y: 1 }, { x: 3, y: 1 })).toBe(false)
   })
 
   it('does not let a lower empty region erase a higher solid one (top wins)', () => {
-    const coverage = computeCoverage([
+    const regions = [
       region('empty', 0, 0, 4, 0, 'erase'),
       region('floor', 1, 1, 2, 1, 'island'),
-    ])
-    expect(ringCount(coverage)).toBe(1)
-    expect(
-      computeAutoWalls([
-        region('empty', 0, 0, 4, 0, 'erase'),
-        region('floor', 1, 1, 2, 1, 'island'),
-      ]),
-    ).toHaveLength(4)
+    ]
+    expect(ringCount(computeCoverage(regions))).toBe(1)
+    expect(computeAutoWalls(regions)).toHaveLength(1)
   })
 
   it('keeps two nested contours (outer boundary + hole) for a solid region with a hole', () => {
@@ -222,9 +231,9 @@ describe('computeCoverage (painter order)', () => {
     const coverage = computeCoverage(regions)
     expect(coverage).toHaveLength(1)
     expect(ringCount(coverage)).toBe(2)
-    const ids = idsOf(computeAutoWalls(regions))
-    expect(ids).toHaveLength(8)
-    expect(ids).toContain('auto:1,1;5,1')
+    const walls = computeAutoWalls(regions)
+    expect(walls).toHaveLength(2)
+    expect(walls.some((w) => hasEdge(w.points, { x: 1, y: 1 }, { x: 5, y: 1 }))).toBe(true)
   })
 
   it('collapses nested contours into one complex contour when the hole is bridged', () => {
@@ -238,12 +247,11 @@ describe('computeCoverage (painter order)', () => {
     expect(ringCount(computeCoverage(regions))).toBe(1)
 
     const walls = computeAutoWalls(regions)
-    expect(walls).toHaveLength(8)
+    expect(walls).toHaveLength(1)
     // The former hole edges are interior now and must not be walls.
-    const ids = idsOf(walls)
-    expect(ids).not.toContain('auto:1,1;5,1')
-    expect(ids).not.toContain('auto:1,1;1,5')
-    expect(walls.every((w) => isAutoWallSegmentId(w.id))).toBe(true)
+    expect(hasEdge(walls[0].points, { x: 1, y: 1 }, { x: 5, y: 1 })).toBe(false)
+    expect(hasEdge(walls[0].points, { x: 1, y: 1 }, { x: 1, y: 5 })).toBe(false)
+    expect(isClosed(walls[0].points)).toBe(true)
   })
 
   it('lets an identical higher empty region erase a lower solid one completely', () => {
@@ -252,7 +260,7 @@ describe('computeCoverage (painter order)', () => {
     expect(computeAutoWalls(regions)).toEqual([])
   })
 
-  it('keeps distinct edges for genuinely fractional coordinates', () => {
+  it('keeps distinct contours for genuinely fractional coordinates', () => {
     const fractional = createTerrainRegion(
       'floor',
       [
@@ -264,10 +272,11 @@ describe('computeCoverage (painter order)', () => {
       0,
       'frac',
     )
-    const ids = idsOf(computeAutoWalls([fractional]))
-    expect(ids).toContain('auto:1.5,1.5;3.5,1.5')
-    expect(ids).toHaveLength(4)
-    expect(ids).not.toEqual(idsOf(computeAutoWalls([region('floor', 1, 1, 3, 0, 'int')])))
+    const walls = computeAutoWalls([fractional])
+    expect(walls).toHaveLength(1)
+    expect(hasEdge(walls[0].points, { x: 1.5, y: 1.5 }, { x: 3.5, y: 1.5 })).toBe(true)
+    // A full-cell region has the same topology but a different contour id.
+    expect(idsOf(walls)).not.toEqual(idsOf(computeAutoWalls([region('floor', 1, 1, 3, 0, 'int')])))
   })
 
   it('is deterministic regardless of the order regions were inserted', () => {

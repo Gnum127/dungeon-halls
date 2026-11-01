@@ -3,6 +3,7 @@ import type { MultiPolygon, Polygon, Ring } from 'polygon-clipping'
 import { createWallSegment, DEFAULT_WALL_THICKNESS } from './wallSegments'
 import type { WallSegment } from './wallSegments'
 import type { TerrainRegion } from './regions'
+import type { Point } from '@/shared/point'
 
 /** Префикс id авто-стен: отличает их от ручных и позволяет пересобирать слой. */
 export const AUTO_WALL_ID_PREFIX = 'auto:'
@@ -31,18 +32,60 @@ function regionToPolygon(region: TerrainRegion): Polygon {
   return [regionToRing(region)]
 }
 
-function lexicographicallyFirst(a: [number, number], b: [number, number]): boolean {
-  return a[0] < b[0] || (a[0] === b[0] && a[1] < b[1])
+/** Сравнение точек в лексикографическом порядке (сначала x, затем y). */
+function comparePoint(a: [number, number], b: [number, number]): number {
+  return a[0] - b[0] || a[1] - b[1]
+}
+
+/** Вершины кольца без дублирующей замыкающей точки, округлённые до стабильных. */
+function ringVertices(ring: Ring): Array<[number, number]> {
+  const points: Array<[number, number]> = ring.map(([x, y]) => [roundCoord(x), roundCoord(y)])
+  const first = points[0]
+  const last = points[points.length - 1]
+  if (points.length > 1 && first[0] === last[0] && first[1] === last[1]) points.pop()
+  return points
+}
+
+/** Поворот кольца к старту с лексикографически минимальной вершины. */
+function rotateToMin(points: Array<[number, number]>): Array<[number, number]> {
+  let minIndex = 0
+  for (let i = 1; i < points.length; i += 1) {
+    if (comparePoint(points[i], points[minIndex]) < 0) minIndex = i
+  }
+  return [...points.slice(minIndex), ...points.slice(0, minIndex)]
+}
+
+function compareRings(a: Array<[number, number]>, b: Array<[number, number]>): number {
+  const length = Math.min(a.length, b.length)
+  for (let i = 0; i < length; i += 1) {
+    const diff = comparePoint(a[i], b[i])
+    if (diff !== 0) return diff
+  }
+  return a.length - b.length
+}
+
+/** FNV-1a: короткий детерминированный ключ контура (id не должен дублировать геометрию). */
+function hashText(text: string): string {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0')
 }
 
 /**
- * Canonical id ребра (порядок концов не важен): инвариант к ориентации ring,
- * которую polygon-clipping не гарантирует. Двери на неизменном ребре переживают
- * пересборку контура.
+ * Детерминированный id контура: кольцо канонизируется (старт с минимальной
+ * вершины, из двух ориентаций берётся лексикографически меньшая) и хешируется.
+ * Инвариантен к порядку/ориентации ring, которую polygon-clipping не гарантирует.
  */
-function edgeId(a: [number, number], b: [number, number]): string {
-  const [p, q] = lexicographicallyFirst(a, b) ? [a, b] : [b, a]
-  return `${AUTO_WALL_ID_PREFIX}${p[0]},${p[1]};${q[0]},${q[1]}`
+function contourId(ring: Ring): string {
+  const points = ringVertices(ring)
+  const forward = rotateToMin(points)
+  const reversed = rotateToMin([...points].reverse())
+  const canonical = compareRings(forward, reversed) <= 0 ? forward : reversed
+  const signature = canonical.map(([x, y]) => `${x},${y}`).join(';')
+  return `${AUTO_WALL_ID_PREFIX}${hashText(signature)}`
 }
 
 /** Вычитание из покрытия; пустой операнд polygon-clipping не принимает. */
@@ -77,28 +120,36 @@ export function computeCoverage(regions: readonly TerrainRegion[]): MultiPolygon
   return coverage
 }
 
-/** Каждое ребро каждого кольца (внешнего и дыр) → отдельный `WallSegment`. */
+/** Точки кольца как замкнутый контур: первая точка дублируется в конце. */
+function closedContourPoints(ring: Ring): Point[] {
+  const points: Point[] = ring.map(([x, y]) => ({ x, y }))
+  const first = points[0]
+  const last = points[points.length - 1]
+  if (first.x !== last.x || first.y !== last.y) points.push({ x: first.x, y: first.y })
+  return points
+}
+
+/**
+ * Каждое кольцо покрытия (внешняя граница или дыра) → ОДИН замкнутый
+ * `WallSegment` с `points[0] === points[last]`. Вложенные контуры (граница
+ * комнаты и граница дыры) — отдельные сегменты.
+ */
 function coverageToWalls(coverage: MultiPolygon): WallSegment[] {
   const walls: WallSegment[] = []
+  const seenIds = new Set<string>()
   for (const polygon of coverage) {
     for (const ring of polygon) {
-      for (let i = 0; i + 1 < ring.length; i += 1) {
-        const a = ring[i]
-        const b = ring[i + 1]
-        if (a[0] === b[0] && a[1] === b[1]) continue
-        walls.push(
-          createWallSegment(
-            [
-              { x: a[0], y: a[1] },
-              { x: b[0], y: b[1] },
-            ],
-            {
-              thickness: DEFAULT_WALL_THICKNESS,
-              id: edgeId(a, b),
-            },
-          ),
-        )
+      const points = closedContourPoints(ring)
+      if (points.length < 4) continue
+      const baseId = contourId(ring)
+      let id = baseId
+      let suffix = 1
+      while (seenIds.has(id)) {
+        id = `${baseId}#${suffix}`
+        suffix += 1
       }
+      seenIds.add(id)
+      walls.push(createWallSegment(points, { thickness: DEFAULT_WALL_THICKNESS, id }))
     }
   }
   return walls

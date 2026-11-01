@@ -66,4 +66,20 @@ describe('EditorPage', () => {
     fireEvent.click(within(tools).getByRole('button', { name: 'Door' }))
     expect(screen.getByRole('spinbutton', { name: 'Leaf angle' })).toHaveValue(45)
   })
+
+  it('switches to the stairs tool from the build tools', async () => {
+    await act(async () => {
+      render(<EditorPage />)
+    })
+
+    const tools = screen.getByRole('group', { name: 'Build tools' })
+    fireEvent.click(within(tools).getByRole('button', { name: 'Stairs' }))
+
+    expect(within(tools).getByRole('button', { name: 'Stairs' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    // Door-only field disappears with the non-door tool.
+    expect(screen.queryByRole('spinbutton', { name: 'Leaf angle' })).toBeNull()
+  })
 })

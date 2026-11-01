@@ -16,6 +16,7 @@ function renderTools(overrides: Partial<RegionToolsProps> = {}) {
     onSelectEraser: vi.fn(),
     onSelectWall: vi.fn(),
     onSelectDoor: vi.fn(),
+    onSelectStairs: vi.fn(),
     onVertexCountChange: vi.fn(),
     onAutoWallsChange: vi.fn(),
     onDoorImageChange: vi.fn(),
@@ -50,6 +51,12 @@ describe('RegionTools', () => {
   it('hides the door texture dropdown for non-door tools', () => {
     renderTools({ activeTool: { type: 'region-rect', tileType: 'floor' } })
     expect(screen.queryByRole('combobox', { name: 'Door texture' })).toBeNull()
+  })
+
+  it('offers a stairs tool button that selects the stairs tool', () => {
+    const props = renderTools({ activeTool: { type: 'region-rect', tileType: 'floor' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Stairs' }))
+    expect(props.onSelectStairs).toHaveBeenCalled()
   })
 
   it('edits the door leaf angle within 0..150', () => {

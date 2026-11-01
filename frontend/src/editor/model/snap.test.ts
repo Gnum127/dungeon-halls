@@ -3,6 +3,7 @@ import {
   characteristicPoints,
   nearestSnapPoint,
   snapToCellCharacteristics,
+  snapToHalfGrid,
   SNAP_STEP,
 } from './snap'
 import { applyCommand } from './commands'
@@ -98,5 +99,17 @@ describe('snapToCellCharacteristics', () => {
       x: 3,
       y: 3,
     })
+  })
+})
+
+describe('snapToHalfGrid', () => {
+  it('rounds to the nearest half cell', () => {
+    expect(snapToHalfGrid({ x: 1.2, y: 2.3 })).toEqual({ x: 1, y: 2.5 })
+    expect(snapToHalfGrid({ x: 1.3, y: 1.8 })).toEqual({ x: 1.5, y: 2 })
+  })
+
+  it('keeps points already on the grid and handles negatives', () => {
+    expect(snapToHalfGrid({ x: 1.5, y: 2 })).toEqual({ x: 1.5, y: 2 })
+    expect(snapToHalfGrid({ x: -0.3, y: -0.7 })).toEqual({ x: -0.5, y: -0.5 })
   })
 })

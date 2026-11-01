@@ -23,6 +23,7 @@ export interface RegionToolsProps {
   onSelectEraser: () => void
   onSelectWall: () => void
   onSelectDoor: () => void
+  onSelectStairs: () => void
   onVertexCountChange: (count: number) => void
   onAutoWallsChange: (value: boolean) => void
   onDoorImageChange: (imageId: string | null) => void
@@ -43,6 +44,7 @@ export function RegionTools(props: RegionToolsProps) {
     onSelectEraser,
     onSelectWall,
     onSelectDoor,
+    onSelectStairs,
     onVertexCountChange,
     onAutoWallsChange,
     onDoorImageChange,
@@ -116,6 +118,16 @@ export function RegionTools(props: RegionToolsProps) {
           onClick={onSelectDoor}
         >
           {t('editor.regionTools.door')}
+        </button>
+        <button
+          type="button"
+          className={[styles.button, activeTool.type === 'stairs' ? styles.selected : '']
+            .filter(Boolean)
+            .join(' ')}
+          aria-pressed={activeTool.type === 'stairs'}
+          onClick={onSelectStairs}
+        >
+          {t('editor.regionTools.stairs')}
         </button>
       </div>
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { renderMap, wallPath } from './renderMap'
+import { renderMap } from './renderMap'
+import { wallPath } from './geometry'
 import { makeFakeCtx } from './testFakeCtx'
 import { createTerrainRegion } from '../model/regions'
 import { createWallSegment } from '../model/wallSegments'

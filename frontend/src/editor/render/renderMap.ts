@@ -20,9 +20,8 @@ import {
   WALL_BODY_COLOR,
   WALL_LINE_COLOR,
 } from './colors'
-import { cellCenterAt, visibleCellRange } from './geometry'
+import { cellCenterAt, visibleCellRange, wallPath } from './geometry'
 import { pickIndexFromCoords } from '@/shared/random'
-import type { Point } from '@/shared/point'
 import type { Viewport } from './viewport'
 
 export interface RenderMapOptions {
@@ -270,20 +269,8 @@ function drawObject(
 }
 
 /**
- * Осевая линия стены для рисования: точки без дублирующей замыкающей (для
- * замкнутого контура) и признак замкнутости `points[0] === points[last]`.
- * Единый источник геометрии стен и для canvas, и для SVG/PDF.
+ * Тело стены (утолщение) + тонкий контур поверх; замкнутый контур — одним путём.
  */
-export function wallPath(wall: WallSegment): { points: readonly Point[]; closed: boolean } {
-  const points = wall.points
-  const closed =
-    points.length > 2 &&
-    points[0].x === points[points.length - 1].x &&
-    points[0].y === points[points.length - 1].y
-  return { points: closed ? points.slice(0, -1) : points, closed }
-}
-
-/** Тело стены (утолщение) + тонкий контур поверх; замкнутый контур — одним путём. */
 function drawWall(ctx: CanvasRenderingContext2D, wall: WallSegment, viewport: Viewport): void {
   if (wall.points.length < 2) return
   const { cellSize, offsetX, offsetY } = viewport

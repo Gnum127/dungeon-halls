@@ -16,8 +16,7 @@ import {
   WALL_BODY_COLOR,
   WALL_LINE_COLOR,
 } from '../render/colors'
-import { cellCenterAt } from '../render/geometry'
-import { wallPath } from '../render/renderMap'
+import { cellCenterAt, wallPath } from '../render/geometry'
 
 /** Единица координат SVG: толщины стен/дверей остаются пропорциональными. */
 export const SVG_UNITS_PER_CELL = 64

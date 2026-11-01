@@ -1,4 +1,6 @@
 import type { Viewport } from './viewport'
+import type { WallSegment } from '../model/wallSegments'
+import type { Point } from '@/shared/point'
 
 /** Целочисленная клетка сетки (offset-координаты). */
 export interface Cell {
@@ -39,4 +41,19 @@ export interface MapPixelBounds {
 /** Габариты карты в пикселях (квадратная сетка: origin всегда 0). */
 export function mapPixelBounds(cols: number, rows: number, cellSize: number): MapPixelBounds {
   return { width: cols * cellSize, height: rows * cellSize, originX: 0, originY: 0 }
+}
+
+/**
+ * Осевая линия стены для рисования: точки без дублирующей замыкающей (для
+ * замкнутого контура) и признак замкнутости. Замкнутость — совпадение координат
+ * первого и последнего узла (`points[0]` и `points[last]`). Единый источник
+ * геометрии стен для canvas, SVG/PDF и живого превью.
+ */
+export function wallPath(wall: WallSegment): { points: readonly Point[]; closed: boolean } {
+  const points = wall.points
+  const closed =
+    points.length > 2 &&
+    points[0].x === points[points.length - 1].x &&
+    points[0].y === points[points.length - 1].y
+  return { points: closed ? points.slice(0, -1) : points, closed }
 }

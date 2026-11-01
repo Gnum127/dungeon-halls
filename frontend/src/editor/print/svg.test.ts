@@ -80,6 +80,31 @@ describe('buildSvg', () => {
     expect(svg).toContain('stroke-linejoin="round"')
   })
 
+  it('groups same-thickness closed contours into one path (a Z per subpath)', () => {
+    const a = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 1, y: 1 },
+        { x: 0, y: 0 },
+      ],
+      { id: 'a', thickness: 0.5 },
+    )
+    const b = createWallSegment(
+      [
+        { x: 2, y: 0 },
+        { x: 3, y: 0 },
+        { x: 3, y: 1 },
+        { x: 2, y: 0 },
+      ],
+      { id: 'b', thickness: 0.5 },
+    )
+    const svg = buildSvg(model({ walls: [a, b] }))
+    const bodyPaths = svg.split('\n').filter((line) => line.includes(`stroke="${WALL_BODY_COLOR}"`))
+    expect(bodyPaths).toHaveLength(1)
+    expect((bodyPaths[0].match(/Z/g) ?? []).length).toBe(2)
+  })
+
   it('renders a door as a filled rectangle', () => {
     const wall = createWallSegment(
       [

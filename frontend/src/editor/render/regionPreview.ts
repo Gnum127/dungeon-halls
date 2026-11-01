@@ -1,5 +1,5 @@
 import { TILE_COLORS } from './colors'
-import { wallPath } from './renderMap'
+import { wallPath } from './geometry'
 import type { Point } from '@/shared/point'
 import type { WallSegment } from '../model/wallSegments'
 import type { TileTypeName } from '../model/types'

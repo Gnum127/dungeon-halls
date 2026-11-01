@@ -81,6 +81,27 @@ describe('computeAutoWalls (one segment per contour)', () => {
     )
   })
 
+  it('canonicalises the contour start independently of the input vertex order', () => {
+    // Same square as squareRegion(1, 1, 1) but starting from a non-minimal vertex.
+    const shuffled = createTerrainRegion(
+      'floor',
+      [
+        { x: 2, y: 2 },
+        { x: 1, y: 2 },
+        { x: 1, y: 1 },
+        { x: 2, y: 1 },
+      ],
+      0,
+      'shuffled',
+    )
+    const walls = computeAutoWalls([shuffled])
+    expect(walls).toHaveLength(1)
+    // Without canonicalisation the start would stay (2, 2) — the input's first vertex.
+    expect(walls[0].points[0]).toEqual({ x: 1, y: 1 })
+    // Same contour as the naturally ordered square → identical id.
+    expect(idsOf(walls)).toEqual(idsOf(computeAutoWalls([squareRegion(1, 1, 1, 'orig')])))
+  })
+
   it('produces identical ids on repeated calls (stable across rebuilds)', () => {
     expect(idsOf(computeAutoWalls([squareRegion(0, 0, 2)]))).toEqual(
       idsOf(computeAutoWalls([squareRegion(0, 0, 2)])),
@@ -278,7 +299,8 @@ describe('computeCoverage (painter order)', () => {
     const walls = computeAutoWalls([fractional])
     expect(walls).toHaveLength(1)
     expect(hasEdge(walls[0].points, { x: 1.5, y: 1.5 }, { x: 3.5, y: 1.5 })).toBe(true)
-    // A full-cell region has the same topology but a different contour id.
+    // Stable id across rebuilds, and a distinct contour from a full-cell region.
+    expect(idsOf(walls)).toEqual(idsOf(computeAutoWalls([fractional])))
     expect(idsOf(walls)).not.toEqual(idsOf(computeAutoWalls([region('floor', 1, 1, 3, 0, 'int')])))
   })
 

@@ -4,7 +4,7 @@ import { isMapDimension } from '@/config/map.config'
 import { assertValidRegion, isTileTypeName, isValidPolygon } from './regions'
 import { isWallExtends } from './wallSegments'
 import { isValidDoorOpenAngle } from './doors'
-import { assertValidStairsPolygon } from './stairs'
+import { isValidStairsPolygon } from './stairs'
 import { MAP_VERSION } from './types'
 import type { MapGrid, MapModel } from './types'
 import type { TerrainRegion } from './regions'
@@ -162,7 +162,9 @@ function parseStairs(value: unknown): StairsPolygon[] {
     if (!Array.isArray(polygon)) throw new MapLoadError('Stairs polygon must be an array')
     const points = polygon.map(parsePoint)
     const entry: StairsPolygon = { id, polygon: points }
-    assertValidStairsPolygon(entry)
+    if (!isValidStairsPolygon(entry)) {
+      throw new MapLoadError('Stairs polygon is invalid (needs ≥3 vertices, no self-intersection)')
+    }
     stairs.push(entry)
   }
   return stairs

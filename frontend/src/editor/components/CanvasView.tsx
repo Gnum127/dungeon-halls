@@ -16,6 +16,7 @@ import type { Command } from '../model/commands'
 import { renderMap } from '../render/renderMap'
 import type { SpriteRenderContext } from '../render/sprites/loader'
 import { drawCellHighlight } from '../render/cellHighlight'
+import { drawSnapCandidates, toolUsesHoverSnap } from '../render/snapPreview'
 import { drawGhostPreview } from '../render/ghostPreview'
 import { rectPolygon, regularPolygonPoints } from '../tools/regions'
 import { drawRegionWithWalls } from '../tools/regionPreview'
@@ -159,7 +160,11 @@ export function CanvasView({
     onSelect: handleSelect,
   })
 
-  const { hoverCell, handlers: hoverHandlers } = useHoverCell({
+  const {
+    hoverCell,
+    hoverWorld,
+    handlers: hoverHandlers,
+  } = useHoverCell({
     canvasRef,
     viewportRef,
     viewport,
@@ -184,6 +189,9 @@ export function CanvasView({
     renderMap(ctx, model, viewport, sprites)
 
     if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport)
+    if (hoverCell && hoverWorld && toolUsesHoverSnap(tool)) {
+      drawSnapCandidates(ctx, model, hoverCell, hoverWorld, viewport)
+    }
     if (hoverCell && tool.type === 'object') {
       drawGhostPreview(ctx, hoverCell, viewport, tool)
     }
@@ -229,6 +237,7 @@ export function CanvasView({
     viewport,
     dpr,
     hoverCell,
+    hoverWorld,
     sprites,
     tool,
     rectPreview,

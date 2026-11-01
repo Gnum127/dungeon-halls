@@ -1,4 +1,4 @@
-import { computePreviewWalls } from '../model/autoWalls'
+import { computeWallsWithRegion } from '../model/autoWalls'
 import { isDrawablePolygon } from './regions'
 import { drawRegionPreview } from '../render/regionPreview'
 import type { TerrainRegion } from '../model/regions'
@@ -20,7 +20,12 @@ export function drawRegionWithWalls(
   autoWalls: boolean,
 ): void {
   if (!isDrawablePolygon(polygon)) return
-  const region: TerrainRegion = { id: 'preview', tileType, polygon, zOrder: Number.MAX_SAFE_INTEGER }
-  const walls = autoWalls ? computePreviewWalls(model.regions, region) : []
+  const region: TerrainRegion = {
+    id: 'preview',
+    tileType,
+    polygon,
+    zOrder: Number.MAX_SAFE_INTEGER,
+  }
+  const walls = autoWalls ? computeWallsWithRegion(model.regions, region) : []
   drawRegionPreview(ctx, { polygon, walls, tileType }, viewport)
 }

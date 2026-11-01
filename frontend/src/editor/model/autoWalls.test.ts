@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   AUTO_WALL_ID_PREFIX,
   computeAutoWalls,
-  computePreviewWalls,
+  computeCoverage,
+  computeWallsWithRegion,
   isAutoWallSegmentId,
 } from './autoWalls'
 import { createTerrainRegion } from './regions'
@@ -43,12 +44,7 @@ describe('computeAutoWalls', () => {
 
   it('builds an exact contour around an interior cell with deterministic edge ids', () => {
     const walls = computeAutoWalls([squareRegion(1, 1, 1)])
-    expect(idsOf(walls)).toEqual([
-      'auto:1,1;1,2',
-      'auto:1,1;2,1',
-      'auto:1,2;2,2',
-      'auto:2,1;2,2',
-    ])
+    expect(idsOf(walls)).toEqual(['auto:1,1;1,2', 'auto:1,1;2,1', 'auto:1,2;2,2', 'auto:2,1;2,2'])
     expect(walls.every((w) => isAutoWallSegmentId(w.id))).toBe(true)
   })
 
@@ -100,7 +96,10 @@ describe('computeAutoWalls', () => {
     // The hypotenuse is one straight segment (4,0)–(0,4), not many cell steps.
     const hypotenuse = walls.find(
       (w) =>
-        (w.points[0].x === 4 && w.points[0].y === 0 && w.points[1].x === 0 && w.points[1].y === 4) ||
+        (w.points[0].x === 4 &&
+          w.points[0].y === 0 &&
+          w.points[1].x === 0 &&
+          w.points[1].y === 4) ||
         (w.points[0].x === 0 && w.points[0].y === 4 && w.points[1].x === 4 && w.points[1].y === 0),
     )
     expect(hypotenuse).toBeDefined()
@@ -147,11 +146,105 @@ describe('isAutoWallSegmentId', () => {
   })
 })
 
-describe('computePreviewWalls (cached base union)', () => {
+describe('computeCoverage (painter order)', () => {
+  const region = (
+    tileType: 'floor' | 'empty',
+    x: number,
+    y: number,
+    size: number,
+    zOrder: number,
+    id: string,
+  ) =>
+    createTerrainRegion(
+      tileType,
+      [
+        { x, y },
+        { x: x + size, y },
+        { x: x + size, y: y + size },
+        { x, y: y + size },
+      ],
+      zOrder,
+      id,
+    )
+
+  const ringCount = (coverage: ReturnType<typeof computeCoverage>) =>
+    coverage.reduce((total, polygon) => total + polygon.length, 0)
+
+  it('applies regions bottom-up: a higher solid re-adds what a lower empty cut out', () => {
+    const coverage = computeCoverage([
+      region('floor', 0, 0, 6, 0, 'base'),
+      region('empty', 1, 1, 4, 1, 'hole'),
+      region('floor', 2, 2, 2, 2, 'island'),
+    ])
+    // shell ring + its hole ring + the island ring that the top solid restored.
+    expect(ringCount(coverage)).toBe(3)
+    expect(
+      computeAutoWalls([
+        region('floor', 0, 0, 6, 0, 'base'),
+        region('empty', 1, 1, 4, 1, 'hole'),
+        region('floor', 2, 2, 2, 2, 'island'),
+      ]),
+    ).toHaveLength(12)
+  })
+
+  it('repainting over an erased area leaves a solid region with no interior walls', () => {
+    const coverage = computeCoverage([
+      region('floor', 0, 0, 4, 0, 'base'),
+      region('empty', 1, 1, 2, 1, 'hole'),
+      region('floor', 1, 1, 2, 2, 'repaint'),
+    ])
+    expect(ringCount(coverage)).toBe(1)
+    expect(
+      computeAutoWalls([
+        region('floor', 0, 0, 4, 0, 'base'),
+        region('empty', 1, 1, 2, 1, 'hole'),
+        region('floor', 1, 1, 2, 2, 'repaint'),
+      ]),
+    ).toHaveLength(4)
+  })
+
+  it('does not let a lower empty region erase a higher solid one (top wins)', () => {
+    const coverage = computeCoverage([
+      region('empty', 0, 0, 4, 0, 'erase'),
+      region('floor', 1, 1, 2, 1, 'island'),
+    ])
+    expect(ringCount(coverage)).toBe(1)
+    expect(
+      computeAutoWalls([
+        region('empty', 0, 0, 4, 0, 'erase'),
+        region('floor', 1, 1, 2, 1, 'island'),
+      ]),
+    ).toHaveLength(4)
+  })
+
+  it('keeps two nested contours for a solid region with a hole', () => {
+    expect(
+      computeAutoWalls([region('floor', 0, 0, 6, 0, 'base'), region('empty', 1, 1, 4, 1, 'hole')]),
+    ).toHaveLength(8)
+  })
+
+  it('collapses nested contours into one complex contour when the hole is bridged', () => {
+    const walls = computeAutoWalls([
+      region('floor', 0, 0, 6, 0, 'base'),
+      region('empty', 1, 1, 4, 1, 'hole'),
+      region('floor', 1, 1, 6, 2, 'bridge'),
+    ])
+    expect(walls).toHaveLength(8)
+    expect(walls.every((w) => isAutoWallSegmentId(w.id))).toBe(true)
+  })
+
+  it('is deterministic regardless of the order regions were inserted', () => {
+    const a = region('floor', 0, 0, 6, 0, 'base')
+    const b = region('empty', 1, 1, 4, 1, 'hole')
+    expect(idsOf(computeAutoWalls([a, b]))).toEqual(idsOf(computeAutoWalls([b, a])))
+  })
+})
+
+describe('computeWallsWithRegion (cached base coverage)', () => {
   it('matches a full recompute for a solid preview region', () => {
     const base = [squareRegion(0, 0, 3, 'a')]
     const preview = squareRegion(3, 0, 3, 'p')
-    expect(idsOf(computePreviewWalls(base, preview))).toEqual(
+    expect(idsOf(computeWallsWithRegion(base, preview))).toEqual(
       idsOf(computeAutoWalls([...base, preview])),
     )
   })
@@ -159,7 +252,7 @@ describe('computePreviewWalls (cached base union)', () => {
   it('treats an empty preview as a hole (matches full recompute)', () => {
     const base = [squareRegion(0, 0, 4, 'a')]
     const preview = emptyRegion(1, 1, 2, 'p')
-    expect(idsOf(computePreviewWalls(base, preview))).toEqual(
+    expect(idsOf(computeWallsWithRegion(base, preview))).toEqual(
       idsOf(computeAutoWalls([...base, preview])),
     )
   })
@@ -177,7 +270,7 @@ describe('computePreviewWalls (cached base union)', () => {
       2,
       'p',
     )
-    expect(idsOf(computePreviewWalls(base, preview))).toEqual(
+    expect(idsOf(computeWallsWithRegion(base, preview))).toEqual(
       idsOf(computeAutoWalls([...base, preview])),
     )
   })
@@ -185,13 +278,13 @@ describe('computePreviewWalls (cached base union)', () => {
   it('is stable across repeated calls with the same cached base', () => {
     const base = [squareRegion(0, 0, 2, 'a')]
     const preview = squareRegion(2, 0, 2, 'p')
-    expect(idsOf(computePreviewWalls(base, preview))).toEqual(
-      idsOf(computePreviewWalls(base, preview)),
+    expect(idsOf(computeWallsWithRegion(base, preview))).toEqual(
+      idsOf(computeWallsWithRegion(base, preview)),
     )
   })
 
   it('handles an empty base', () => {
     const preview = squareRegion(1, 1, 1, 'p')
-    expect(idsOf(computePreviewWalls([], preview))).toEqual(idsOf(computeAutoWalls([preview])))
+    expect(idsOf(computeWallsWithRegion([], preview))).toEqual(idsOf(computeAutoWalls([preview])))
   })
 })

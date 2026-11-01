@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildSvg } from './svg'
+import { buildSvg, SVG_UNITS_PER_CELL } from './svg'
+import { coverageGridPoints } from '../model/coverage'
 import { createTerrainRegion } from '../model/regions'
 import { createWallSegment } from '../model/wallSegments'
 import { MAP_VERSION } from '../model/types'
@@ -134,6 +135,26 @@ describe('buildSvg', () => {
     // A 2×2 covered block shares lattice corners → 3×3 = 9 unique points.
     const dots = withRegion.match(new RegExp(`<circle[^>]*fill="${GRID_POINT_COLOR}"`, 'g'))
     expect(dots).toHaveLength(9)
+  })
+
+  it('emits exactly the grid points the canvas uses (print parity)', () => {
+    const m = model({ regions: [createTerrainRegion('floor', square(0, 0, 3, 2), 0, 'r')] })
+    const expected = coverageGridPoints(m, {
+      firstCol: 0,
+      lastCol: m.grid.width - 1,
+      firstRow: 0,
+      lastRow: m.grid.height - 1,
+    })
+    const matches = [
+      ...buildSvg(m).matchAll(
+        new RegExp(`<circle cx="([^"]+)" cy="([^"]+)"[^>]*fill="${GRID_POINT_COLOR}"`, 'g'),
+      ),
+    ]
+    const coords = matches.map((match) => ({
+      x: Number(match[1]) / SVG_UNITS_PER_CELL,
+      y: Number(match[2]) / SVG_UNITS_PER_CELL,
+    }))
+    expect(coords).toEqual(expected)
   })
 
   it('renders a door as a filled rectangle along its opening', () => {

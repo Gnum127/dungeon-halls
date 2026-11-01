@@ -104,7 +104,9 @@ describe('drawSnapCandidates', () => {
     const arcs = calls.filter((c) => c.op === 'arc')
     expect(arcs).toHaveLength(4)
     const highlighted = arcs.filter((c) => c.fillStyle === SNAP_NEAREST_COLOR)
+    expect(highlighted).toHaveLength(1)
     expect(highlighted[0].args).toEqual([9 * 32, 9 * 32, SNAP_NEAREST_RADIUS, 0, Math.PI * 2])
+    expect(arcs.filter((c) => c.fillStyle === SNAP_CANDIDATE_COLOR)).toHaveLength(3)
   })
 
   it('maps world coordinates through the viewport and keeps radii constant', () => {

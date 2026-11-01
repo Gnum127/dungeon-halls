@@ -35,7 +35,7 @@ describe('drawQuadrantHighlight', () => {
     expect(strokeRect?.args).toEqual([2.5 * 64 - 16 + 1, 1.5 * 64 - 8 + 1, 30, 30])
   })
 
-  it('assigns a point exactly on the 0.5 boundary to the upper-left quadrant', () => {
+  it('assigns a point on the 0.5 boundary to the quadrant starting there', () => {
     const { ctx, calls } = makeFakeCtx()
     drawQuadrantHighlight(ctx, { x: 1.5, y: 2.5 }, viewport)
 

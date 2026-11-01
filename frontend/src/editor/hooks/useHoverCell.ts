@@ -50,8 +50,12 @@ export function useHoverCell(options: HoverCellOptions): {
     }
     const world = worldFromEvent(point)
     setHover((previous) =>
-      previous && previous.cell.x === cell.x && previous.cell.y === cell.y
-        ? { cell: previous.cell, world }
+      previous &&
+      previous.cell.x === cell.x &&
+      previous.cell.y === cell.y &&
+      previous.world.x === world.x &&
+      previous.world.y === world.y
+        ? previous
         : { cell, world },
     )
   }, [cellFromEvent, worldFromEvent, model])

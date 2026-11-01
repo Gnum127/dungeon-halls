@@ -87,4 +87,16 @@ describe('snapToCellCharacteristics', () => {
   it('keeps a point already on a characteristic node', () => {
     expect(snapToCellCharacteristics(coveredModel(), { x: 2, y: 3 })).toEqual({ x: 2, y: 3 })
   })
+
+  it('breaks an exact tie toward the first candidate in scan order', () => {
+    // (1.25, 1.25) is equidistant from (1,1) and (1.5,1.5); scan order picks (1,1).
+    expect(snapToCellCharacteristics(coveredModel(), { x: 1.25, y: 1.25 })).toEqual({ x: 1, y: 1 })
+  })
+
+  it('treats an empty map as uncovered and snaps to corners', () => {
+    expect(snapToCellCharacteristics(createEmptyMap(10, 10), { x: 3.4, y: 3.4 })).toEqual({
+      x: 3,
+      y: 3,
+    })
+  })
 })

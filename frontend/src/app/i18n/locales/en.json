@@ -59,8 +59,7 @@
       "water": "Water",
       "stone": "Stone",
       "sand": "Sand",
-      "wall": "Wall",
-      "stairs": "Stairs"
+      "wall": "Wall"
     },
     "objects": {
       "label": "Objects",

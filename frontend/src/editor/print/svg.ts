@@ -1,5 +1,5 @@
 import { isKnownKind, OBJECT_COLORS } from '../model/objects'
-import { doorLeafEnd } from '../model/doors'
+import { doorLeafEnd, doorLength } from '../model/doors'
 import type { MapModel } from '../model/types'
 import {
   CANVAS_BACKGROUND_COLOR,
@@ -37,8 +37,8 @@ function fmt(n: number): string {
 
 /**
  * Векторная печать карты: чистая функция модель → строка SVG без DOM.
- * Слои повторяют порядок renderMap: фон → регионы (по zOrder) → сетка →
- * объекты → стены → двери; свет — только с includeLight.
+ * Слои повторяют порядок renderMap: фон → регионы (по zOrder) → лестницы →
+ * сетка → объекты → стены → двери; свет — только с includeLight.
  * Спрайтовый режим игнорируется: SVG всегда цветной векторный.
  */
 export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
@@ -128,7 +128,7 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
 
   for (const door of model.doors) {
     const leaf = doorLeafEnd(door)
-    const length = Math.hypot(door.b.x - door.a.x, door.b.y - door.a.y) * s
+    const length = doorLength(door) * s
     const thickness = Math.max(4, s * DOOR_THICKNESS_FRACTION)
     const angleDeg = (Math.atan2(leaf.y - door.a.y, leaf.x - door.a.x) * 180) / Math.PI
     const transform = `translate(${fmt(door.a.x * s)} ${fmt(door.a.y * s)}) rotate(${fmt(angleDeg)})`

@@ -1,5 +1,5 @@
 import type { Point } from '@/shared/point'
-import { distance, isFinitePoint, lerpPoint, projectOnSegment } from '@/shared/point'
+import { distance, isFinitePoint, projectOnSegment } from '@/shared/point'
 import { newId } from '@/shared/id'
 
 /** С какой стороны от осевой линии строится тело стены (по нормали). */
@@ -12,7 +12,8 @@ export const DEFAULT_WALL_THICKNESS = 0.5
 /**
  * Стена — векторная ломаная с телом. Заменяет клеточные рёбра старой модели:
  * осевая линия задаётся точками, тело утолщается на `thickness` клеток в
- * направлении `extends` (нормаль к каждому сегменту).
+ * направлении `extends` (нормаль к каждому сегменту). Авто-стена — один
+ * замкнутый контур (`points[0] === points[last]`), ручная — открытая ломаная.
  */
 export interface WallSegment {
   readonly id: string
@@ -77,22 +78,6 @@ export function createWallSegment(
   return segment
 }
 
-export function findWallSegmentById(
-  segments: readonly WallSegment[],
-  id: string,
-): WallSegment | undefined {
-  return segments.find((segment) => segment.id === id)
-}
-
-/** Суммарная длина осевой ломаной. */
-export function wallSegmentLength(segment: WallSegment): number {
-  let total = 0
-  for (let i = 0; i + 1 < segment.points.length; i += 1) {
-    total += distance(segment.points[i], segment.points[i + 1])
-  }
-  return total
-}
-
 export interface NearestWallHit {
   readonly segment: WallSegment
   readonly distance: number
@@ -120,60 +105,4 @@ export function nearestWallSegment(
     }
   }
   return best
-}
-
-/** Кумулятивные длины подсегментов ломаной и её полная длина. */
-function segmentLengths(segment: WallSegment): { lengths: number[]; total: number } {
-  const lengths: number[] = []
-  let total = 0
-  for (let i = 0; i + 1 < segment.points.length; i += 1) {
-    const len = distance(segment.points[i], segment.points[i + 1])
-    lengths.push(len)
-    total += len
-  }
-  return { lengths, total }
-}
-
-/**
- * Точка на осевой ломаной по доле длины [0..1] (0 — начало, 1 — конец).
- * Позиция двери трактуется как доля ВДОЛЬ ВСЕЙ ломаной, а не отдельного
- * подсегмента — так дверь корректна и на многоточечных стенах.
- */
-export function pointAlongWallSegment(segment: WallSegment, position: number): Point {
-  const clamped = Math.max(0, Math.min(1, position))
-  const { lengths, total } = segmentLengths(segment)
-  if (total === 0) return { ...segment.points[0] }
-
-  let target = clamped * total
-  for (let i = 0; i < lengths.length; i += 1) {
-    const isLast = i === lengths.length - 1
-    if (target <= lengths[i] || isLast) {
-      const t = lengths[i] === 0 ? 0 : target / lengths[i]
-      return lerpPoint(segment.points[i], segment.points[i + 1], Math.min(1, t))
-    }
-    target -= lengths[i]
-  }
-  return { ...segment.points[segment.points.length - 1] }
-}
-
-/** Доля длины ломаной, ближайшая к точке (обратна к pointAlongWallSegment). */
-export function wallSegmentPositionOf(segment: WallSegment, point: Point): number {
-  const { lengths, total } = segmentLengths(segment)
-  if (total === 0) return 0
-
-  let bestDistance = Infinity
-  let bestPosition = 0
-  let accumulated = 0
-  for (let i = 0; i < lengths.length; i += 1) {
-    const a = segment.points[i]
-    const b = segment.points[i + 1]
-    const projected = projectOnSegment(point, a, b)
-    const dist = distance(point, projected.point)
-    if (dist < bestDistance) {
-      bestDistance = dist
-      bestPosition = accumulated + projected.t * lengths[i]
-    }
-    accumulated += lengths[i]
-  }
-  return bestPosition / total
 }

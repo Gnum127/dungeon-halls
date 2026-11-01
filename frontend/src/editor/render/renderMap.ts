@@ -1,6 +1,6 @@
 import { isKnownKind, OBJECT_COLORS, OBJECT_KIND_ENTRIES } from '../model/objects'
 import { regionBounds } from '../model/regions'
-import { doorLeafEnd } from '../model/doors'
+import { doorLeafEnd, doorLength } from '../model/doors'
 import type { WallSegment } from '../model/wallSegments'
 import type { MapModel } from '../model/types'
 import type { TerrainRegion } from '../model/regions'
@@ -57,9 +57,9 @@ function resolveObjectImage(
 
 /**
  * Единственная точка рендера карты: чистая функция от модели и вьюпорта.
- * Порядок слоёв: фон → регионы (по zOrder) → сетка → объекты → стены →
- * двери → свет. Спрайтовый режим включается опциональным атласом; отсутствие
- * атласа/спрайта = fallback на цвет.
+ * Порядок слоёв: фон → регионы (по zOrder) → лестницы → сетка → объекты →
+ * стены → двери → свет. Спрайтовый режим включается опциональным атласом;
+ * отсутствие атласа/спрайта = fallback на цвет.
  *
  * Контракт: вызывающий обязан выставить ctx.setTransform(dpr,…) и передать
  * viewport в CSS-пикселях; renderMap работает в CSS-координатах.
@@ -110,10 +110,10 @@ export function renderMap(
   }
 }
 
-/** Трассирует замкнутый путь полигона в экранных координатах (для fill/clip). */
-function tracePolygon(
+/** Трассирует замкнутый путь произвольного полигона в экранных координатах (fill/clip). */
+function tracePolygonPoints(
   ctx: CanvasRenderingContext2D,
-  polygon: TerrainRegion['polygon'],
+  polygon: readonly Point[],
   viewport: Viewport,
 ): void {
   const { cellSize, offsetX, offsetY } = viewport
@@ -135,7 +135,7 @@ function drawRegion(
   sprites?: SpriteRenderContext,
 ): void {
   const { cellSize, offsetX, offsetY } = viewport
-  tracePolygon(ctx, region.polygon, viewport)
+  tracePolygonPoints(ctx, region.polygon, viewport)
   ctx.fillStyle = TILE_COLORS[region.tileType] ?? CANVAS_BACKGROUND_COLOR
   ctx.fill()
 
@@ -150,7 +150,7 @@ function drawRegion(
     const endY = Math.ceil(bounds.maxY)
     ctx.save()
     // Путь контекста мог быть изменён между вызовами — трассируем заново.
-    tracePolygon(ctx, region.polygon, viewport)
+    tracePolygonPoints(ctx, region.polygon, viewport)
     ctx.clip()
     for (let row = startY; row < endY; row += 1) {
       for (let col = startX; col < endX; col += 1) {
@@ -202,23 +202,6 @@ function drawStairs(
     ctx.stroke()
   }
   ctx.restore()
-}
-
-/** Трассирует замкнутый путь произвольного полигона (для stroke/clip). */
-function tracePolygonPoints(
-  ctx: CanvasRenderingContext2D,
-  polygon: readonly Point[],
-  viewport: Viewport,
-): void {
-  const { cellSize, offsetX, offsetY } = viewport
-  ctx.beginPath()
-  polygon.forEach((point, index) => {
-    const x = point.x * cellSize - offsetX
-    const y = point.y * cellSize - offsetY
-    if (index === 0) ctx.moveTo(x, y)
-    else ctx.lineTo(x, y)
-  })
-  ctx.closePath()
 }
 
 /** Линии сетки (квадратная сетка). */
@@ -336,7 +319,7 @@ function drawDoor(
   const { cellSize, offsetX, offsetY } = viewport
   const thickness = Math.max(4, cellSize * DOOR_THICKNESS_FRACTION)
   const leaf = doorLeafEnd(door)
-  const length = Math.hypot(door.b.x - door.a.x, door.b.y - door.a.y) * cellSize
+  const length = doorLength(door) * cellSize
   const angle = Math.atan2(leaf.y - door.a.y, leaf.x - door.a.x)
 
   ctx.save()

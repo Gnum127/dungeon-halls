@@ -4,7 +4,6 @@ import {
   createDoor,
   cycleDoorOpenAngle,
   DEFAULT_DOOR_OPEN_ANGLE,
-  doorCenter,
   doorLeafEnd,
   doorLength,
   findDoorById,
@@ -103,9 +102,8 @@ describe('createDoor', () => {
 })
 
 describe('door geometry', () => {
-  it('reports the opening length and centre', () => {
+  it('reports the opening length', () => {
     expect(doorLength(DOOR)).toBe(1)
-    expect(doorCenter(DOOR)).toEqual({ x: 1.5, y: 1 })
   })
 
   it('keeps b as the leaf end when closed', () => {

@@ -39,9 +39,9 @@ frontend/src/
   app/        оболочка приложения: панели, меню, i18n
   config/     конфигурационные константы (размеры карты, лимиты)
   editor/     canvas-движок: векторная модель, рендер, инструменты, undo/redo, save/load
-    model/    MapModel v5: TerrainRegion, WallSegment, Door, MapObject, MapLight;
-              regions.ts/wallSegments.ts/doors.ts, autoWalls.ts, commands.ts, io.ts, objects.ts, lights.ts
-    render/   векторный рендер: renderMap (регионы/стены/двери/объекты/свет/сетка),
+    model/    MapModel v6: TerrainRegion, WallSegment, Door, StairsPolygon, MapObject, MapLight;
+              regions.ts/wallSegments.ts/doors.ts/stairs.ts, autoWalls.ts, commands.ts, io.ts, objects.ts, lights.ts
+    render/   векторный рендер: renderMap (регионы/лестницы/стены/двери/объекты/свет/сетка),
               geometry.ts, regionPreview, cellHighlight, ghostPreview, colors, sprites/
     tools/    инструменты: regions (rect/polygon), regionCommit, autoWalls-коммит,
               wall/door/object/light, generatorAdapter, pngExport
@@ -58,10 +58,12 @@ docs/         roadmap.md — план развития
   и единственный рантайм сегодня; `backend/` — отдельный сервис на Python,
   который не создаётся и не изменяется без явной задачи. Код между ними не
   шарится, общих типов/утилит нет; единственная будущая точка связи — HTTP API.
-- Модель данных карты — **векторная** (MapModel v5): регионы покрытия
+- Модель данных карты — **векторная** (MapModel v6): регионы покрытия
   (`TerrainRegion[]` — полигоны с типом ландшафта), стены (`WallSegment[]` —
-  отрезки с телом), двери (`Door[]` — привязаны к стеновым сегментам),
-  объекты (`MapObject[]`), источники света (`LightSource[]`).
+  ломаные с телом: авто — замкнутый контур, ручная — открытая), двери
+  (`Door[]` — самостоятельные проёмы: отрезок `a`–`b` + угол створки
+  `openAngle`), лестницы (`StairsPolygon[]` — контуры-оверлеи), объекты
+  (`MapObject[]`), источники света (`LightSource[]`).
   НИКАКИХ клеточных массивов (`Uint8Array`) и рёбер (`WallEdge` N/E/S/W).
 - Рендер отделён от модели: модель можно сериализовать в JSON без DOM/Canvas.
 - Границы карты — настраиваемые константы в `src/config/map.config.ts`

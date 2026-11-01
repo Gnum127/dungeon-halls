@@ -79,11 +79,6 @@ export function findDoorById(doors: readonly Door[], id: string): Door | undefin
   return doors.find((door) => door.id === id)
 }
 
-/** Середина проёма — точка привязки для хит-теста и разрыва стены. */
-export function doorCenter(door: Door): Point {
-  return { x: (door.a.x + door.b.x) / 2, y: (door.a.y + door.b.y) / 2 }
-}
-
 /** Длина проёма (закрытой створки) в клетках. */
 export function doorLength(door: Door): number {
   return distance(door.a, door.b)

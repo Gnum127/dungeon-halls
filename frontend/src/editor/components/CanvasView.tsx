@@ -8,6 +8,8 @@ import { useObjectTools } from '../hooks/useObjectTools'
 import { useHoverCell } from '../hooks/useHoverCell'
 import { useLightTool } from '../hooks/useLightTool'
 import { useDoorTool } from '../hooks/useDoorTool'
+import { DEFAULT_DOOR_OPEN_ANGLE } from '../model/doors'
+import { DOOR_FILL_COLOR } from '../render/colors'
 import { useRectRegionTool } from '../hooks/useRectRegionTool'
 import { usePolygonRegionTool } from '../hooks/usePolygonRegionTool'
 import { useWallTool } from '../hooks/useWallTool'
@@ -131,11 +133,12 @@ export function CanvasView({
     onCommit,
   })
 
-  const { handlers: doorHandlers } = useDoorTool({
+  const { handlers: doorHandlers, preview: doorPreview } = useDoorTool({
     canvasRef,
     active: tool.type === 'door',
     model,
     imageId: tool.type === 'door' ? tool.imageId : null,
+    openAngle: tool.type === 'door' ? tool.openAngle : DEFAULT_DOOR_OPEN_ANGLE,
     viewportRef,
     onCommit,
   })
@@ -235,6 +238,22 @@ export function CanvasView({
       )
       ctx.stroke()
     }
+
+    if (tool.type === 'door' && doorPreview) {
+      ctx.strokeStyle = DOOR_FILL_COLOR
+      ctx.lineWidth = Math.max(4, viewport.cellSize * 0.18)
+      ctx.lineCap = 'butt'
+      ctx.beginPath()
+      ctx.moveTo(
+        doorPreview.a.x * viewport.cellSize - viewport.offsetX,
+        doorPreview.a.y * viewport.cellSize - viewport.offsetY,
+      )
+      ctx.lineTo(
+        doorPreview.b.x * viewport.cellSize - viewport.offsetX,
+        doorPreview.b.y * viewport.cellSize - viewport.offsetY,
+      )
+      ctx.stroke()
+    }
   }, [
     model,
     viewport,
@@ -246,6 +265,7 @@ export function CanvasView({
     rectPreview,
     polygonPreview,
     wallPreview,
+    doorPreview,
     tileType,
     autoWalls,
   ])

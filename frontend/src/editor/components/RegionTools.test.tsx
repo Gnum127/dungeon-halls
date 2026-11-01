@@ -5,7 +5,7 @@ import type { RegionToolsProps } from './RegionTools'
 
 function renderTools(overrides: Partial<RegionToolsProps> = {}) {
   const props: RegionToolsProps = {
-    activeTool: { type: 'door', imageId: 'door-iron' },
+    activeTool: { type: 'door', imageId: 'door-iron', openAngle: 30 },
     tileType: 'floor',
     vertexCount: 6,
     autoWalls: true,

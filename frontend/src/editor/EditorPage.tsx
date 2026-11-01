@@ -24,6 +24,7 @@ import type { RenderMode } from './render/renderMode'
 import { loadRenderMode, saveRenderMode } from './render/renderMode'
 import { loadElementImage, saveElementImage } from './render/elementImage'
 import { loadDoorImageId, saveDoorImageId } from './render/doorTexture'
+import { DEFAULT_DOOR_OPEN_ANGLE } from './model/doors'
 import { EditorStore } from './store/EditorStore'
 import type { EditorTool } from './tools/editorTool'
 import { useEditorHotkeys } from './hooks/useEditorHotkeys'
@@ -110,13 +111,13 @@ export function EditorPage() {
 
   function selectDoor() {
     setSelectedObjectId(null)
-    setTool({ type: 'door', imageId: doorImageId })
+    setTool({ type: 'door', imageId: doorImageId, openAngle: DEFAULT_DOOR_OPEN_ANGLE })
   }
 
   function changeDoorImage(imageId: string | null) {
     saveDoorImageId(imageId)
     setDoorImageId(imageId)
-    if (tool.type === 'door') setTool({ type: 'door', imageId })
+    if (tool.type === 'door') setTool({ ...tool, imageId })
   }
 
   function changeVertexCount(count: number) {

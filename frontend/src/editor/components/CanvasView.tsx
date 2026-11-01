@@ -126,6 +126,7 @@ export function CanvasView({
   const { handlers: wallHandlers, preview: wallPreview } = useWallTool({
     canvasRef,
     active: tool.type === 'wall',
+    model,
     viewportRef,
     onCommit,
   })

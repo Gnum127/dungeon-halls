@@ -1,3 +1,5 @@
+import { createCoverageTester } from './coverage'
+import type { MapModel } from './types'
 import type { Point } from '@/shared/point'
 
 /** Шаг характеристической сетки внутри клетки (полклетки). */
@@ -33,4 +35,15 @@ export function nearestSnapPoint(points: readonly Point[], target: Point): Point
     }
   }
   return best
+}
+
+/**
+ * Привязка мировой точки к характеристическим точкам её клетки: при покрытии —
+ * ближайший узел 0.5×0.5 (9), без покрытия — ближайший угол клетки (4). Единый
+ * снап для стен/дверей/лестниц.
+ */
+export function snapToCellCharacteristics(model: MapModel, point: Point): Point {
+  const cell = { x: Math.floor(point.x), y: Math.floor(point.y) }
+  const covered = createCoverageTester(model)({ x: cell.x + 0.5, y: cell.y + 0.5 })
+  return nearestSnapPoint(characteristicPoints(cell, covered), point) ?? point
 }

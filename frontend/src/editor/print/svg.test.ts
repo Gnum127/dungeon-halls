@@ -182,6 +182,15 @@ describe('buildSvg', () => {
     expect(svg).toContain(`fill="${DOOR_FILL_COLOR}"`)
   })
 
+  it('rotates the leaf around the hinge by the open angle', () => {
+    const door = { id: 'd1', a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, openAngle: 90, imageId: null }
+    const svg = buildSvg(model({ doors: [door] }))
+
+    // Hinge at the origin, leaf along +x rotated 90°; 1 cell = 64 units wide.
+    expect(svg).toContain('transform="translate(0 0) rotate(90)"')
+    expect(svg).toMatch(/width="64"/)
+  })
+
   it('draws a stairs entity contour and steps clipped to it', () => {
     const stairs = [
       {

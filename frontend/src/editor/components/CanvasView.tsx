@@ -8,8 +8,8 @@ import { useObjectTools } from '../hooks/useObjectTools'
 import { useHoverCell } from '../hooks/useHoverCell'
 import { useLightTool } from '../hooks/useLightTool'
 import { useDoorTool } from '../hooks/useDoorTool'
-import { DEFAULT_DOOR_OPEN_ANGLE } from '../model/doors'
-import { DOOR_FILL_COLOR } from '../render/colors'
+import { DEFAULT_DOOR_OPEN_ANGLE, doorLeafEnd } from '../model/doors'
+import { DOOR_FILL_COLOR, DOOR_THICKNESS_FRACTION } from '../render/colors'
 import { useRectRegionTool } from '../hooks/useRectRegionTool'
 import { usePolygonRegionTool } from '../hooks/usePolygonRegionTool'
 import { useWallTool } from '../hooks/useWallTool'
@@ -240,17 +240,31 @@ export function CanvasView({
     }
 
     if (tool.type === 'door' && doorPreview) {
+      const leaf = doorLeafEnd({
+        id: 'preview',
+        a: doorPreview.a,
+        b: doorPreview.b,
+        openAngle: tool.openAngle,
+        imageId: null,
+      })
       ctx.strokeStyle = DOOR_FILL_COLOR
-      ctx.lineWidth = Math.max(4, viewport.cellSize * 0.18)
+      ctx.lineWidth = Math.max(4, viewport.cellSize * DOOR_THICKNESS_FRACTION)
       ctx.lineCap = 'butt'
+      const ax = doorPreview.a.x * viewport.cellSize - viewport.offsetX
+      const ay = doorPreview.a.y * viewport.cellSize - viewport.offsetY
+      // Открывающийся проём + створка под углом панели.
       ctx.beginPath()
-      ctx.moveTo(
-        doorPreview.a.x * viewport.cellSize - viewport.offsetX,
-        doorPreview.a.y * viewport.cellSize - viewport.offsetY,
-      )
+      ctx.moveTo(ax, ay)
       ctx.lineTo(
         doorPreview.b.x * viewport.cellSize - viewport.offsetX,
         doorPreview.b.y * viewport.cellSize - viewport.offsetY,
+      )
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(ax, ay)
+      ctx.lineTo(
+        leaf.x * viewport.cellSize - viewport.offsetX,
+        leaf.y * viewport.cellSize - viewport.offsetY,
       )
       ctx.stroke()
     }

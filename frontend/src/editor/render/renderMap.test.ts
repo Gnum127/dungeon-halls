@@ -281,6 +281,23 @@ describe('renderMap', () => {
     expect(raw.lastRotate).toBeCloseTo(Math.PI / 2)
   })
 
+  it('rotates the leaf by an arbitrary open angle', () => {
+    const door = {
+      id: 'd1',
+      a: { x: 1, y: 1 },
+      b: { x: 2, y: 1 },
+      openAngle: 45,
+      imageId: null,
+    }
+    const { ctx, raw, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ doors: [door] }), viewport)
+
+    expect(
+      calls.filter((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR),
+    ).toHaveLength(1)
+    expect(raw.lastRotate).toBeCloseTo(Math.PI / 4)
+  })
+
   it('falls back to a colour ellipse for objects without a sprite', () => {
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'torch', x: 1, y: 1 }] }), viewport)

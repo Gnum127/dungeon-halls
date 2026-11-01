@@ -8,8 +8,9 @@ import { useObjectTools } from '../hooks/useObjectTools'
 import { useHoverCell } from '../hooks/useHoverCell'
 import { useLightTool } from '../hooks/useLightTool'
 import { useDoorTool } from '../hooks/useDoorTool'
+import { useStairsTool } from '../hooks/useStairsTool'
 import { DEFAULT_DOOR_OPEN_ANGLE, doorLeafEnd } from '../model/doors'
-import { DOOR_FILL_COLOR, DOOR_THICKNESS_FRACTION } from '../render/colors'
+import { DOOR_FILL_COLOR, DOOR_THICKNESS_FRACTION, STAIRS_OUTLINE_COLOR } from '../render/colors'
 import { useRectRegionTool } from '../hooks/useRectRegionTool'
 import { usePolygonRegionTool } from '../hooks/usePolygonRegionTool'
 import { useWallTool } from '../hooks/useWallTool'
@@ -153,6 +154,13 @@ export function CanvasView({
     onCommit,
   })
 
+  const { handlers: stairsHandlers, preview: stairsPreview } = useStairsTool({
+    canvasRef,
+    active: tool.type === 'stairs',
+    viewportRef,
+    onCommit,
+  })
+
   const handleSelect = useCallback((id: number | null) => onSelectObject(id), [onSelectObject])
   const { handlers: objectHandlers } = useObjectTools({
     canvasRef,
@@ -269,6 +277,26 @@ export function CanvasView({
       )
       ctx.stroke()
     }
+
+    if (tool.type === 'stairs' && stairsPreview) {
+      const previewPoints = stairsPreview.points
+      ctx.strokeStyle = STAIRS_OUTLINE_COLOR
+      ctx.lineWidth = Math.max(2, viewport.cellSize * 0.06)
+      ctx.lineJoin = 'round'
+      ctx.beginPath()
+      ctx.moveTo(
+        previewPoints[0].x * viewport.cellSize - viewport.offsetX,
+        previewPoints[0].y * viewport.cellSize - viewport.offsetY,
+      )
+      for (let i = 1; i < previewPoints.length; i += 1) {
+        ctx.lineTo(
+          previewPoints[i].x * viewport.cellSize - viewport.offsetX,
+          previewPoints[i].y * viewport.cellSize - viewport.offsetY,
+        )
+      }
+      if (previewPoints.length === 4) ctx.closePath()
+      ctx.stroke()
+    }
   }, [
     model,
     viewport,
@@ -281,6 +309,7 @@ export function CanvasView({
     polygonPreview,
     wallPreview,
     doorPreview,
+    stairsPreview,
     tileType,
     autoWalls,
   ])
@@ -293,6 +322,7 @@ export function CanvasView({
         hoverHandlers,
         lightHandlers,
         doorHandlers,
+        stairsHandlers,
         rectRegionHandlers,
         polygonRegionHandlers,
         wallHandlers,
@@ -303,6 +333,7 @@ export function CanvasView({
       hoverHandlers,
       lightHandlers,
       doorHandlers,
+      stairsHandlers,
       rectRegionHandlers,
       polygonRegionHandlers,
       wallHandlers,

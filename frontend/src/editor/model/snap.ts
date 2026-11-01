@@ -5,6 +5,14 @@ import type { Point } from '@/shared/point'
 /** Шаг характеристической сетки внутри клетки (полклетки). */
 export const SNAP_STEP = 0.5
 
+/** Округление точки к полуклеточной сетке (любая точка, без учёта покрытия). */
+export function snapToHalfGrid(point: Point): Point {
+  return {
+    x: Math.round(point.x / SNAP_STEP) * SNAP_STEP,
+    y: Math.round(point.y / SNAP_STEP) * SNAP_STEP,
+  }
+}
+
 /**
  * Характеристические точки клетки для привязки: при покрытии — узлы 0.5×0.5
  * (3×3 = 9 точек), без покрытия — только углы клетки (4 точки). Координаты —

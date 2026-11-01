@@ -23,4 +23,5 @@ export type EditorTool =
     }
   | { readonly type: 'wall' }
   | { readonly type: 'door'; readonly imageId: string | null; readonly openAngle: number }
+  | { readonly type: 'stairs' }
   | { readonly type: 'light' }

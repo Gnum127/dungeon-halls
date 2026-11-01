@@ -24,6 +24,11 @@ export function toolUsesHoverSnap(tool: EditorTool): boolean {
   }
 }
 
+/** Инструменты заливки покрытия: подсвечивают квадрант 0.5×0.5 под курсором. */
+export function toolPaintsTexture(tool: EditorTool): boolean {
+  return tool.type === 'region-rect' || tool.type === 'region-polygon'
+}
+
 /** Характеристические точки клетки под курсором (9 при покрытии, 4 без). */
 export function hoverSnapCandidates(model: MapModel, cell: Point): Point[] {
   const covered = createCoverageTester(model)({ x: cell.x + 0.5, y: cell.y + 0.5 })

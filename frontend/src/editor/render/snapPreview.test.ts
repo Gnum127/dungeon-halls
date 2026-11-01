@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { drawSnapCandidates, hoverSnapCandidates, toolUsesHoverSnap } from './snapPreview'
+import {
+  drawSnapCandidates,
+  hoverSnapCandidates,
+  toolPaintsTexture,
+  toolUsesHoverSnap,
+} from './snapPreview'
 import {
   SNAP_CANDIDATE_COLOR,
   SNAP_CANDIDATE_RADIUS,
@@ -43,6 +48,25 @@ describe('toolUsesHoverSnap', () => {
     expect(toolUsesHoverSnap({ type: 'light' })).toBe(false)
     expect(
       toolUsesHoverSnap({
+        type: 'object',
+        kindId: 'torch',
+        rotation: 0,
+        scale: { w: 1, h: 1 },
+      }),
+    ).toBe(false)
+  })
+})
+
+describe('toolPaintsTexture', () => {
+  it('is true only for coverage-painting tools', () => {
+    expect(toolPaintsTexture({ type: 'region-rect', tileType: 'floor' })).toBe(true)
+    expect(toolPaintsTexture({ type: 'region-polygon', tileType: 'floor', vertices: 6 })).toBe(true)
+    expect(toolPaintsTexture({ type: 'wall' })).toBe(false)
+    expect(toolPaintsTexture({ type: 'door', imageId: null })).toBe(false)
+    expect(toolPaintsTexture({ type: 'select' })).toBe(false)
+    expect(toolPaintsTexture({ type: 'light' })).toBe(false)
+    expect(
+      toolPaintsTexture({
         type: 'object',
         kindId: 'torch',
         rotation: 0,

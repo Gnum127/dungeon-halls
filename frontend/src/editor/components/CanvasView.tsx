@@ -15,7 +15,7 @@ import type { EditorStore } from '../store/EditorStore'
 import type { Command } from '../model/commands'
 import { renderMap } from '../render/renderMap'
 import type { SpriteRenderContext } from '../render/sprites/loader'
-import { drawCellHighlight } from '../render/cellHighlight'
+import { drawHoverHighlight } from '../render/hoverHighlight'
 import { drawSnapCandidates, toolUsesHoverSnap } from '../render/snapPreview'
 import { drawGhostPreview } from '../render/ghostPreview'
 import { rectPolygon, regularPolygonPoints } from '../tools/regions'
@@ -188,7 +188,9 @@ export function CanvasView({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     renderMap(ctx, model, viewport, sprites)
 
-    if (hoverCell) drawCellHighlight(ctx, hoverCell, viewport)
+    if (hoverCell && hoverWorld) {
+      drawHoverHighlight(ctx, tool, hoverCell, hoverWorld, viewport)
+    }
     if (hoverCell && hoverWorld && toolUsesHoverSnap(tool)) {
       drawSnapCandidates(ctx, model, hoverCell, hoverWorld, viewport)
     }

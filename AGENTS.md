@@ -41,7 +41,7 @@ frontend/src/
   editor/     canvas-движок: векторная модель, рендер, инструменты, undo/redo, save/load
     model/    MapModel v6: TerrainRegion, WallSegment, Door, StairsPolygon, MapObject, MapLight;
               regions.ts/wallSegments.ts/doors.ts/stairs.ts, autoWalls.ts, commands.ts, io.ts, objects.ts, lights.ts
-    render/   векторный рендер: renderMap (регионы/лестницы/стены/двери/объекты/свет/сетка),
+    render/   векторный рендер: renderMap (регионы/лестницы/сетка/объекты/стены/двери/свет),
               geometry.ts, regionPreview, cellHighlight, ghostPreview, colors, sprites/
     tools/    инструменты: regions (rect/polygon), regionCommit, autoWalls-коммит,
               wall/door/object/light, generatorAdapter, pngExport
@@ -63,7 +63,7 @@ docs/         roadmap.md — план развития
   ломаные с телом: авто — замкнутый контур, ручная — открытая), двери
   (`Door[]` — самостоятельные проёмы: отрезок `a`–`b` + угол створки
   `openAngle`), лестницы (`StairsPolygon[]` — контуры-оверлеи), объекты
-  (`MapObject[]`), источники света (`LightSource[]`).
+  (`MapObject[]`), источники света (`MapLight[]`).
   НИКАКИХ клеточных массивов (`Uint8Array`) и рёбер (`WallEdge` N/E/S/W).
 - Рендер отделён от модели: модель можно сериализовать в JSON без DOM/Canvas.
 - Границы карты — настраиваемые константы в `src/config/map.config.ts`
@@ -136,8 +136,8 @@ npm run build      # production-сборка в dist/ (включает пров
   rotation/scale, доступные размеры, ghost preview.
 - **Свет**: источники с радиусом и цветом.
 - **Рендер**: векторные регионы (заливка; в режиме спрайтов — тайлинг, включая
-  пул вариантов текстуры с детерминированным выбором по клетке), стены с телом,
-  двери, лестницы (контур + ступени), объекты, свет, сетка.
+  пул вариантов текстуры с детерминированным выбором по клетке), лестницы
+  (контур + ступени), сетка, объекты, стены с телом, двери, свет.
 - **Экспорт**: PNG, SVG (векторный), многостраничный PDF (jsPDF ленивым чанком).
 - **Сохранение/загрузка** JSON (формат v6, миграций нет).
 - **Генератор**: данжи и пещеры (клеточная сетка → адаптер в регионы).

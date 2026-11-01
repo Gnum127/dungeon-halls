@@ -19,7 +19,7 @@ interface StairsToolOptions {
 }
 
 export interface StairsPreview {
-  /** Собранные вершины: 2 — база (линия), 4 — параллелограмм. */
+  /** Собранные вершины: 2 — база (линия), 4 — трапеция. */
   readonly points: readonly Point[]
 }
 

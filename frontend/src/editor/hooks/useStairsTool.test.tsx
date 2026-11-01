@@ -110,7 +110,7 @@ describe('useStairsTool', () => {
     })
   })
 
-  it('previews a line then a parallelogram', () => {
+  it('previews a line then the trapezoid', () => {
     const { click, move, onPreview } = setup()
     click(0, 0)
     move(2 * CELL, 0)

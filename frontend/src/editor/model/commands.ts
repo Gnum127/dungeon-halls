@@ -10,12 +10,7 @@ import { findLightById, isValidLightColor, isValidLightRadius, nextLightId } fro
 import { assertValidRegion, nextZOrder } from './regions'
 import { isAutoWallSegmentId } from './autoWalls'
 import { assertValidWallSegment } from './wallSegments'
-import {
-  assertValidDoor,
-  createDoor,
-  findDoorById,
-  isValidDoorOpenAngle,
-} from './doors'
+import { assertValidDoor, createDoor, findDoorById, isValidDoorOpenAngle } from './doors'
 import { assertValidStairsPolygon, createStairsPolygon } from './stairs'
 import { isMapDimension } from '@/config/map.config'
 import { MAP_VERSION } from './types'

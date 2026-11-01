@@ -271,10 +271,7 @@ describe('computeCoverage (painter order)', () => {
   })
 
   it('does not let a lower empty region erase a higher solid one (top wins)', () => {
-    const regions = [
-      region('empty', 0, 0, 4, 0, 'erase'),
-      region('floor', 1, 1, 2, 1, 'island'),
-    ]
+    const regions = [region('empty', 0, 0, 4, 0, 'erase'), region('floor', 1, 1, 2, 1, 'island')]
     expect(ringCount(computeCoverage(regions))).toBe(1)
     expect(computeAutoWalls(regions)).toHaveLength(1)
   })

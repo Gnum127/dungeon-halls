@@ -85,7 +85,11 @@ describe('createDoor', () => {
 
   it('honours explicit options and copies endpoints', () => {
     const a = { x: 1, y: 2 }
-    const door = createDoor(a, { x: 3, y: 2 }, { openAngle: -30, imageId: 'door-iron', id: 'fixed' })
+    const door = createDoor(
+      a,
+      { x: 3, y: 2 },
+      { openAngle: -30, imageId: 'door-iron', id: 'fixed' },
+    )
     expect(door).toEqual({
       id: 'fixed',
       a: { x: 1, y: 2 },

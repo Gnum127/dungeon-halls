@@ -34,7 +34,10 @@ export function assertValidStairsPolygon(value: StairsPolygon): void {
   }
 }
 
-export function createStairsPolygon(polygon: readonly Point[], id: string = newId()): StairsPolygon {
+export function createStairsPolygon(
+  polygon: readonly Point[],
+  id: string = newId(),
+): StairsPolygon {
   const stairs: StairsPolygon = { id, polygon: polygon.map((p) => ({ x: p.x, y: p.y })) }
   assertValidStairsPolygon(stairs)
   return stairs

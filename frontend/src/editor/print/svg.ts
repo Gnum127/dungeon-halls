@@ -63,11 +63,12 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
   model.stairs.forEach((entry, index) => {
     const points = entry.polygon.map((p) => `${fmt(p.x * s)},${fmt(p.y * s)}`).join(' ')
     const clipId = `stairs-${index}`
-    parts.push(
-      `<clipPath id="${clipId}"><polygon points="${points}"/></clipPath>`,
-    )
+    parts.push(`<clipPath id="${clipId}"><polygon points="${points}"/></clipPath>`)
     const steps = stairsStepSegments(entry.polygon)
-      .map((segment) => `M${fmt(segment.a.x * s)} ${fmt(segment.a.y * s)}L${fmt(segment.b.x * s)} ${fmt(segment.b.y * s)}`)
+      .map(
+        (segment) =>
+          `M${fmt(segment.a.x * s)} ${fmt(segment.a.y * s)}L${fmt(segment.b.x * s)} ${fmt(segment.b.y * s)}`,
+      )
       .join('')
     parts.push(
       `<path d="${steps}" clip-path="url(#${clipId})" fill="none" stroke="${STAIRS_STEP_COLOR}" stroke-width="${fmt(Math.max(1, s * 0.05))}"/>`,
@@ -84,7 +85,9 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
   for (let row = 0; row <= model.grid.height; row += 1) {
     lines.push(`M0 ${fmt(row * s)}L${fmt(width)} ${fmt(row * s)}`)
   }
-  parts.push(`<path d="${lines.join('')}" fill="none" stroke="${GRID_LINE_COLOR}" stroke-width="1"/>`)
+  parts.push(
+    `<path d="${lines.join('')}" fill="none" stroke="${GRID_LINE_COLOR}" stroke-width="1"/>`,
+  )
 
   for (const object of model.objects) {
     const center = cellCenterAt(object.x, object.y, s)

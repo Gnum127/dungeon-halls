@@ -110,7 +110,9 @@ describe('renderMap', () => {
     )
 
     const stepIndex = calls.findIndex((c) => c.op === 'stroke' && c.fillStyle === STAIRS_STEP_COLOR)
-    const objectFill = calls.findIndex((c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch)
+    const objectFill = calls.findIndex(
+      (c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch,
+    )
     expect(stepIndex).toBeGreaterThanOrEqual(0)
     expect(objectFill).toBeGreaterThan(stepIndex)
   })
@@ -153,8 +155,12 @@ describe('renderMap', () => {
 
     // Only the wall closes its path (no regions in the model).
     expect(calls.filter((c) => c.op === 'closePath')).toHaveLength(1)
-    expect(calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_BODY_COLOR)).toHaveLength(1)
-    expect(calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_LINE_COLOR)).toHaveLength(1)
+    expect(calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_BODY_COLOR)).toHaveLength(
+      1,
+    )
+    expect(calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_LINE_COLOR)).toHaveLength(
+      1,
+    )
     expect(raw.lineJoin).toBe('round')
   })
 
@@ -184,7 +190,13 @@ describe('renderMap', () => {
   })
 
   it('falls back to a filled door when its texture is missing from the pool', () => {
-    const door = { id: 'd1', a: { x: 1, y: 0 }, b: { x: 2, y: 0 }, openAngle: 0, imageId: 'door-iron' }
+    const door = {
+      id: 'd1',
+      a: { x: 1, y: 0 },
+      b: { x: 2, y: 0 },
+      openAngle: 0,
+      imageId: 'door-iron',
+    }
     const sprites = { tiles: {}, objects: {}, elementImages: {}, tilePools: {} }
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, baseModel({ doors: [door] }), viewport, sprites)
@@ -194,7 +206,13 @@ describe('renderMap', () => {
   })
 
   it('draws a textured closed door from the element image pool', () => {
-    const door = { id: 'd1', a: { x: 1, y: 0 }, b: { x: 2, y: 0 }, openAngle: 0, imageId: 'door-iron' }
+    const door = {
+      id: 'd1',
+      a: { x: 1, y: 0 },
+      b: { x: 2, y: 0 },
+      openAngle: 0,
+      imageId: 'door-iron',
+    }
     const image = {} as HTMLImageElement
     const sprites = { tiles: {}, objects: {}, elementImages: { 'door-iron': image }, tilePools: {} }
     const { ctx, calls } = makeFakeCtx()
@@ -219,7 +237,9 @@ describe('renderMap', () => {
     renderMap(ctx, baseModel({ doors: [door] }), viewport, sprites)
 
     expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
-    expect(calls.filter((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR)).toHaveLength(1)
+    expect(
+      calls.filter((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR),
+    ).toHaveLength(1)
     // 90° rotation about the hinge maps the leaf onto the vertical axis.
     expect(raw.lastRotate).toBeCloseTo(Math.PI / 2)
   })
@@ -228,14 +248,16 @@ describe('renderMap', () => {
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'torch', x: 1, y: 1 }] }), viewport)
 
-    expect(
-      calls.some((c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch),
-    ).toBe(true)
+    expect(calls.some((c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch)).toBe(true)
   })
 
   it('draws light glow and marker by default', () => {
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ lights: [{ id: 1, x: 1, y: 1, radius: 2, color: '#ffdd88' }] }), viewport)
+    renderMap(
+      ctx,
+      baseModel({ lights: [{ id: 1, x: 1, y: 1, radius: 2, color: '#ffdd88' }] }),
+      viewport,
+    )
 
     expect(calls.some((c) => c.op === 'arc')).toBe(true)
     expect(calls.some((c) => c.op === 'fill' && c.fillStyle === LIGHT_MARKER_COLOR)).toBe(true)

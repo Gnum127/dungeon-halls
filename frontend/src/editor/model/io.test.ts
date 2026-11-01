@@ -268,9 +268,7 @@ describe('deserializeMap rejects malformed sections', () => {
     ).toThrow(/openAngle/)
     expect(() =>
       deserializeMap(
-        JSON.stringify(
-          withRaw((raw) => ((raw.doors as Record<string, unknown>[])[0].b = [0, 0])),
-        ),
+        JSON.stringify(withRaw((raw) => ((raw.doors as Record<string, unknown>[])[0].b = [0, 0]))),
       ),
     ).toThrow(/coincide/)
     expect(() =>
@@ -286,7 +284,13 @@ describe('deserializeMap rejects malformed sections', () => {
     expect(() =>
       deserializeMap(
         JSON.stringify(
-          withRaw((raw) => ((raw.stairs as Record<string, unknown>[])[0].polygon = [[0, 0], [1, 1]])),
+          withRaw(
+            (raw) =>
+              ((raw.stairs as Record<string, unknown>[])[0].polygon = [
+                [0, 0],
+                [1, 1],
+              ]),
+          ),
         ),
       ),
     ).toThrow(/Stairs polygon/)

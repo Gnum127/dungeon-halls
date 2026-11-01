@@ -37,7 +37,9 @@ function model(overrides: Partial<MapModel> = {}): MapModel {
 
 describe('buildSvg', () => {
   it('emits region polygons coloured by tile type', () => {
-    const svg = buildSvg(model({ regions: [createTerrainRegion('floor', square(0, 0, 2, 2), 0, 'r')] }))
+    const svg = buildSvg(
+      model({ regions: [createTerrainRegion('floor', square(0, 0, 2, 2), 0, 'r')] }),
+    )
 
     expect(svg).toContain('<svg')
     expect(svg).toContain(`fill="${TILE_COLORS.floor}"`)

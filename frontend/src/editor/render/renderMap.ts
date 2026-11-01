@@ -157,13 +157,7 @@ function drawRegion(
         // Пул: вариант выбирается детерминированно по координате клетки.
         const image = hasPool ? pool[pickIndexFromCoords(col, row, pool.length)] : sprite
         if (!image) continue
-        ctx.drawImage(
-          image,
-          col * cellSize - offsetX,
-          row * cellSize - offsetY,
-          cellSize,
-          cellSize,
-        )
+        ctx.drawImage(image, col * cellSize - offsetX, row * cellSize - offsetY, cellSize, cellSize)
       }
     }
     ctx.restore()
@@ -265,7 +259,9 @@ function drawObject(
     const ry = baseRadius * scaleY
     ctx.beginPath()
     ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
-    ctx.fillStyle = isKnownKind(object.kindId) ? OBJECT_COLORS[object.kindId] : FALLBACK_OBJECT_COLOR
+    ctx.fillStyle = isKnownKind(object.kindId)
+      ? OBJECT_COLORS[object.kindId]
+      : FALLBACK_OBJECT_COLOR
     ctx.fill()
     ctx.lineWidth = 1
     ctx.strokeStyle = OBJECT_OUTLINE_COLOR
@@ -326,7 +322,8 @@ function drawDoor(
   ctx.translate(door.a.x * cellSize - offsetX, door.a.y * cellSize - offsetY)
   ctx.rotate(angle)
 
-  const image = door.imageId && door.openAngle === 0 ? sprites?.elementImages[door.imageId] : undefined
+  const image =
+    door.imageId && door.openAngle === 0 ? sprites?.elementImages[door.imageId] : undefined
   ctx.fillStyle = DOOR_FILL_COLOR
   if (image) {
     ctx.drawImage(image, 0, -thickness / 2, length, thickness)

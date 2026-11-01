@@ -60,7 +60,11 @@ export function useDoorTool(options: DoorToolOptions): {
       if (event.button === RIGHT_BUTTON) {
         onCommit({ kind: 'removeDoor', id: hitDoorId })
       } else {
-        onCommit({ kind: 'setDoorAngle', id: hitDoorId, openAngle: cycleDoorOpenAngle(door.openAngle) })
+        onCommit({
+          kind: 'setDoorAngle',
+          id: hitDoorId,
+          openAngle: cycleDoorOpenAngle(door.openAngle),
+        })
       }
       return
     }

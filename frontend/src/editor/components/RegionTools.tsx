@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { TileTypeName } from '../model/types'
 import { DOOR_CATALOG } from '../model/doorCatalog'
+import { MAX_DOOR_OPEN_ANGLE } from '../model/doors'
 import { TILE_COLORS } from '../render/colors'
 import type { EditorTool } from '../tools/editorTool'
 import styles from './RegionTools.module.css'
@@ -15,6 +16,8 @@ export interface RegionToolsProps {
   autoWalls: boolean
   /** Выбранная текстура двери (null = жирная линия без текстуры). */
   doorImageId: string | null
+  /** Угол створки для новой двери и шаг цикла кликом (0…150). */
+  doorOpenAngle: number
   onSelectRect: () => void
   onSelectPolygon: () => void
   onSelectEraser: () => void
@@ -23,6 +26,7 @@ export interface RegionToolsProps {
   onVertexCountChange: (count: number) => void
   onAutoWallsChange: (value: boolean) => void
   onDoorImageChange: (imageId: string | null) => void
+  onDoorAngleChange: (angle: number) => void
 }
 
 /** Панель «Ландшафт»: покрытие + инструменты построения фигур, стен и дверей. */
@@ -33,6 +37,7 @@ export function RegionTools(props: RegionToolsProps) {
     vertexCount,
     autoWalls,
     doorImageId,
+    doorOpenAngle,
     onSelectRect,
     onSelectPolygon,
     onSelectEraser,
@@ -41,6 +46,7 @@ export function RegionTools(props: RegionToolsProps) {
     onVertexCountChange,
     onAutoWallsChange,
     onDoorImageChange,
+    onDoorAngleChange,
   } = props
   const { t } = useTranslation()
 
@@ -59,9 +65,7 @@ export function RegionTools(props: RegionToolsProps) {
           aria-hidden="true"
         />
         <span className={styles.fillName}>
-          {tileType === 'empty'
-            ? t('editor.regionTools.erases')
-            : t(`editor.tiles.${tileType}`)}
+          {tileType === 'empty' ? t('editor.regionTools.erases') : t(`editor.tiles.${tileType}`)}
         </span>
       </div>
 
@@ -126,7 +130,11 @@ export function RegionTools(props: RegionToolsProps) {
             value={vertexCount}
             onChange={(event) => {
               const next = Number(event.target.value)
-              if (Number.isInteger(next) && next >= MIN_POLYGON_VERTICES && next <= MAX_POLYGON_VERTICES) {
+              if (
+                Number.isInteger(next) &&
+                next >= MIN_POLYGON_VERTICES &&
+                next <= MAX_POLYGON_VERTICES
+              ) {
                 onVertexCountChange(next)
               }
             }}
@@ -150,6 +158,25 @@ export function RegionTools(props: RegionToolsProps) {
               </option>
             ))}
           </select>
+        </label>
+      )}
+
+      {activeTool.type === 'door' && (
+        <label className={styles.field}>
+          <span>{t('editor.regionTools.doorAngle')}</span>
+          <input
+            type="number"
+            min={0}
+            max={MAX_DOOR_OPEN_ANGLE}
+            step={1}
+            value={doorOpenAngle}
+            onChange={(event) => {
+              const next = Number(event.target.value)
+              if (Number.isInteger(next) && next >= 0 && next <= MAX_DOOR_OPEN_ANGLE) {
+                onDoorAngleChange(next)
+              }
+            }}
+          />
         </label>
       )}
 

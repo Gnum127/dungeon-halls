@@ -24,7 +24,13 @@ import {
   WALL_BODY_COLOR,
   WALL_LINE_COLOR,
 } from './colors'
-import { cellCenterAt, stairsStepSegments, visibleCellRange, wallPath } from './geometry'
+import {
+  cellCenterAt,
+  DOOR_GAP_CLEARANCE,
+  stairsStepSegments,
+  visibleCellRange,
+  wallRuns,
+} from './geometry'
 import { pickIndexFromCoords } from '@/shared/random'
 import type { Viewport } from './viewport'
 
@@ -98,7 +104,7 @@ export function renderMap(
   }
 
   for (const wall of model.walls) {
-    drawWall(ctx, wall, viewport)
+    drawWall(ctx, wall, model.doors, viewport)
   }
 
   for (const door of model.doors) {
@@ -275,32 +281,42 @@ function drawObject(
 }
 
 /**
- * Тело стены (утолщение) + тонкий контур поверх; замкнутый контур — одним путём.
+ * Тело стены (утолщение) + тонкий контур поверх; замкнутый контур — одним
+ * путём. Проёмы дверей вырезают интервал стены плюс зазор (`DOOR_GAP_CLEARANCE`).
  */
-function drawWall(ctx: CanvasRenderingContext2D, wall: WallSegment, viewport: Viewport): void {
+function drawWall(
+  ctx: CanvasRenderingContext2D,
+  wall: WallSegment,
+  doors: MapModel['doors'],
+  viewport: Viewport,
+): void {
   if (wall.points.length < 2) return
   const { cellSize, offsetX, offsetY } = viewport
   const bodyWidth = Math.max(3, wall.thickness * cellSize)
-  const { points, closed } = wallPath(wall)
+  const runs = wallRuns(wall, doors, DOOR_GAP_CLEARANCE)
 
   ctx.lineCap = 'round'
   // Скруглённые углы: у замкнутого контура нет концов — только стыки.
   ctx.lineJoin = 'round'
 
-  ctx.beginPath()
-  ctx.moveTo(points[0].x * cellSize - offsetX, points[0].y * cellSize - offsetY)
-  for (let i = 1; i < points.length; i += 1) {
-    ctx.lineTo(points[i].x * cellSize - offsetX, points[i].y * cellSize - offsetY)
+  for (const run of runs) {
+    ctx.beginPath()
+    ctx.moveTo(run[0].x * cellSize - offsetX, run[0].y * cellSize - offsetY)
+    for (let i = 1; i < run.length; i += 1) {
+      ctx.lineTo(run[i].x * cellSize - offsetX, run[i].y * cellSize - offsetY)
+    }
+    const first = run[0]
+    const last = run[run.length - 1]
+    if (first.x === last.x && first.y === last.y) ctx.closePath()
+
+    ctx.strokeStyle = WALL_BODY_COLOR
+    ctx.lineWidth = bodyWidth
+    ctx.stroke()
+
+    ctx.strokeStyle = WALL_LINE_COLOR
+    ctx.lineWidth = Math.max(1.5, bodyWidth * 0.35)
+    ctx.stroke()
   }
-  if (closed) ctx.closePath()
-
-  ctx.strokeStyle = WALL_BODY_COLOR
-  ctx.lineWidth = bodyWidth
-  ctx.stroke()
-
-  ctx.strokeStyle = WALL_LINE_COLOR
-  ctx.lineWidth = Math.max(1.5, bodyWidth * 0.35)
-  ctx.stroke()
 }
 
 /**

@@ -125,6 +125,24 @@ describe('buildSvg', () => {
     expect(svg).not.toContain('Z')
   })
 
+  it('breaks the wall path around a door opening', () => {
+    const wall = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+      ],
+      { id: 'w1' },
+    )
+    const door = { id: 'd1', a: { x: 1.5, y: 0 }, b: { x: 2.5, y: 0 }, openAngle: 0, imageId: null }
+    const svg = buildSvg(model({ walls: [wall], doors: [door] }))
+    const body = svg.split('\n').find((line) => line.includes(`stroke="${WALL_BODY_COLOR}"`))
+    expect(body).toBeDefined()
+    expect((body?.match(/M/g) ?? []).length).toBe(2)
+    // 64 units/cell: opening 1.5..2.5 ± 1/6 → 85.333 and 170.667.
+    expect(svg).toContain('M0 0L85.333 0')
+    expect(svg).toContain('M170.667 0L256 0')
+  })
+
   it('draws a coverage point grid (only where covered)', () => {
     const empty = buildSvg(model())
     expect(empty).not.toContain(GRID_POINT_COLOR)
@@ -162,6 +180,23 @@ describe('buildSvg', () => {
     const svg = buildSvg(model({ doors: [door] }))
 
     expect(svg).toContain(`fill="${DOOR_FILL_COLOR}"`)
+  })
+
+  it('rotates the leaf around the hinge by the open angle', () => {
+    const door = { id: 'd1', a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, openAngle: 90, imageId: null }
+    const svg = buildSvg(model({ doors: [door] }))
+
+    // Hinge at the origin, leaf along +x rotated 90°; 1 cell = 64 units wide.
+    expect(svg).toContain('transform="translate(0 0) rotate(90)"')
+    expect(svg).toMatch(/width="64"/)
+  })
+
+  it('anchors the SVG leaf rotation at the hinge', () => {
+    const door = { id: 'd1', a: { x: 2, y: 3 }, b: { x: 3, y: 3 }, openAngle: 90, imageId: null }
+    // 64 units/cell → hinge at (128, 192).
+    expect(buildSvg(model({ doors: [door] }))).toContain(
+      'transform="translate(128 192) rotate(90)"',
+    )
   })
 
   it('draws a stairs entity contour and steps clipped to it', () => {

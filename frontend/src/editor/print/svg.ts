@@ -18,7 +18,7 @@ import {
   WALL_BODY_COLOR,
   WALL_LINE_COLOR,
 } from '../render/colors'
-import { cellCenterAt, stairsStepSegments, wallPath } from '../render/geometry'
+import { cellCenterAt, DOOR_GAP_CLEARANCE, stairsStepSegments, wallRuns } from '../render/geometry'
 
 /** Единица координат SVG: толщины стен/дверей остаются пропорциональными. */
 export const SVG_UNITS_PER_CELL = 64
@@ -112,12 +112,19 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
     const byThickness = new Map<number, string>()
     for (const wall of model.walls) {
       if (wall.points.length < 2) continue
-      const { points, closed } = wallPath(wall)
-      const seg: string[] = [`M${fmt(points[0].x * s)} ${fmt(points[0].y * s)}`]
-      for (let i = 1; i < points.length; i += 1) {
-        seg.push(`L${fmt(points[i].x * s)} ${fmt(points[i].y * s)}`)
+      const runs = wallRuns(wall, model.doors, DOOR_GAP_CLEARANCE)
+      const seg: string[] = []
+      for (const run of runs) {
+        const first = run[0]
+        const last = run[run.length - 1]
+        const closedRun = first.x === last.x && first.y === last.y
+        const limit = closedRun ? run.length - 1 : run.length
+        seg.push(`M${fmt(first.x * s)} ${fmt(first.y * s)}`)
+        for (let i = 1; i < limit; i += 1) {
+          seg.push(`L${fmt(run[i].x * s)} ${fmt(run[i].y * s)}`)
+        }
+        if (closedRun) seg.push('Z')
       }
-      if (closed) seg.push('Z')
       byThickness.set(wall.thickness, (byThickness.get(wall.thickness) ?? '') + seg.join(''))
     }
     for (const [thickness, path] of byThickness) {

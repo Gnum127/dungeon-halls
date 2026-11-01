@@ -29,7 +29,8 @@
       "vertices": "Vertices",
       "autoWalls": "Auto walls",
       "erases": "clears the area",
-      "doorTexture": "Door texture"
+      "doorTexture": "Door texture",
+      "doorAngle": "Leaf angle"
     },
     "doors": {
       "none": "No texture (line)",

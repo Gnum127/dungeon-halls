@@ -40,7 +40,7 @@ describe('toolUsesHoverSnap', () => {
     expect(toolUsesHoverSnap({ type: 'region-rect', tileType: 'floor' })).toBe(true)
     expect(toolUsesHoverSnap({ type: 'region-polygon', tileType: 'floor', vertices: 6 })).toBe(true)
     expect(toolUsesHoverSnap({ type: 'wall' })).toBe(true)
-    expect(toolUsesHoverSnap({ type: 'door', imageId: null })).toBe(true)
+    expect(toolUsesHoverSnap({ type: 'door', imageId: null, openAngle: 30 })).toBe(true)
   })
 
   it('is false for cell/center tools', () => {
@@ -62,7 +62,7 @@ describe('toolPaintsTexture', () => {
     expect(toolPaintsTexture({ type: 'region-rect', tileType: 'floor' })).toBe(true)
     expect(toolPaintsTexture({ type: 'region-polygon', tileType: 'floor', vertices: 6 })).toBe(true)
     expect(toolPaintsTexture({ type: 'wall' })).toBe(false)
-    expect(toolPaintsTexture({ type: 'door', imageId: null })).toBe(false)
+    expect(toolPaintsTexture({ type: 'door', imageId: null, openAngle: 30 })).toBe(false)
     expect(toolPaintsTexture({ type: 'select' })).toBe(false)
     expect(toolPaintsTexture({ type: 'light' })).toBe(false)
     expect(

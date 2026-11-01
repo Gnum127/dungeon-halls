@@ -5,11 +5,12 @@ import type { RegionToolsProps } from './RegionTools'
 
 function renderTools(overrides: Partial<RegionToolsProps> = {}) {
   const props: RegionToolsProps = {
-    activeTool: { type: 'door', imageId: 'door-iron' },
+    activeTool: { type: 'door', imageId: 'door-iron', openAngle: 30 },
     tileType: 'floor',
     vertexCount: 6,
     autoWalls: true,
     doorImageId: 'door-iron',
+    doorOpenAngle: 30,
     onSelectRect: vi.fn(),
     onSelectPolygon: vi.fn(),
     onSelectEraser: vi.fn(),
@@ -18,6 +19,7 @@ function renderTools(overrides: Partial<RegionToolsProps> = {}) {
     onVertexCountChange: vi.fn(),
     onAutoWallsChange: vi.fn(),
     onDoorImageChange: vi.fn(),
+    onDoorAngleChange: vi.fn(),
     ...overrides,
   }
   render(<RegionTools {...props} />)
@@ -48,5 +50,45 @@ describe('RegionTools', () => {
   it('hides the door texture dropdown for non-door tools', () => {
     renderTools({ activeTool: { type: 'region-rect', tileType: 'floor' } })
     expect(screen.queryByRole('combobox', { name: 'Door texture' })).toBeNull()
+  })
+
+  it('edits the door leaf angle within 0..150', () => {
+    const props = renderTools()
+    const angle = screen.getByRole('spinbutton', { name: 'Leaf angle' })
+    expect(angle).toHaveValue(30)
+
+    fireEvent.change(angle, { target: { value: '45' } })
+    expect(props.onDoorAngleChange).toHaveBeenCalledWith(45)
+  })
+
+  it('ignores non-integer or out-of-range angles', () => {
+    const props = renderTools()
+    const field = screen.getByRole('spinbutton', { name: 'Leaf angle' })
+    fireEvent.change(field, { target: { value: '999' } })
+    fireEvent.change(field, { target: { value: '-5' } })
+    fireEvent.change(field, { target: { value: '45.5' } })
+    expect(props.onDoorAngleChange).not.toHaveBeenCalled()
+  })
+
+  it('accepts the 0 and 150 bounds', () => {
+    const props = renderTools()
+    const field = screen.getByRole('spinbutton', { name: 'Leaf angle' })
+    fireEvent.change(field, { target: { value: '0' } })
+    fireEvent.change(field, { target: { value: '150' } })
+    expect(props.onDoorAngleChange).toHaveBeenNthCalledWith(1, 0)
+    expect(props.onDoorAngleChange).toHaveBeenNthCalledWith(2, 150)
+  })
+
+  it('treats a cleared field as angle 0', () => {
+    const props = renderTools()
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Leaf angle' }), {
+      target: { value: '' },
+    })
+    expect(props.onDoorAngleChange).toHaveBeenCalledWith(0)
+  })
+
+  it('hides the door angle field for non-door tools', () => {
+    renderTools({ activeTool: { type: 'region-rect', tileType: 'floor' } })
+    expect(screen.queryByRole('spinbutton', { name: 'Leaf angle' })).toBeNull()
   })
 })

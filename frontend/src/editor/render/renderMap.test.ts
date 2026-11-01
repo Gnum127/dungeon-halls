@@ -150,6 +150,32 @@ describe('renderMap', () => {
     expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === WALL_LINE_COLOR)).toBe(true)
   })
 
+  it('cuts the wall into two runs around a door opening', () => {
+    const wall = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+      ],
+      { id: 'w1' },
+    )
+    const door = { id: 'd1', a: { x: 1.5, y: 0 }, b: { x: 2.5, y: 0 }, openAngle: 0, imageId: null }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ walls: [wall], doors: [door] }), viewport)
+
+    // Two sub-paths → two body strokes (the wall is broken by the opening).
+    expect(calls.filter((c) => c.op === 'stroke' && c.fillStyle === WALL_BODY_COLOR)).toHaveLength(
+      2,
+    )
+
+    const starts = calls.filter((c) => c.op === 'moveTo').map((c) => c.args[0] as number)
+    // Opening 1.5..2.5 plus 1/6 clearance → ends at 1.3333 and 2.6667 cells (*32px).
+    expect(starts[0]).toBeCloseTo(0)
+    expect(starts[1]).toBeCloseTo((2.5 + 1 / 6) * 32)
+    const ends = calls.filter((c) => c.op === 'lineTo').map((c) => c.args[0] as number)
+    expect(ends[0]).toBeCloseTo((1.5 - 1 / 6) * 32)
+    expect(ends[1]).toBeCloseTo(4 * 32)
+  })
+
   it('draws a closed contour as one closed path', () => {
     const wall = createWallSegment(
       [
@@ -253,6 +279,32 @@ describe('renderMap', () => {
     ).toHaveLength(1)
     // 90° rotation about the hinge maps the leaf onto the vertical axis.
     expect(raw.lastRotate).toBeCloseTo(Math.PI / 2)
+  })
+
+  it('rotates the leaf by an arbitrary open angle', () => {
+    const door = {
+      id: 'd1',
+      a: { x: 1, y: 1 },
+      b: { x: 2, y: 1 },
+      openAngle: 45,
+      imageId: null,
+    }
+    const { ctx, raw, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ doors: [door] }), viewport)
+
+    expect(
+      calls.filter((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR),
+    ).toHaveLength(1)
+    expect(raw.lastRotate).toBeCloseTo(Math.PI / 4)
+  })
+
+  it('anchors the door translation at the hinge point', () => {
+    const door = { id: 'd1', a: { x: 2, y: 3 }, b: { x: 3, y: 3 }, openAngle: 0, imageId: null }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ doors: [door] }), viewport)
+
+    const translate = calls.find((c) => c.op === 'translate')
+    expect(translate?.args).toEqual([2 * 32, 3 * 32])
   })
 
   it('falls back to a colour ellipse for objects without a sprite', () => {

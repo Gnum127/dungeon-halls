@@ -1,8 +1,9 @@
+import { useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Command } from '../model/commands'
-import { nearestWallSegment } from '../model/wallSegments'
 import { cycleDoorOpenAngle } from '../model/doors'
 import { doorHitTest } from '../tools/doorHitTest'
+import { doorEndpoints } from '../tools/doorPlacement'
 import type { MapModel } from '../model/types'
 import type { Point } from '@/shared/point'
 import type { Viewport } from '../render/viewport'
@@ -14,37 +15,64 @@ interface DoorToolOptions {
   model: MapModel
   /** Текстура ставящейся двери (null = жирная линия). */
   imageId: string | null
+  /** Угол створки для новой двери и шаг цикла кликом (градусы). */
+  openAngle: number
   viewportRef: RefObject<Viewport>
   onCommit: (command: Command | null) => void
 }
 
+export interface DoorPreview {
+  readonly a: Point
+  readonly b: Point
+}
+
 const LEFT_BUTTON = 0
 const RIGHT_BUTTON = 2
-/** Максимальное расстояние до осевой стены (в клетках) для постановки двери. */
-const MAX_WALL_DISTANCE = 0.5
 /** Радиус попадания по двери в мировых клетках (примерно половина полотна). */
 const DOOR_HIT_RADIUS = 0.15
-/** Ширина проёма, ставящегося кликом по стене (клетки). */
-const DOOR_PLACEMENT_WIDTH = 1
 
-function normalize(dx: number, dy: number): Point {
-  const length = Math.hypot(dx, dy)
-  if (length === 0) return { x: 1, y: 0 }
-  return { x: dx / length, y: dy / length }
+function pointsEqual(a: Point, b: Point): boolean {
+  return a.x === b.x && a.y === b.y
 }
 
 /**
- * Инструмент дверей: клик по существующей двери циклично меняет угол створки
- * (`+A → −A → 0`), правый клик — удаляет; иначе клик у стены ставит новую дверь
- * (проём 1 клетка вдоль касательной стены). Хит-тест двери — `doorHitTest`.
+ * Инструмент дверей в 2 клика: первый клик — начало проёма, второй — конец
+ * (снап к характеристическим точкам; на стене — вдоль стены). Клик по
+ * существующей двери цикличный угол створки (`+A → −A → 0`), правый клик —
+ * удаляет. Хит-тест двери — `doorHitTest`.
  */
 export function useDoorTool(options: DoorToolOptions): {
+  preview: DoorPreview | null
   handlers: {
     onPointerDown: (event: ReactPointerEvent<HTMLCanvasElement>) => void
+    onPointerMove: (event: ReactPointerEvent<HTMLCanvasElement>) => void
+    onPointerCancel: () => void
   }
 } {
-  const { canvasRef, active, model, imageId, viewportRef, onCommit } = options
+  const { canvasRef, active, model, imageId, openAngle, viewportRef, onCommit } = options
   const worldFromEvent = useWorldPointFromEvent(canvasRef, viewportRef)
+  const [pending, setPending] = useState<{ startWorld: Point; a: Point; b: Point } | null>(null)
+  // При деактивации инструмента сбрасываем недостроенный проём во время рендера.
+  const [wasActive, setWasActive] = useState(active)
+  if (active !== wasActive) {
+    setWasActive(active)
+    if (!active) setPending(null)
+  }
+
+  function handleDoorHit(hitDoorId: string, button: number): void {
+    const door = model.doors.find((candidate) => candidate.id === hitDoorId)
+    if (!door) return
+    setPending(null)
+    if (button === RIGHT_BUTTON) {
+      onCommit({ kind: 'removeDoor', id: hitDoorId })
+    } else {
+      onCommit({
+        kind: 'setDoorAngle',
+        id: hitDoorId,
+        openAngle: cycleDoorOpenAngle(door.openAngle, openAngle),
+      })
+    }
+  }
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (!active) return
@@ -55,40 +83,37 @@ export function useDoorTool(options: DoorToolOptions): {
     const hitDoorId = doorHitTest(world, model.doors, DOOR_HIT_RADIUS)
     if (hitDoorId) {
       event.preventDefault()
-      const door = model.doors.find((candidate) => candidate.id === hitDoorId)
-      if (!door) return
-      if (event.button === RIGHT_BUTTON) {
-        onCommit({ kind: 'removeDoor', id: hitDoorId })
-      } else {
-        onCommit({
-          kind: 'setDoorAngle',
-          id: hitDoorId,
-          openAngle: cycleDoorOpenAngle(door.openAngle),
-        })
-      }
+      handleDoorHit(hitDoorId, event.button)
       return
     }
-
     if (event.button !== LEFT_BUTTON) return
-    const hit = nearestWallSegment(model.walls, world)
-    if (!hit || hit.distance > MAX_WALL_DISTANCE) return
-
-    const segment = hit.segment.points
-    const tangent = normalize(
-      segment[hit.index + 1].x - segment[hit.index].x,
-      segment[hit.index + 1].y - segment[hit.index].y,
-    )
-    const half = DOOR_PLACEMENT_WIDTH / 2
 
     event.preventDefault()
-    onCommit({
-      kind: 'addDoor',
-      a: { x: hit.point.x - tangent.x * half, y: hit.point.y - tangent.y * half },
-      b: { x: hit.point.x + tangent.x * half, y: hit.point.y + tangent.y * half },
-      openAngle: 0,
-      imageId,
-    })
+    if (!pending) {
+      const { a, b } = doorEndpoints(model, world, world)
+      setPending({ startWorld: world, a, b })
+      return
+    }
+    const { a, b } = doorEndpoints(model, pending.startWorld, world)
+    setPending(null)
+    if (pointsEqual(a, b)) return
+    onCommit({ kind: 'addDoor', a, b, openAngle, imageId })
   }
 
-  return { handlers: { onPointerDown } }
+  function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (!active || !pending) return
+    const world = worldFromEvent(event)
+    if (!Number.isFinite(world.x) || !Number.isFinite(world.y)) return
+    const { a, b } = doorEndpoints(model, pending.startWorld, world)
+    setPending((previous) => (previous ? { startWorld: previous.startWorld, a, b } : previous))
+  }
+
+  function onPointerCancel() {
+    setPending(null)
+  }
+
+  return {
+    preview: pending ? { a: pending.a, b: pending.b } : null,
+    handlers: { onPointerDown, onPointerMove, onPointerCancel },
+  }
 }

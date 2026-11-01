@@ -10,7 +10,12 @@ import { useLightTool } from '../hooks/useLightTool'
 import { useDoorTool } from '../hooks/useDoorTool'
 import { useStairsTool } from '../hooks/useStairsTool'
 import { DEFAULT_DOOR_OPEN_ANGLE, doorLeafEnd } from '../model/doors'
-import { DOOR_FILL_COLOR, DOOR_THICKNESS_FRACTION, STAIRS_OUTLINE_COLOR } from '../render/colors'
+import {
+  DOOR_FILL_COLOR,
+  DOOR_THICKNESS_FRACTION,
+  HIGHLIGHT_COLOR,
+  STAIRS_OUTLINE_COLOR,
+} from '../render/colors'
 import { useRectRegionTool } from '../hooks/useRectRegionTool'
 import { usePolygonRegionTool } from '../hooks/usePolygonRegionTool'
 import { useWallTool } from '../hooks/useWallTool'
@@ -154,9 +159,14 @@ export function CanvasView({
     onCommit,
   })
 
-  const { handlers: stairsHandlers, preview: stairsPreview } = useStairsTool({
+  const {
+    handlers: stairsHandlers,
+    preview: stairsPreview,
+    selectedId: stairsSelectedId,
+  } = useStairsTool({
     canvasRef,
     active: tool.type === 'stairs',
+    model,
     viewportRef,
     onCommit,
   })
@@ -199,6 +209,23 @@ export function CanvasView({
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     renderMap(ctx, model, viewport, sprites)
+
+    if (tool.type === 'stairs' && stairsSelectedId) {
+      const selected = model.stairs.find((stairs) => stairs.id === stairsSelectedId)
+      if (selected && selected.polygon.length >= 3) {
+        ctx.strokeStyle = HIGHLIGHT_COLOR
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        selected.polygon.forEach((point, index) => {
+          const px = point.x * viewport.cellSize - viewport.offsetX
+          const py = point.y * viewport.cellSize - viewport.offsetY
+          if (index === 0) ctx.moveTo(px, py)
+          else ctx.lineTo(px, py)
+        })
+        ctx.closePath()
+        ctx.stroke()
+      }
+    }
 
     if (hoverCell && hoverWorld) {
       drawHoverHighlight(ctx, tool, hoverCell, hoverWorld, viewport)
@@ -310,6 +337,7 @@ export function CanvasView({
     wallPreview,
     doorPreview,
     stairsPreview,
+    stairsSelectedId,
     tileType,
     autoWalls,
   ])

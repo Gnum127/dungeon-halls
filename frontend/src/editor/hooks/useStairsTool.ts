@@ -4,6 +4,8 @@ import type { Command } from '../model/commands'
 import { snapToHalfGrid } from '../model/snap'
 import { isEditableTarget } from '../dom/isEditableTarget'
 import { isValidStairsShape, stairsVertices } from '../tools/stairsPlacement'
+import { stairsHitTest } from '../tools/stairsHitTest'
+import type { MapModel } from '../model/types'
 import type { Point } from '@/shared/point'
 import type { Viewport } from '../render/viewport'
 import { useWorldPointFromEvent } from './useCellFromEvent'
@@ -11,6 +13,7 @@ import { useWorldPointFromEvent } from './useCellFromEvent'
 interface StairsToolOptions {
   canvasRef: RefObject<HTMLCanvasElement | null>
   active: boolean
+  model: MapModel
   viewportRef: RefObject<Viewport>
   onCommit: (command: Command | null) => void
 }
@@ -21,14 +24,17 @@ export interface StairsPreview {
 }
 
 const LEFT_BUTTON = 0
+const RIGHT_BUTTON = 2
 
 /**
  * Инструмент лестницы в 3 клика: `start` → `base` (ширина) → `end` (дальний
  * край); четвёртая вершина — зеркало относительно серединного перпендикуляра к
- * базе. Все клики привязаны к 0.5; живое превью. Esc отменяет построение.
+ * базе. Все клики привязаны к 0.5; живое превью. Клик по существующей лестнице
+ * выделяет её, правый клик или Delete удаляет; Esc отменяет построение.
  */
 export function useStairsTool(options: StairsToolOptions): {
   preview: StairsPreview | null
+  selectedId: string | null
   handlers: {
     onPointerDown: (event: ReactPointerEvent<HTMLCanvasElement>) => void
     onPointerMove: (event: ReactPointerEvent<HTMLCanvasElement>) => void
@@ -36,19 +42,25 @@ export function useStairsTool(options: StairsToolOptions): {
     onPointerLeave: () => void
   }
 } {
-  const { canvasRef, active, viewportRef, onCommit } = options
+  const { canvasRef, active, model, viewportRef, onCommit } = options
   const worldFromEvent = useWorldPointFromEvent(canvasRef, viewportRef)
   const [clicks, setClicks] = useState<Point[]>([])
   const [cursor, setCursor] = useState<Point | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  // Деактивация инструмента сбрасывает недостроенную лестницу (рендер-фаза).
+  // Деактивация инструмента сбрасывает недостроенную лестницу и выделение;
+  // удалённая лестница не остаётся выделенной (рендер-фаза, без эффектов).
   const [wasActive, setWasActive] = useState(active)
   if (active !== wasActive) {
     setWasActive(active)
     if (!active) {
       setClicks([])
       setCursor(null)
+      setSelectedId(null)
     }
+  }
+  if (selectedId && !model.stairs.some((stairs) => stairs.id === selectedId)) {
+    setSelectedId(null)
   }
 
   useEffect(() => {
@@ -62,17 +74,44 @@ export function useStairsTool(options: StairsToolOptions): {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [active, clicks.length])
 
+  useEffect(() => {
+    if (!active || !selectedId) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Delete' || isEditableTarget(event.target)) return
+      onCommit({ kind: 'removeStairs', id: selectedId })
+      setSelectedId(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [active, selectedId, onCommit])
+
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
-    if (!active || event.button !== LEFT_BUTTON) return
+    if (!active) return
+    if (event.button !== LEFT_BUTTON && event.button !== RIGHT_BUTTON) return
     const world = worldFromEvent(event)
     if (!Number.isFinite(world.x) || !Number.isFinite(world.y)) return
-    event.preventDefault()
-    const snapped = snapToHalfGrid(world)
 
-    if (clicks.length === 0) {
-      setClicks([snapped])
+    if (event.button === RIGHT_BUTTON) {
+      const hit = stairsHitTest(world, model.stairs)
+      if (!hit) return
+      event.preventDefault()
+      setSelectedId(null)
+      onCommit({ kind: 'removeStairs', id: hit })
       return
     }
+
+    event.preventDefault()
+    if (clicks.length === 0) {
+      const hit = stairsHitTest(world, model.stairs)
+      if (hit) {
+        setSelectedId(hit)
+        return
+      }
+      setSelectedId(null)
+      setClicks([snapToHalfGrid(world)])
+      return
+    }
+    const snapped = snapToHalfGrid(world)
     if (clicks.length === 1) {
       setClicks([clicks[0], snapped])
       return
@@ -110,6 +149,7 @@ export function useStairsTool(options: StairsToolOptions): {
 
   return {
     preview,
+    selectedId,
     handlers: { onPointerDown, onPointerMove, onPointerCancel, onPointerLeave },
   }
 }

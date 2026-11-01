@@ -1,6 +1,7 @@
 import { createRef, useEffect } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { applyCommand } from '../model/commands'
 import { createEmptyMap } from '../model/createEmptyMap'
 import type { MapModel } from '../model/types'
 import type { Viewport } from '../render/viewport'
@@ -14,30 +15,42 @@ interface HarnessProps {
   active?: boolean
   onCommit: (command: unknown) => void
   onPreview: (preview: StairsPreview | null) => void
+  onSelect: (id: string | null) => void
 }
 
-function Harness({ active = true, onCommit, onPreview }: HarnessProps) {
+function Harness({ model, active = true, onCommit, onPreview, onSelect }: HarnessProps) {
   const canvasRef = createRef<HTMLCanvasElement>()
   const viewportRef = {
     current: { width: 12 * CELL, height: 12 * CELL, cellSize: CELL, offsetX: 0, offsetY: 0 },
   } as unknown as React.RefObject<Viewport>
-  const { handlers, preview } = useStairsTool({
+  const { handlers, preview, selectedId } = useStairsTool({
     canvasRef,
     active,
+    model,
     viewportRef,
     onCommit: onCommit as never,
   })
   useEffect(() => {
     onPreview(preview)
   }, [preview, onPreview])
+  useEffect(() => {
+    onSelect(selectedId)
+  }, [selectedId, onSelect])
   return <canvas ref={canvasRef} data-testid="canvas" {...handlers} />
 }
 
 function setup(model: MapModel = createEmptyMap(12, 12)) {
   const onCommit = vi.fn()
   const onPreview = vi.fn()
+  const onSelect = vi.fn()
   const renderTree = (active: boolean) => (
-    <Harness model={model} active={active} onCommit={onCommit} onPreview={onPreview} />
+    <Harness
+      model={model}
+      active={active}
+      onCommit={onCommit}
+      onPreview={onPreview}
+      onSelect={onSelect}
+    />
   )
   const view = render(renderTree(true))
   const canvas = screen.getByTestId('canvas')
@@ -63,7 +76,19 @@ function setup(model: MapModel = createEmptyMap(12, 12)) {
       Object.assign(new Event('pointercancel', { bubbles: true }), { pointerId: 1 }),
     )
   const deactivate = () => view.rerender(renderTree(false))
-  return { canvas, onCommit, onPreview, click, move, cancel, deactivate }
+  return { canvas, onCommit, onPreview, onSelect, click, move, cancel, deactivate }
+}
+
+function withStairs(): MapModel {
+  return applyCommand(createEmptyMap(12, 12), {
+    kind: 'addStairs',
+    polygon: [
+      { x: 2, y: 2 },
+      { x: 6, y: 2 },
+      { x: 6, y: 5 },
+      { x: 2, y: 5 },
+    ],
+  })
 }
 
 describe('useStairsTool', () => {
@@ -128,6 +153,38 @@ describe('useStairsTool', () => {
         { x: 4, y: 4 },
       ],
     })
+  })
+
+  it('selects an existing stairs on click instead of starting a build', () => {
+    const model = withStairs()
+    const { click, onCommit, onSelect } = setup(model)
+    const id = model.stairs[0].id
+    click(4 * CELL, 3 * CELL)
+
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(onSelect).toHaveBeenLastCalledWith(id)
+  })
+
+  it('deletes the selected stairs with Delete', () => {
+    const model = withStairs()
+    const id = model.stairs[0].id
+    const { click, onCommit } = setup(model)
+    click(4 * CELL, 3 * CELL)
+    fireEvent.keyDown(window, { key: 'Delete' })
+
+    expect(onCommit).toHaveBeenCalledWith({ kind: 'removeStairs', id })
+  })
+
+  it('removes a stairs on right click and ignores a right click elsewhere', () => {
+    const model = withStairs()
+    const id = model.stairs[0].id
+    const { click, onCommit } = setup(model)
+    click(4 * CELL, 3 * CELL, 2)
+    expect(onCommit).toHaveBeenCalledWith({ kind: 'removeStairs', id })
+
+    onCommit.mockClear()
+    click(10 * CELL, 10 * CELL, 2)
+    expect(onCommit).not.toHaveBeenCalled()
   })
 
   it('cancels the pending build on Escape', () => {

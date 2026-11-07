@@ -9,7 +9,11 @@ import { MAP_VERSION } from '../model/types'
 import {
   CANVAS_BACKGROUND_COLOR,
   DOOR_FILL_COLOR,
+  EMPTY_GRID_POINT_COLOR,
+  EMPTY_GRID_POINT_RADIUS_SCALE,
   GRID_POINT_COLOR,
+  GRID_POINT_RADIUS,
+  LIGHT_GLOW_COLOR,
   LIGHT_MARKER_COLOR,
   STAIRS_OUTLINE_COLOR,
   STAIRS_STEP_COLOR,
@@ -86,10 +90,15 @@ describe('renderMap', () => {
     expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === STAIRS_OUTLINE_COLOR)).toBe(true)
     expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === STAIRS_STEP_COLOR)).toBe(true)
     expect(calls.some((c) => c.op === 'clip')).toBe(true)
-    // Stairs are an overlay: the point grid is the only fill they contribute.
+    // Stairs are an overlay: the point grid (covered + free) is the only fill
+    // they contribute, no region fill for the stairs polygon itself.
     const fills = calls.filter((c) => c.op === 'fill')
     expect(fills.length).toBeGreaterThan(0)
-    expect(fills.every((c) => c.fillStyle === GRID_POINT_COLOR)).toBe(true)
+    expect(
+      fills.every(
+        (c) => c.fillStyle === GRID_POINT_COLOR || c.fillStyle === EMPTY_GRID_POINT_COLOR,
+      ),
+    ).toBe(true)
   })
 
   it('draws stairs before objects (layer order)', () => {
@@ -121,18 +130,38 @@ describe('renderMap', () => {
     expect(objectFill).toBeGreaterThan(stepIndex)
   })
 
-  it('draws coverage point grid only where there is coverage', () => {
+  it('draws the point grid: bright on covered cells, dim on free field', () => {
     const empty = makeFakeCtx()
     renderMap(empty.ctx, baseModel(), viewport)
+    // No coverage → no bright points, but the free field is fully dotted.
     expect(empty.calls.some((c) => c.op === 'fill' && c.fillStyle === GRID_POINT_COLOR)).toBe(false)
+    // 8×8 cells → 9×9 = 81 free lattice corners.
+    expect(
+      empty.calls.filter((c) => c.op === 'fill' && c.fillStyle === EMPTY_GRID_POINT_COLOR),
+    ).toHaveLength(81)
 
     const region = createTerrainRegion('floor', square(0, 0, 2, 2), 0, 'r')
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, baseModel({ regions: [region] }), viewport)
     const dots = calls.filter((c) => c.op === 'fill' && c.fillStyle === GRID_POINT_COLOR)
-    // A 2×2 covered block shares lattice corners → 3×3 = 9 unique points.
+    // A 2×2 covered block shares lattice corners → 3×3 = 9 unique bright points.
     expect(dots).toHaveLength(9)
-    expect(calls.filter((c) => c.op === 'arc')).toHaveLength(9)
+    // The remaining corners stay dim.
+    const emptyDots = calls.filter(
+      (c) => c.op === 'fill' && c.fillStyle === EMPTY_GRID_POINT_COLOR,
+    )
+    expect(emptyDots).toHaveLength(81 - 9)
+    expect(calls.filter((c) => c.op === 'arc')).toHaveLength(81)
+
+    // Bright points are full size, free-field points are smaller (spec 20.1).
+    const brightArcs = calls.filter((c) => c.op === 'arc' && c.fillStyle === GRID_POINT_COLOR)
+    expect(brightArcs.every((c) => c.args[2] === GRID_POINT_RADIUS)).toBe(true)
+    const emptyArcs = calls.filter(
+      (c) => c.op === 'arc' && c.fillStyle === EMPTY_GRID_POINT_COLOR,
+    )
+    expect(emptyArcs.every((c) => c.args[2] === GRID_POINT_RADIUS * EMPTY_GRID_POINT_RADIUS_SCALE)).toBe(
+      true,
+    )
   })
 
   it('draws walls with a body and an outline', () => {
@@ -335,7 +364,9 @@ describe('renderMap', () => {
       undefined,
       { includeLight: false },
     )
-    expect(calls.some((c) => c.op === 'arc')).toBe(false)
+    // Grid points still draw arcs; the light glow/marker must not.
+    expect(calls.some((c) => c.op === 'fill' && c.fillStyle === LIGHT_MARKER_COLOR)).toBe(false)
+    expect(calls.some((c) => c.op === 'fill' && c.fillStyle === LIGHT_GLOW_COLOR)).toBe(false)
   })
 
   it('tiles a region with its sprite and restores image smoothing', () => {

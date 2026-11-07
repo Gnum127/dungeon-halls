@@ -18,10 +18,14 @@ export const STAIRS_STEP_COLOR = '#2c2519'
 export const STAIRS_OUTLINE_COLOR = '#6b5a3c'
 
 export const GRID_POINT_COLOR = '#4a4a63'
+/** Цвет точки сетки на свободном поле (не покрыто): тусклый на светлом холсте. */
+export const EMPTY_GRID_POINT_COLOR = '#d0d0d0'
 /** Радиус точки сетки в экранных пикселях (постоянный, не зависит от зума). */
 export const GRID_POINT_RADIUS = 1.5
 /** Радиус точки сетки в SVG (доля клетки) — для печати. */
 export const GRID_POINT_RADIUS_RATIO = 0.04
+/** Радиус точки сетки на свободном поле — доля от радиуса покрытой точки. */
+export const EMPTY_GRID_POINT_RADIUS_SCALE = 0.6
 export const CANVAS_BACKGROUND_COLOR = '#ffffff'
 export const FALLBACK_OBJECT_COLOR = '#888888'
 export const OBJECT_OUTLINE_COLOR = '#00000066'

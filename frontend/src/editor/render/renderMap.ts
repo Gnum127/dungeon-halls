@@ -1,6 +1,6 @@
 import { isKnownKind, OBJECT_COLORS, OBJECT_KIND_ENTRIES } from '../model/objects'
 import { regionBounds } from '../model/regions'
-import { coverageGridPoints } from '../model/coverage'
+import { gridPoints } from '../model/coverage'
 import { doorLeafEnd, doorLength } from '../model/doors'
 import type { WallSegment } from '../model/wallSegments'
 import type { MapModel } from '../model/types'
@@ -12,6 +12,8 @@ import {
   CANVAS_BACKGROUND_COLOR,
   DOOR_FILL_COLOR,
   DOOR_THICKNESS_FRACTION,
+  EMPTY_GRID_POINT_COLOR,
+  EMPTY_GRID_POINT_RADIUS_SCALE,
   FALLBACK_OBJECT_COLOR,
   GRID_POINT_COLOR,
   GRID_POINT_RADIUS,
@@ -207,26 +209,35 @@ function drawStairs(
 }
 
 /**
- * Точечная сетка: точки в углах покрытых клеток (см. `coverageGridPoints`).
- * Радиус постоянный (экранные пиксели), не зависит от зума.
+ * Точечная сетка: точки в углах клеток. Покрытые — ярче и крупнее
+ * (`gridPoints.covered`), свободное поле — тусклые уменьшенные точки
+ * (`gridPoints.empty`). Радиус постоянный (экранные пиксели), не зависит от зума.
  */
 function drawGridPoints(ctx: CanvasRenderingContext2D, model: MapModel, viewport: Viewport): void {
   const { cellSize, offsetX, offsetY } = viewport
   const { width: cols, height: rows } = model.grid
   const range = visibleCellRange(viewport, cols, rows)
 
-  ctx.fillStyle = GRID_POINT_COLOR
-  for (const point of coverageGridPoints(model, range)) {
-    ctx.beginPath()
-    ctx.arc(
-      point.x * cellSize - offsetX,
-      point.y * cellSize - offsetY,
-      GRID_POINT_RADIUS,
-      0,
-      Math.PI * 2,
-    )
-    ctx.fill()
+  const drawPoints = (points: readonly Point[], radius: number) => {
+    for (const point of points) {
+      ctx.beginPath()
+      ctx.arc(
+        point.x * cellSize - offsetX,
+        point.y * cellSize - offsetY,
+        radius,
+        0,
+        Math.PI * 2,
+      )
+      ctx.fill()
+    }
   }
+
+  const { covered, empty } = gridPoints(model, range)
+
+  ctx.fillStyle = GRID_POINT_COLOR
+  drawPoints(covered, GRID_POINT_RADIUS)
+  ctx.fillStyle = EMPTY_GRID_POINT_COLOR
+  drawPoints(empty, GRID_POINT_RADIUS * EMPTY_GRID_POINT_RADIUS_SCALE)
 }
 
 function drawObject(

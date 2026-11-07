@@ -6,6 +6,7 @@ import { createWallSegment } from '../model/wallSegments'
 import { MAP_VERSION } from '../model/types'
 import {
   DOOR_FILL_COLOR,
+  EMPTY_GRID_POINT_COLOR,
   GRID_POINT_COLOR,
   LIGHT_MARKER_COLOR,
   STAIRS_OUTLINE_COLOR,
@@ -143,16 +144,41 @@ describe('buildSvg', () => {
     expect(svg).toContain('M170.667 0L256 0')
   })
 
-  it('draws a coverage point grid (only where covered)', () => {
+  it('draws the grid: bright points only where covered, dim points on the free field', () => {
     const empty = buildSvg(model())
     expect(empty).not.toContain(GRID_POINT_COLOR)
+    // Empty 4×4 map → 5×5 = 25 free corners.
+    const emptyDots = empty.match(
+      new RegExp(`<circle[^>]*fill="${EMPTY_GRID_POINT_COLOR}"`, 'g'),
+    )
+    expect(emptyDots).toHaveLength(25)
 
     const withRegion = buildSvg(
       model({ regions: [createTerrainRegion('floor', square(0, 0, 2, 2), 0, 'r')] }),
     )
-    // A 2×2 covered block shares lattice corners → 3×3 = 9 unique points.
+    // A 2×2 covered block shares lattice corners → 3×3 = 9 unique bright points.
     const dots = withRegion.match(new RegExp(`<circle[^>]*fill="${GRID_POINT_COLOR}"`, 'g'))
     expect(dots).toHaveLength(9)
+    const freeDots = withRegion.match(
+      new RegExp(`<circle[^>]*fill="${EMPTY_GRID_POINT_COLOR}"`, 'g'),
+    )
+    expect(freeDots).toHaveLength(25 - 9)
+
+    // Free-field points are drawn smaller than the bright coverage points.
+    const brightRadius = Number(
+      (
+        withRegion.match(
+          new RegExp(`<circle[^>]*r="([^"]+)"[^>]*fill="${GRID_POINT_COLOR}"`),
+        ) ?? []
+      )[1],
+    )
+    const freeRadii = [
+      ...withRegion.matchAll(
+        new RegExp(`<circle[^>]*r="([^"]+)"[^>]*fill="${EMPTY_GRID_POINT_COLOR}"`, 'g'),
+      ),
+    ].map((match) => Number(match[1]))
+    expect(freeRadii).toHaveLength(25 - 9)
+    expect(freeRadii.every((radius) => radius < brightRadius)).toBe(true)
   })
 
   it('emits exactly the grid points the canvas uses (print parity)', () => {

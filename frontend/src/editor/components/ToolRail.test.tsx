@@ -3,14 +3,17 @@ import { describe, expect, it, vi } from 'vitest'
 import { ToolRail } from './ToolRail'
 
 describe('ToolRail', () => {
-  it('renders the six editor sections and no legacy rooms tab', () => {
+  it('renders the three remaining editor sections', () => {
     render(<ToolRail active={null} onSelect={vi.fn()} />)
 
     expect(screen.getByRole('navigation', { name: 'Toolbar' })).toBeInTheDocument()
-    for (const name of ['Landscape', 'Elements', 'Light', 'View', 'Generation', 'File & export']) {
+    for (const name of ['Landscape', 'Objects', 'File & export']) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument()
     }
-    expect(screen.queryByRole('button', { name: /rooms|walls/i })).toBeNull()
+    // Removed panels and the legacy rooms tab must not come back.
+    expect(
+      screen.queryByRole('button', { name: /light|view|generation|rooms|walls|elements/i }),
+    ).toBeNull()
   })
 
   it('marks the active section and reports clicks', () => {
@@ -21,7 +24,7 @@ describe('ToolRail', () => {
       'aria-pressed',
       'true',
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Light' }))
-    expect(onSelect).toHaveBeenCalledWith('light')
+    fireEvent.click(screen.getByRole('button', { name: 'Objects' }))
+    expect(onSelect).toHaveBeenCalledWith('objects')
   })
 })

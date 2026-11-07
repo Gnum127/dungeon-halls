@@ -4,7 +4,7 @@
   min-width: 13rem;
   height: 100%;
   border-right: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--surface);
 }
 
 .header {

@@ -12,7 +12,6 @@ export interface HotkeysOptions {
   onSelectEraser: () => void
   onSelectWalls: () => void
   onSelectDoors: () => void
-  onSelectLights: () => void
   onSelectObjectKind: (kindId: ObjectKindId) => void
   onRotateObject: () => void
 }
@@ -63,9 +62,6 @@ export function useEditorHotkeys(options: HotkeysOptions): void {
         } else if (event.code === 'KeyD') {
           event.preventDefault()
           handlers.onSelectDoors()
-        } else if (event.code === 'KeyL') {
-          event.preventDefault()
-          handlers.onSelectLights()
         } else if (event.code === 'KeyR') {
           event.preventDefault()
           handlers.onRotateObject()

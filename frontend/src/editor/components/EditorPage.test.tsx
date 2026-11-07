@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { EditorPage } from '../EditorPage'
 import { makeFakeCtx } from '../render/testFakeCtx'
 
@@ -9,19 +9,6 @@ beforeAll(() => {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
     () => makeFakeCtx().ctx as never,
   )
-})
-
-beforeEach(() => {
-  // useSpriteAtlas грузит манифесты через fetch: гасим сеть, чтобы тест был
-  // детерминированным (без реального запроса и act-предупреждений).
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => ({ ok: false })),
-  )
-})
-
-afterEach(() => {
-  vi.unstubAllGlobals()
 })
 
 describe('EditorPage', () => {
@@ -81,5 +68,30 @@ describe('EditorPage', () => {
     )
     // Door-only field disappears with the non-door tool.
     expect(screen.queryByRole('spinbutton', { name: 'Leaf angle' })).toBeNull()
+  })
+
+  it('drops the removed rail sections and trims the file panel to save/load/png', async () => {
+    await act(async () => {
+      render(<EditorPage />)
+    })
+
+    // Removed panels must not be reachable from the rail anymore.
+    for (const name of ['Light', 'View', 'Generation', 'Elements']) {
+      expect(screen.queryByRole('button', { name })).toBeNull()
+    }
+
+    // The renamed "Objects" section renders the object palette.
+    fireEvent.click(screen.getByRole('button', { name: 'Objects' }))
+    expect(screen.getByRole('button', { name: 'Select (Del to remove)' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'File & export' }))
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Load' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Export PNG' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Export SVG' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Export PDF' })).toBeNull()
+    expect(screen.queryByRole('checkbox', { name: 'Print light sources' })).toBeNull()
+    // PDF settings (paper/orientation/cell scale) are gone with the panel.
+    expect(screen.queryByRole('combobox', { name: 'Paper' })).toBeNull()
   })
 })

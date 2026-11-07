@@ -18,7 +18,6 @@ import { useWallTool } from '../hooks/useWallTool'
 import type { EditorStore } from '../store/EditorStore'
 import type { Command } from '../model/commands'
 import { renderMap } from '../render/renderMap'
-import type { SpriteRenderContext } from '../render/sprites/loader'
 import { drawHoverHighlight } from '../render/hoverHighlight'
 import { drawSnapCandidates, toolUsesHoverSnap } from '../render/snapPreview'
 import { drawGhostPreview } from '../render/ghostPreview'
@@ -37,27 +36,23 @@ interface CanvasViewProps {
   tool: EditorTool
   selectedObjectId: number | null
   onSelectObject: (id: number | null) => void
-  /** Атлас спрайтов; undefined = цветной режим (fallback на плитки). */
-  sprites?: SpriteRenderContext
   /** Текущее покрытие для инструментов регионов (кисть заливки). */
   tileType: TileTypeName
   /** Авто-стены: пересчитывать контур при построении регионов. */
   autoWalls: boolean
-  /** Свойства инструмента света. */
-  lightRadius: number
-  lightColor: string
 }
+
+/** Параметры инструмента света по умолчанию; панель скрыта (этапы 21/24). */
+const DEFAULT_LIGHT_RADIUS = 3
+const DEFAULT_LIGHT_COLOR = '#ffd682'
 
 export function CanvasView({
   store,
   tool,
   selectedObjectId,
   onSelectObject,
-  sprites,
   tileType,
   autoWalls,
-  lightRadius,
-  lightColor,
 }: CanvasViewProps) {
   const model = useEditor(store)
   const wrapRef = useRef<HTMLDivElement | null>(null)
@@ -149,8 +144,8 @@ export function CanvasView({
     canvasRef,
     active: tool.type === 'light',
     model,
-    radius: lightRadius,
-    color: lightColor,
+    radius: DEFAULT_LIGHT_RADIUS,
+    color: DEFAULT_LIGHT_COLOR,
     viewportRef,
     onCommit,
   })
@@ -204,7 +199,7 @@ export function CanvasView({
     if (!ctx) return
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    renderMap(ctx, model, viewport, sprites)
+    renderMap(ctx, model, viewport)
 
     if (tool.type === 'stairs' && stairsSelectedId) {
       const selected = model.stairs.find((stairs) => stairs.id === stairsSelectedId)
@@ -317,7 +312,6 @@ export function CanvasView({
     dpr,
     hoverCell,
     hoverWorld,
-    sprites,
     tool,
     rectPreview,
     polygonPreview,

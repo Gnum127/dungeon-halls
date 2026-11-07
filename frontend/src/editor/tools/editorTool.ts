@@ -2,13 +2,15 @@ import type { ObjectKindId } from '../model/objects'
 import type { ObjectRotation, ObjectScale, TileTypeName } from '../model/types'
 
 /**
- * Активный инструмент редактора. Выбирается в панелях:
- * клик по тайлу палитры → region-rect, по виду объекта → object,
- * кнопки разделов → wall/door/light/select.
- * Ластик области — region-rect/region-polygon с tileType 'empty'.
+ * Активный инструмент редактора. Выбирается на нижней панели (курсор,
+ * перетаскивание, фигуры, дверь) и в палитре объектов.
+ * «Ластик» — региональные инструменты с `tileType: 'empty'`.
+ * `wall`/`light` сохранены, но их UI убран (этапы 21/24): значения достижимы
+ * только из кода/будущих этапов.
  */
 export type EditorTool =
-  | { readonly type: 'select' }
+  | { readonly type: 'cursor' }
+  | { readonly type: 'pan' }
   | {
       readonly type: 'object'
       readonly kindId: ObjectKindId

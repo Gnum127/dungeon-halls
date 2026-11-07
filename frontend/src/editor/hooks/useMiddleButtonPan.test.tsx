@@ -3,9 +3,15 @@ import { describe, expect, it, vi } from 'vitest'
 import { useRef } from 'react'
 import { useMiddleButtonPan } from './useMiddleButtonPan'
 
-function Probe({ onPan }: { onPan: (dx: number, dy: number) => void }) {
+function Probe({
+  onPan,
+  leftButton,
+}: {
+  onPan: (dx: number, dy: number) => void
+  leftButton?: boolean
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const { handlers } = useMiddleButtonPan(canvasRef, onPan)
+  const { handlers } = useMiddleButtonPan(canvasRef, onPan, { leftButton })
   return <canvas ref={canvasRef} data-testid="canvas" {...handlers} />
 }
 
@@ -84,5 +90,41 @@ describe('useMiddleButtonPan', () => {
     fire(canvas, 'pointermove', { button: 0, buttons: 1, clientX: 2, clientY: 2 })
 
     expect(onPan).not.toHaveBeenCalled()
+  })
+
+  it('pans with the left button when leftButton is enabled (pan mode)', () => {
+    const onPan = vi.fn()
+    const { getByTestId } = render(<Probe onPan={onPan} leftButton />)
+    const canvas = getByTestId('canvas')
+
+    fire(canvas, 'pointerdown', { button: 0, buttons: 1, clientX: 100, clientY: 100 })
+    fire(canvas, 'pointermove', { button: 0, buttons: 1, clientX: 70, clientY: 120 })
+
+    expect(onPan).toHaveBeenCalledWith(-30, 20)
+  })
+
+  it('ends a left-button pan when the left button is released', () => {
+    const onPan = vi.fn()
+    const { getByTestId } = render(<Probe onPan={onPan} leftButton />)
+    const canvas = getByTestId('canvas')
+
+    fire(canvas, 'pointerdown', { button: 0, buttons: 1 })
+    fire(canvas, 'pointermove', { button: 0, buttons: 0, clientX: 40, clientY: 40 })
+    expect(onPan).not.toHaveBeenCalled()
+
+    // No stuck gesture: later movement does not resume it.
+    fire(canvas, 'pointermove', { button: 0, buttons: 1, clientX: 10, clientY: 10 })
+    expect(onPan).not.toHaveBeenCalled()
+  })
+
+  it('keeps middle-button pan working while leftButton is enabled', () => {
+    const onPan = vi.fn()
+    const { getByTestId } = render(<Probe onPan={onPan} leftButton />)
+    const canvas = getByTestId('canvas')
+
+    fire(canvas, 'pointerdown', { button: 1, buttons: 4, clientX: 100, clientY: 100 })
+    fire(canvas, 'pointermove', { button: 1, buttons: 4, clientX: 90, clientY: 80 })
+
+    expect(onPan).toHaveBeenCalledWith(-10, -20)
   })
 })

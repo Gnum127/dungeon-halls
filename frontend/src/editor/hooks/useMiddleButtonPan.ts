@@ -6,14 +6,26 @@ interface PanState {
   pointerId: number
   lastX: number
   lastY: number
+  /** Бит нажатой кнопки для проверки `event.buttons` во время движения. */
+  buttonBit: number
 }
 
+interface PanOptions {
+  /** Пан левой кнопкой (режим «Перетаскивание»); по умолчанию — средней. */
+  readonly leftButton?: boolean
+}
+
+const LEFT_BUTTON_BIT = 1
 const MIDDLE_BUTTON_BIT = 4
 
-/** Пан средней кнопкой мыши с pointer capture. */
+/**
+ * Пан кнопкой мыши с pointer capture. По умолчанию — средняя кнопка; в режиме
+ * «Перетаскивание» (`leftButton`) — левая.
+ */
 export function useMiddleButtonPan(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   onPan: (deltaX: number, deltaY: number) => void,
+  options: PanOptions = {},
 ): {
   handlers: {
     onPointerDown: (event: ReactPointerEvent<HTMLCanvasElement>) => void
@@ -25,7 +37,9 @@ export function useMiddleButtonPan(
   const stateRef = useRef<PanState | null>(null)
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
-    if (event.button !== 1) return
+    const isMiddle = event.button === 1
+    const isLeft = event.button === 0 && options.leftButton === true
+    if (!isMiddle && !isLeft) return
     event.preventDefault()
     try {
       canvasRef.current?.setPointerCapture(event.pointerId)
@@ -36,6 +50,7 @@ export function useMiddleButtonPan(
       pointerId: event.pointerId,
       lastX: event.clientX,
       lastY: event.clientY,
+      buttonBit: isLeft ? LEFT_BUTTON_BIT : MIDDLE_BUTTON_BIT,
     }
   }
 
@@ -43,7 +58,7 @@ export function useMiddleButtonPan(
     const state = stateRef.current
     if (!state || state.pointerId !== event.pointerId) return
     // Кнопку отпустили вне окна — завершаем пан, чтобы вьюпорт не «залипал».
-    if ((event.buttons & MIDDLE_BUTTON_BIT) === 0) {
+    if ((event.buttons & state.buttonBit) === 0) {
       stateRef.current = null
       return
     }

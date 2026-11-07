@@ -1,14 +1,8 @@
-.tools {
+.params {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.5rem 0;
-}
-
-.row {
-  display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
 }
 
 .fillRow {
@@ -16,14 +10,14 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.85rem;
-  color: var(--color-text-muted, #b8b4c4);
+  color: var(--text-muted);
 }
 
 .fillSwatch {
   width: 1.1rem;
   height: 1.1rem;
   border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid var(--border);
 }
 
 .fillName {
@@ -31,24 +25,22 @@
 }
 
 .button {
-  flex: 1 1 auto;
-  min-width: 4.5rem;
   padding: 0.35rem 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
-  color: inherit;
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
   font-size: 0.85rem;
 }
 
 .button:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg);
 }
 
 .selected {
-  border-color: #8b5cf6;
-  background: rgba(139, 92, 246, 0.25);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .field {
@@ -70,4 +62,11 @@
   gap: 0.4rem;
   font-size: 0.85rem;
   cursor: pointer;
+}
+
+.hint {
+  margin: 0;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }

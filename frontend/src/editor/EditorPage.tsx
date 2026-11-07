@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { BottomBar } from './components/BottomBar'
 import { CanvasView } from './components/CanvasView'
 import { MapFileActions } from './components/MapFileActions'
 import type { FileActionStatus } from './components/MapFileActions'
 import { ObjectPalette } from './components/ObjectPalette'
-import { RegionTools } from './components/RegionTools'
 import { SectionPanel } from './components/SectionPanel'
-import { TerrainPalette } from './components/TerrainPalette'
+import { ToolParams } from './components/ToolParams'
 import { ToolRail } from './components/ToolRail'
 import type { EditorSectionId } from './components/ToolRail'
 import { usePersistentBoolean } from './hooks/usePersistentBoolean'
@@ -29,11 +29,19 @@ function defaultScaleForKind(kindId: ObjectKindId): ObjectScale {
   return entry?.defaultScale ?? { w: 1, h: 1 }
 }
 
+/** Применяет выбранное покрытие к активному инструменту-фигуре. */
+function withTileType(tool: EditorTool, tileType: TileTypeName): EditorTool {
+  if (tool.type === 'region-polygon') {
+    return { type: 'region-polygon', tileType, vertices: tool.vertices }
+  }
+  return { type: 'region-rect', tileType }
+}
+
 export function EditorPage() {
   const { t } = useTranslation()
   const [store] = useState(() => new EditorStore(createEmptyMap()))
   const [tileType, setTileType] = useState<TileTypeName>('floor')
-  const [tool, setTool] = useState<EditorTool>(() => ({ type: 'region-rect', tileType: 'floor' }))
+  const [tool, setTool] = useState<EditorTool>(() => ({ type: 'cursor' }))
   const [doorImageId, setDoorImageId] = useState<string | null>(() => loadDoorImageId())
   const [doorOpenAngle, setDoorOpenAngle] = useState(DEFAULT_DOOR_OPEN_ANGLE)
   const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null)
@@ -53,6 +61,9 @@ export function EditorPage() {
   const [objectRotation, setObjectRotation] = useState<ObjectRotation>(0)
   const [objectScale, setObjectScale] = useState<ObjectScale>({ w: 1, h: 1 })
 
+  // Последнее непустое покрытие: к нему возвращает переключатель ластика.
+  const lastFillTileRef = useRef<TileTypeName>('floor')
+
   const [elementImageOverrides, setElementImageOverrides] = useState<
     Partial<Record<ObjectKindId, string | null>>
   >(() => {
@@ -63,12 +74,26 @@ export function EditorPage() {
 
   function selectTile(next: TileTypeName) {
     setSelectedObjectId(null)
+    if (next !== 'empty') lastFillTileRef.current = next
     setTileType(next)
-    setTool((current) =>
-      current.type === 'region-polygon'
-        ? { type: 'region-polygon', tileType: next, vertices: polygonVertexCount }
-        : { type: 'region-rect', tileType: next },
-    )
+    setTool((current) => withTileType(current, next))
+  }
+
+  function toggleEraser() {
+    const next: TileTypeName = tileType === 'empty' ? lastFillTileRef.current : 'empty'
+    setSelectedObjectId(null)
+    setTileType(next)
+    setTool((current) => withTileType(current, next))
+  }
+
+  function selectCursor() {
+    setSelectedObjectId(null)
+    setTool({ type: 'cursor' })
+  }
+
+  function selectPan() {
+    setSelectedObjectId(null)
+    setTool({ type: 'pan' })
   }
 
   function selectRect() {
@@ -84,12 +109,7 @@ export function EditorPage() {
   function selectEraser() {
     setSelectedObjectId(null)
     setTileType('empty')
-    setTool({ type: 'region-rect', tileType: 'empty' })
-  }
-
-  function selectWall() {
-    setSelectedObjectId(null)
-    setTool({ type: 'wall' })
+    setTool((current) => withTileType(current, 'empty'))
   }
 
   function selectDoor() {
@@ -126,11 +146,6 @@ export function EditorPage() {
     setTool({ type: 'object', kindId, rotation: objectRotation, scale })
   }
 
-  function selectMoveTool() {
-    setSelectedObjectId(null)
-    setTool({ type: 'select' })
-  }
-
   function rotateObject() {
     const next: ObjectRotation = ((objectRotation + 90) % 360) as ObjectRotation
     setObjectRotation(next)
@@ -165,20 +180,15 @@ export function EditorPage() {
             collapsed={landscapeCollapsed}
             onToggleCollapsed={toggleLandscapeCollapsed}
           >
-            <TerrainPalette selected={tileType} onSelect={selectTile} />
-            <RegionTools
-              activeTool={tool}
+            <ToolParams
+              tool={tool}
               tileType={tileType}
               vertexCount={polygonVertexCount}
               autoWalls={autoWalls}
               doorImageId={doorImageId}
               doorOpenAngle={doorOpenAngle}
-              onSelectRect={selectRect}
-              onSelectPolygon={selectPolygon}
-              onSelectEraser={selectEraser}
-              onSelectWall={selectWall}
-              onSelectDoor={selectDoor}
-              onSelectStairs={selectStairs}
+              onSelectTile={selectTile}
+              onToggleEraser={toggleEraser}
               onVertexCountChange={changeVertexCount}
               onAutoWallsChange={toggleAutoWalls}
               onDoorImageChange={changeDoorImage}
@@ -196,9 +206,9 @@ export function EditorPage() {
           >
             <ObjectPalette
               activeKindId={tool.type === 'object' ? tool.kindId : null}
-              selectActive={tool.type === 'select'}
+              selectActive={tool.type === 'cursor'}
               onSelectKind={selectObjectKind}
-              onSelectSelectTool={selectMoveTool}
+              onSelectSelectTool={selectCursor}
               objectRotation={objectRotation}
               objectScale={objectScale}
               onRotate={rotateObject}
@@ -231,11 +241,10 @@ export function EditorPage() {
   useEditorHotkeys({
     onUndo: () => store.undo(),
     onRedo: () => store.redo(),
-    onSelectSelect: selectMoveTool,
+    onSelectCursor: selectCursor,
     onSelectRegionRect: selectRect,
     onSelectRegionPolygon: selectPolygon,
     onSelectEraser: selectEraser,
-    onSelectWalls: selectWall,
     onSelectDoors: selectDoor,
     onSelectObjectKind: (kindId) => selectObjectKind(kindId),
     onRotateObject: rotateObject,
@@ -253,6 +262,15 @@ export function EditorPage() {
           onSelectObject={setSelectedObjectId}
           tileType={tileType}
           autoWalls={autoWalls}
+        />
+        <BottomBar
+          activeTool={tool}
+          onSelectCursor={selectCursor}
+          onSelectPan={selectPan}
+          onSelectRect={selectRect}
+          onSelectPolygon={selectPolygon}
+          onSelectStairs={selectStairs}
+          onSelectDoor={selectDoor}
         />
       </div>
     </div>

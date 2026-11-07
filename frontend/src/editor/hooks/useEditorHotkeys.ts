@@ -6,11 +6,10 @@ import { isEditableTarget } from '../dom/isEditableTarget'
 export interface HotkeysOptions {
   onUndo: () => void
   onRedo: () => void
-  onSelectSelect: () => void
+  onSelectCursor: () => void
   onSelectRegionRect: () => void
   onSelectRegionPolygon: () => void
   onSelectEraser: () => void
-  onSelectWalls: () => void
   onSelectDoors: () => void
   onSelectObjectKind: (kindId: ObjectKindId) => void
   onRotateObject: () => void
@@ -44,9 +43,12 @@ export function useEditorHotkeys(options: HotkeysOptions): void {
         return
       }
       if (!ctrl && !event.altKey && !event.metaKey && !event.shiftKey) {
-        if (event.code === 'KeyV') {
+        if (event.code === 'Escape') {
           event.preventDefault()
-          handlers.onSelectSelect()
+          handlers.onSelectCursor()
+        } else if (event.code === 'KeyV') {
+          event.preventDefault()
+          handlers.onSelectCursor()
         } else if (event.code === 'KeyB') {
           event.preventDefault()
           handlers.onSelectRegionRect()
@@ -56,9 +58,6 @@ export function useEditorHotkeys(options: HotkeysOptions): void {
         } else if (event.code === 'KeyE') {
           event.preventDefault()
           handlers.onSelectEraser()
-        } else if (event.code === 'KeyW') {
-          event.preventDefault()
-          handlers.onSelectWalls()
         } else if (event.code === 'KeyD') {
           event.preventDefault()
           handlers.onSelectDoors()

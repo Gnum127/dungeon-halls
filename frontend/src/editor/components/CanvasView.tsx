@@ -24,6 +24,7 @@ import { drawSnapCandidates, toolUsesHoverSnap } from '../render/snapPreview'
 import { drawGhostPreview } from '../render/ghostPreview'
 import { isCommittablePolygon, rectPolygon, regularPolygonPoints } from '../tools/regions'
 import { drawRegionWithWalls } from '../tools/regionPreview'
+import { snapToHalfGrid } from '../model/snap'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
 import type { TileTypeName } from '../model/types'
@@ -187,6 +188,7 @@ export function CanvasView({
   const {
     hoverCell,
     hoverWorld,
+    hoverShift,
     handlers: hoverHandlers,
   } = useHoverCell({
     canvasRef,
@@ -223,8 +225,10 @@ export function CanvasView({
     if (hoverCell && hoverWorld && toolUsesHoverSnap(tool)) {
       drawSnapCandidates(ctx, model, hoverCell, hoverWorld, viewport)
     }
-    if (hoverCell && tool.type === 'object') {
-      drawGhostPreview(ctx, hoverCell, viewport, tool)
+    if (hoverWorld && tool.type === 'object') {
+      // Ghost повторяет ту же точку, что уйдёт в команду размещения (Shift — снап).
+      const anchor = hoverShift ? snapToHalfGrid(hoverWorld) : hoverWorld
+      drawGhostPreview(ctx, anchor, viewport, tool)
     }
 
     if (tool.type === 'region-rect' && rectPreview) {
@@ -323,6 +327,7 @@ export function CanvasView({
     dpr,
     hoverCell,
     hoverWorld,
+    hoverShift,
     tool,
     rectPreview,
     polygonPreview,

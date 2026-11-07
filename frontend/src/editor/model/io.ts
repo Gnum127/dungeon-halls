@@ -1,4 +1,4 @@
-import { isKnownKind } from './objects'
+import { isKnownKind, objectFootprint, rectsOverlap } from './objects'
 import { isValidLightColor, isValidLightRadius } from './lights'
 import { isMapDimension } from '@/config/map.config'
 import { assertValidRegion, isTileTypeName, isValidPolygon } from './regions'
@@ -170,10 +170,10 @@ function parseStairs(value: unknown): StairsPolygon[] {
   return stairs
 }
 
-function parseObjects(value: unknown, grid: MapGrid): MapObject[] {
+function parseObjects(value: unknown): MapObject[] {
   if (!Array.isArray(value)) throw new MapLoadError('objects must be an array')
   const seenIds = new Set<number>()
-  const seenCells = new Set<string>()
+  const seenObjects: MapObject[] = []
   const objects: MapObject[] = []
   for (const candidate of value) {
     if (typeof candidate !== 'object' || candidate === null) {
@@ -188,11 +188,11 @@ function parseObjects(value: unknown, grid: MapGrid): MapObject[] {
     if (typeof kindId !== 'string' || !isKnownKind(kindId)) {
       throw new MapLoadError(`Unknown object kind: ${String(kindId)}`)
     }
-    if (!Number.isInteger(x) || (x as number) < 0 || (x as number) >= grid.width) {
-      throw new MapLoadError(`Object x must be in [0, ${grid.width}), got ${String(x)}`)
+    if (!isFiniteNumber(x) || x < 0) {
+      throw new MapLoadError(`Object x must be a finite number >= 0, got ${String(x)}`)
     }
-    if (!Number.isInteger(y) || (y as number) < 0 || (y as number) >= grid.height) {
-      throw new MapLoadError(`Object y must be in [0, ${grid.height}), got ${String(y)}`)
+    if (!isFiniteNumber(y) || y < 0) {
+      throw new MapLoadError(`Object y must be a finite number >= 0, got ${String(y)}`)
     }
 
     let parsedRotation: ObjectRotation | undefined
@@ -215,29 +215,22 @@ function parseObjects(value: unknown, grid: MapGrid): MapObject[] {
       parsedScale = { w: w as number, h: h as number }
     }
 
-    const fw = parsedScale?.w ?? 1
-    const fh = parsedScale?.h ?? 1
-    if ((x as number) + fw > grid.width || (y as number) + fh > grid.height) {
-      throw new MapLoadError(
-        `Object ${id} footprint exceeds map bounds ${grid.width}×${grid.height}`,
-      )
-    }
-    for (let dx = 0; dx < fw; dx += 1) {
-      for (let dy = 0; dy < fh; dy += 1) {
-        const key = `${(x as number) + dx},${(y as number) + dy}`
-        if (seenCells.has(key)) throw new MapLoadError(`Duplicate cell for objects: ${key}`)
-        seenCells.add(key)
-      }
-    }
-
-    objects.push({
+    const object: MapObject = {
       id: id as number,
       kindId,
-      x: x as number,
-      y: y as number,
+      x,
+      y,
       ...(parsedRotation !== undefined && { rotation: parsedRotation }),
       ...(parsedScale !== undefined && { scale: parsedScale }),
-    })
+    }
+    const footprint = objectFootprint(object)
+    for (const other of seenObjects) {
+      if (rectsOverlap(footprint, objectFootprint(other))) {
+        throw new MapLoadError(`Objects ${object.id} and ${other.id} overlap`)
+      }
+    }
+    seenObjects.push(object)
+    objects.push(object)
   }
   return objects
 }
@@ -336,7 +329,7 @@ export function deserializeMap(json: string): MapModel {
   const walls = parseWalls(raw.walls)
   const doors = parseDoors(raw.doors)
   const stairs = parseStairs(raw.stairs)
-  const objects = parseObjects(raw.objects, grid)
+  const objects = parseObjects(raw.objects)
   const lights = parseLights(raw.lights, grid)
 
   return { version: MAP_VERSION, grid, regions, walls, doors, stairs, objects, lights }

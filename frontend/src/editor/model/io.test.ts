@@ -147,10 +147,33 @@ describe('serializeMap / deserializeMap (v6)', () => {
     expect(() => deserializeMap(JSON.stringify(raw))).toThrow(/coincide/)
   })
 
-  it('rejects an object placed out of bounds', () => {
+  it('rejects an object with a negative x', () => {
     const raw = rawOf(richModel())
-    ;(raw.objects as Record<string, unknown>[])[0].x = 25
+    ;(raw.objects as Record<string, unknown>[])[0].x = -1
     expect(() => deserializeMap(JSON.stringify(raw))).toThrow(/Object x/)
+  })
+
+  it('rejects an object with a negative y or a non-finite coordinate', () => {
+    const rawY = rawOf(richModel())
+    ;(rawY.objects as Record<string, unknown>[])[0].y = -1
+    expect(() => deserializeMap(JSON.stringify(rawY))).toThrow(/Object y/)
+
+    // JSON не умеет Infinity/NaN — они приезжают как null и тоже отвергаются.
+    const rawNull = rawOf(richModel())
+    ;(rawNull.objects as Record<string, unknown>[])[0].x = null
+    expect(() => deserializeMap(JSON.stringify(rawNull))).toThrow(/Object x/)
+  })
+
+  it('round-trips a fractional object coordinate unchanged', () => {
+    const base = applyCommand(createEmptyMap(20, 20, 64), {
+      kind: 'addObject',
+      x: 1.25,
+      y: 3.75,
+      kindId: 'chair',
+    })
+    const restored = deserializeMap(serializeMap(base))
+    expect(restored.objects[0].x).toBe(1.25)
+    expect(restored.objects[0].y).toBe(3.75)
   })
 
   it('rejects an unknown object kind', () => {
@@ -333,15 +356,13 @@ describe('deserializeMap rejects malformed sections', () => {
     ).toThrow(/Duplicate object id/)
   })
 
-  it('rejects an object whose footprint exceeds the grid', () => {
-    expect(() =>
-      deserializeMap(
-        JSON.stringify(withRaw((raw) => ((raw.objects as Record<string, unknown>[])[0].x = 19))),
-      ),
-    ).toThrow(/exceeds map bounds/)
+  it('accepts an object whose footprint overhangs the grid edge', () => {
+    const raw = withRaw((raw) => ((raw.objects as Record<string, unknown>[])[0].x = 19))
+    const model = deserializeMap(JSON.stringify(raw))
+    expect(model.objects[0].x).toBe(19)
   })
 
-  it('rejects two distinct objects sharing a footprint cell', () => {
+  it('rejects two distinct objects whose footprints overlap', () => {
     expect(() =>
       deserializeMap(
         JSON.stringify(
@@ -351,7 +372,7 @@ describe('deserializeMap rejects malformed sections', () => {
           }),
         ),
       ),
-    ).toThrow(/Duplicate cell/)
+    ).toThrow(/overlap/)
   })
 
   it('rejects a light with a bad radius, color or duplicate id', () => {

@@ -69,20 +69,18 @@
     },
     "objects": {
       "label": "Objects",
-      "select": "Select (Del to remove)",
-      "search": "Search...",
       "categories": {
         "structural": "Structural",
         "furniture": "Furniture",
         "dungeon": "Dungeon"
       },
-      "stairs": "Stairs",
       "table": "Table",
       "chair": "Chair",
       "chest": "Chest",
       "barrel": "Barrel",
       "torch": "Torch",
       "bush": "Bush",
+      "tree": "Tree",
       "rock": "Rock",
       "rotate": "Rotate (R)",
       "resize": "Size",

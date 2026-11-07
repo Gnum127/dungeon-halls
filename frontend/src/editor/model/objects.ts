@@ -7,18 +7,6 @@ export type ObjectCategory = 'structural' | 'furniture' | 'dungeon'
  * записью сюда (+ ключи i18n), без изменения кода потребителей.
  */
 export const OBJECT_KIND_REGISTRY = {
-  stairs: {
-    labelKey: 'editor.objects.stairs',
-    color: '#7a7f8c',
-    category: 'structural' as const,
-    defaultImage: 'stairs-wooden',
-    imagePool: ['stairs-wooden', 'stairs-stone'],
-    scales: [
-      { w: 1, h: 1 },
-      { w: 1, h: 2 },
-      { w: 2, h: 1 },
-    ],
-  },
   table: {
     labelKey: 'editor.objects.table',
     color: '#8a5a2b',
@@ -58,7 +46,6 @@ export const OBJECT_KIND_REGISTRY = {
     labelKey: 'editor.objects.torch',
     color: '#e08a2d',
     category: 'dungeon' as const,
-    gridRestriction: 'square' as const,
     defaultImage: 'torch-wall',
     imagePool: ['torch-wall', 'torch-stand'],
   },
@@ -68,6 +55,18 @@ export const OBJECT_KIND_REGISTRY = {
     category: 'dungeon' as const,
     defaultImage: 'bush-green',
     imagePool: ['bush-green', 'bush-barren'],
+  },
+  tree: {
+    labelKey: 'editor.objects.tree',
+    color: '#2d5a1e',
+    category: 'dungeon' as const,
+    defaultScale: { w: 2, h: 2 },
+    defaultImage: 'tree-oak',
+    imagePool: ['tree-oak'],
+    scales: [
+      { w: 1, h: 1 },
+      { w: 2, h: 2 },
+    ],
   },
   rock: {
     labelKey: 'editor.objects.rock',
@@ -93,7 +92,6 @@ export interface ObjectKindEntry {
   readonly defaultScale?: ObjectScale
   /** Доступные размеры фигуры; отсутствует = одноклеточный вид без кнопки «Размер». */
   readonly scales?: ReadonlyArray<ObjectScale>
-  readonly gridRestriction?: 'square'
   /** Изображение вида по умолчанию: стабильный imageId из пула element-images. */
   readonly defaultImage?: string
   /** Доступные для пикера imageId пула; defaultImage обязан быть одним из них. */
@@ -115,7 +113,6 @@ export const OBJECT_KIND_ENTRIES: readonly ObjectKindEntry[] = (
     category: entry.category,
     ...('defaultScale' in entry && { defaultScale: entry.defaultScale }),
     ...('scales' in entry && { scales: entry.scales }),
-    ...('gridRestriction' in entry && { gridRestriction: entry.gridRestriction }),
     ...('defaultImage' in entry && { defaultImage: entry.defaultImage }),
     ...('imagePool' in entry && { imagePool: entry.imagePool }),
   }
@@ -152,23 +149,15 @@ export function cycleScale(kindId: ObjectKindId, current: ObjectScale): ObjectSc
 // Footprint utilities
 // ---------------------------------------------------------------------------
 
-/** Footprint объекта: прямоугольник [x..x+w) × [y..y+h). scale undefined = 1×1. */
+/**
+ * Footprint объекта: прямоугольник [x..x+w) × [y..y+h) в мировых единицах
+ * (клетках). `x`/`y` — float-координата левого-верхнего угла; `w`/`h` — размер
+ * из scale (по умолчанию 1×1). Поворот на footprint НЕ влияет (косметика).
+ */
 export function objectFootprint(obj: MapObject): { x: number; y: number; w: number; h: number } {
   const w = obj.scale?.w ?? 1
   const h = obj.scale?.h ?? 1
   return { x: obj.x, y: obj.y, w, h }
-}
-
-/** Все ключи клеток, которые занимает объект. */
-export function footprintCells(obj: MapObject): string[] {
-  const { x, y, w, h } = objectFootprint(obj)
-  const cells: string[] = []
-  for (let dx = 0; dx < w; dx += 1) {
-    for (let dy = 0; dy < h; dy += 1) {
-      cells.push(`${x + dx},${y + dy}`)
-    }
-  }
-  return cells
 }
 
 /** Проверка пересечения двух прямоугольников (в клетках). */
@@ -179,25 +168,15 @@ export function rectsOverlap(
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
 }
 
-/** Footprint в границах карты? */
-export function footprintInBounds(
-  obj: MapObject,
-  mapWidth: number,
-  mapHeight: number,
-): boolean {
-  const { w, h } = objectFootprint(obj)
-  return obj.x >= 0 && obj.y >= 0 && obj.x + w <= mapWidth && obj.y + h <= mapHeight
+/**
+ * Origin объекта внутри карты: левый-верхний угол неотрицателен. Правый-нижний
+ * край может свисать за границу карты (этап 23: свободное float-размещение).
+ */
+export function footprintInBounds(obj: MapObject): boolean {
+  return Number.isFinite(obj.x) && Number.isFinite(obj.y) && obj.x >= 0 && obj.y >= 0
 }
 
-/** Клетка занята, если она в footprint'е любого объекта. */
-export function isCellOccupied(objects: readonly MapObject[], x: number, y: number): boolean {
-  return objects.some((obj) => {
-    const { x: ox, y: oy, w, h } = objectFootprint(obj)
-    return x >= ox && x < ox + w && y >= oy && y < oy + h
-  })
-}
-
-/** Все клетки footprint'а назначения свободны от других объектов. */
+/** Прямоугольник footprint'а (float, клетки) свободен от других объектов. */
 export function isFootprintFree(
   objects: readonly MapObject[],
   x: number,
@@ -209,7 +188,7 @@ export function isFootprintFree(
   return !objects.some((obj) => rectsOverlap(target, objectFootprint(obj)))
 }
 
-/** Объект, чей footprint содержит (x,y), последний в массиве (z-order). */
+/** Объект, чей footprint содержит точку (x,y), последний в массиве (z-order). */
 export function topmostObjectAt(objects: readonly MapObject[], x: number, y: number): MapObject | undefined {
   for (let i = objects.length - 1; i >= 0; i -= 1) {
     const obj = objects[i]

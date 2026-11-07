@@ -233,12 +233,31 @@ describe('objects', () => {
     expect(model.objects).toEqual([])
   })
 
-  it('rejects an unknown kind and out-of-bounds placement', () => {
+  it('accepts float move coordinates and rejects a negative origin', () => {
+    const model = applyCommand(makeMap(), { kind: 'addObject', x: 1, y: 1, kindId: 'chair' })
+    const id = model.objects[0].id
+
+    const moved = applyCommand(model, { kind: 'moveObject', id, x: 2.5, y: 1.75 })
+    expect(moved.objects[0]).toMatchObject({ x: 2.5, y: 1.75 })
+
+    expect(() => applyCommand(moved, { kind: 'moveObject', id, x: -1, y: 0 })).toThrow(RangeError)
+    expect(() => applyCommand(moved, { kind: 'moveObject', id, x: 0, y: -1 })).toThrow(RangeError)
+  })
+
+  it('accepts a fractional addObject origin and no-ops a float move to the same point', () => {
+    const model = applyCommand(makeMap(), { kind: 'addObject', x: 1.25, y: 2.5, kindId: 'chair' })
+    expect(model.objects[0]).toMatchObject({ x: 1.25, y: 2.5 })
+
+    const id = model.objects[0].id
+    expect(applyCommand(model, { kind: 'moveObject', id, x: 1.25, y: 2.5 })).toBe(model)
+  })
+
+  it('rejects an unknown kind and a negative origin', () => {
     expect(() =>
       applyCommand(makeMap(), { kind: 'addObject', x: 0, y: 0, kindId: 'dragon' }),
     ).toThrow(/Unknown object kind/)
     expect(() =>
-      applyCommand(makeMap(), { kind: 'addObject', x: 25, y: 0, kindId: 'chair' }),
+      applyCommand(makeMap(), { kind: 'addObject', x: -1, y: 0, kindId: 'chair' }),
     ).toThrow(RangeError)
   })
 })
@@ -410,16 +429,15 @@ describe('objects (edge cases)', () => {
     expect(() => applyCommand(makeMap(), { kind: 'removeObject', id: 99 })).toThrow(/not found/)
   })
 
-  it('rejects a footprint that exceeds the grid', () => {
-    expect(() =>
-      applyCommand(createEmptyMap(3, 3), {
-        kind: 'addObject',
-        x: 2,
-        y: 0,
-        kindId: 'table',
-        scale: { w: 2, h: 1 },
-      }),
-    ).toThrow(/out of bounds/)
+  it('allows a footprint that overhangs the grid when the origin stays inside', () => {
+    const model = applyCommand(createEmptyMap(3, 3), {
+      kind: 'addObject',
+      x: 2,
+      y: 0,
+      kindId: 'table',
+      scale: { w: 2, h: 1 },
+    })
+    expect(model.objects[0]).toMatchObject({ x: 2, y: 0, scale: { w: 2, h: 1 } })
   })
 })
 

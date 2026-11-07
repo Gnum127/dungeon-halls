@@ -1,8 +1,6 @@
 {
   "version": 1,
   "items": {
-    "stairs-wooden": "element-images/stairs-wooden.png",
-    "stairs-stone": "element-images/stairs-stone.png",
     "table-wooden": "element-images/table-wooden.png",
     "table-round": "element-images/table-round.png",
     "chair-wooden": "element-images/chair-wooden.png",
@@ -15,6 +13,7 @@
     "torch-stand": "element-images/torch-stand.png",
     "bush-green": "element-images/bush-green.png",
     "bush-barren": "element-images/bush-barren.png",
+    "tree-oak": "element-images/tree-oak.png",
     "rock-boulder": "element-images/rock-boulder.png",
     "rock-cave": "element-images/rock-cave.png",
     "door-wooden": "element-images/doors/door-wooden.png",

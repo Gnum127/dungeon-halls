@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildSvg, SVG_UNITS_PER_CELL } from './svg'
+import { OBJECT_COLORS } from '../model/objects'
 import { coverageGridPoints } from '../model/coverage'
 import { createTerrainRegion } from '../model/regions'
 import { createWallSegment } from '../model/wallSegments'
@@ -47,6 +48,30 @@ describe('buildSvg', () => {
     expect(svg).toContain('<svg')
     expect(svg).toContain(`fill="${TILE_COLORS.floor}"`)
     expect(svg).toContain('points="0,0 128,0 128,128 0,128"')
+  })
+
+  it('anchors object ellipses at the float top-left plus half the footprint', () => {
+    const svg = buildSvg(
+      model({
+        objects: [{ id: 1, kindId: 'torch', x: 1.5, y: 2, scale: { w: 2, h: 1 } }],
+      }),
+    )
+    const s = SVG_UNITS_PER_CELL
+    // cx = 1.5*64 + (2*64)/2 = 160; cy = 2*64 + (1*64)/2 = 160.
+    expect(svg).toContain(`<ellipse cx="${1.5 * s + s}" cy="${2 * s + s / 2}"`)
+    expect(svg).toContain(`fill="${OBJECT_COLORS.torch}"`)
+  })
+
+  it('rotates a float-anchored object around its float center', () => {
+    const svg = buildSvg(
+      model({
+        objects: [
+          { id: 1, kindId: 'torch', x: 1.5, y: 2, scale: { w: 2, h: 1 }, rotation: 90 },
+        ],
+      }),
+    )
+    const s = SVG_UNITS_PER_CELL
+    expect(svg).toContain(`transform="rotate(90 ${1.5 * s + s} ${2 * s + s / 2})"`)
   })
 
   it('draws wall bodies grouped by thickness with per-group stroke width', () => {

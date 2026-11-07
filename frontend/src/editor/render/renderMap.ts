@@ -247,9 +247,13 @@ function drawObject(
   sprites?: SpriteRenderContext,
 ): void {
   const { width, height, cellSize, offsetX, offsetY } = viewport
-  const center = cellCenterAt(object.x, object.y, cellSize)
-  const cx = center.x - offsetX
-  const cy = center.y - offsetY
+  // x/y — float-координата левого-верхнего угла в мировых клетках.
+  const scaleX = object.scale?.w ?? 1
+  const scaleY = object.scale?.h ?? 1
+  const w = cellSize * scaleX
+  const h = cellSize * scaleY
+  const cx = object.x * cellSize + w / 2 - offsetX
+  const cy = object.y * cellSize + h / 2 - offsetY
   if (
     cx < -cellSize * 3 ||
     cx > width + cellSize * 3 ||
@@ -258,8 +262,6 @@ function drawObject(
   ) {
     return
   }
-  const scaleX = object.scale?.w ?? 1
-  const scaleY = object.scale?.h ?? 1
   const rotation = object.rotation ?? 0
   const sprite = resolveObjectImage(sprites, object.kindId)
 
@@ -270,8 +272,6 @@ function drawObject(
   }
 
   if (sprite) {
-    const w = cellSize * scaleX
-    const h = cellSize * scaleY
     ctx.drawImage(sprite, -w / 2, -h / 2, w, h)
   } else {
     const baseRadius = Math.max(3, cellSize * 0.3)

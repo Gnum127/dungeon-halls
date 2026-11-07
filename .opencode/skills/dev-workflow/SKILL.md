@@ -27,6 +27,11 @@ UVTT-экспорт, клеточная модель `tiles: Uint8Array` и рё
 = параметры активного инструмента (`ToolParams`), старт — режим `cursor`
 (`useCursorTool`: выделение/перетаскивание/Delete), режим `pan` (пан ЛКМ);
 `RegionTools` удалён. Спецификация 19–24 — `docs/spec-stages-19-24.md`.
+Этап 23: `MapObject.x/y` — float-мировые клетки (левый-верхний угол), объект не
+привязан к сетке (свисание за правый/нижний край разрешено, origin ≥ 0);
+размещение и перетаскивание в произвольной точке, Shift — снап 0.5; реестр:
+`stairs` → `tree`, `gridRestriction` убран; `ObjectPalette` без поиска и кнопки
+«Выбор»; `MAP_VERSION = 6`. Следующий — этап 24 (текстурный пайплайн).
 
 ## Перед началом работы
 
@@ -152,6 +157,17 @@ npm run build      # сборка + проверка типов tsc
   только при `cursor`), размещение — `useObjectTools` (только `object`). Пан:
   средняя кнопка всегда, ЛКМ — в режиме `pan` (`useMiddleButtonPan` с опцией
   `leftButton`). Свет и ручная стена — скрытые инструменты (код сохранён).
+
+- **Float-объекты (этап 23)**: `MapObject.x/y` — float в мировых клетках,
+  левый-верхний угол (не центр клетки, не привязка к сетке). `objectFootprint`
+  даёт `{x,y,w,h}` в клетках (w/h из `scale`); `isFootprintFree`/`rectsOverlap` —
+  пересечение float-прямоугольников; `footprintInBounds` проверяет только origin
+  (`x,y ≥ 0`), свисание за правый/нижний край разрешено. Геометрия hit-test и
+  рендера — из левого-верхнего: `obj.x*cellSize`, центр `+w/2`, поворот вокруг
+  центра. Размещение (`useObjectTools`) и ghost-превью — по мировой float-точке
+  (`useWorldPointFromEvent`); рендер объектов — ПОСЛЕ точечной сетки (поверх).
+  `footprintCells`/`isCellOccupied` удалены; в `useCursorTool` — float-драг и
+  Shift-снап 0.5.
 
 - **Удаления (этап 14)**: код, содержащий `gridType`, `hex`, `vtt`, `uvtt`,
   `WallEdge`, `WallSide`, `normalizeEdge`, `edgeKey`, `Uint8Array` в модели

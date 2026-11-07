@@ -87,9 +87,12 @@ describe('EditorPage', () => {
       expect(screen.queryByRole('button', { name })).toBeNull()
     }
 
-    // The renamed "Objects" section renders the object palette.
+    // The renamed "Objects" section renders the object palette: the tree kind is
+    // available, and the removed search box / "Select" button are gone.
     fireEvent.click(screen.getByRole('button', { name: 'Objects' }))
-    expect(screen.getByRole('button', { name: 'Select (Del to remove)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Tree/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Select/ })).toBeNull()
+    expect(screen.queryByRole('textbox')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'File & export' }))
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()

@@ -206,9 +206,7 @@ export function EditorPage() {
           >
             <ObjectPalette
               activeKindId={tool.type === 'object' ? tool.kindId : null}
-              selectActive={tool.type === 'cursor'}
               onSelectKind={selectObjectKind}
-              onSelectSelectTool={selectCursor}
               objectRotation={objectRotation}
               objectScale={objectScale}
               onRotate={rotateObject}

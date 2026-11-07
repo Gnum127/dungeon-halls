@@ -103,17 +103,19 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
   }
 
   for (const object of model.objects) {
-    const center = cellCenterAt(object.x, object.y, s)
     const scaleX = object.scale?.w ?? 1
     const scaleY = object.scale?.h ?? 1
+    // x/y — float-координата левого-верхнего угла (как в renderMap.drawObject).
+    const centerX = object.x * s + (scaleX * s) / 2
+    const centerY = object.y * s + (scaleY * s) / 2
     const rotation = object.rotation ?? 0
     const fill = isKnownKind(object.kindId) ? OBJECT_COLORS[object.kindId] : FALLBACK_OBJECT_COLOR
     const rx = fmt(Math.max(3, s * 0.3) * scaleX)
     const ry = fmt(Math.max(3, s * 0.3) * scaleY)
     const transform =
-      rotation !== 0 ? ` transform="rotate(${rotation} ${fmt(center.x)} ${fmt(center.y)})"` : ''
+      rotation !== 0 ? ` transform="rotate(${rotation} ${fmt(centerX)} ${fmt(centerY)})"` : ''
     parts.push(
-      `<ellipse cx="${fmt(center.x)}" cy="${fmt(center.y)}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${OBJECT_OUTLINE_COLOR}" stroke-width="1"${transform}/>`,
+      `<ellipse cx="${fmt(centerX)}" cy="${fmt(centerY)}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${OBJECT_OUTLINE_COLOR}" stroke-width="1"${transform}/>`,
     )
   }
 

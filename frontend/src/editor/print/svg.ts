@@ -1,11 +1,13 @@
 import { isKnownKind, OBJECT_COLORS } from '../model/objects'
 import { doorLeafEnd, doorLength } from '../model/doors'
-import { coverageGridPoints } from '../model/coverage'
+import { gridPoints } from '../model/coverage'
 import type { MapModel } from '../model/types'
 import {
   CANVAS_BACKGROUND_COLOR,
   DOOR_FILL_COLOR,
   DOOR_THICKNESS_FRACTION,
+  EMPTY_GRID_POINT_COLOR,
+  EMPTY_GRID_POINT_RADIUS_SCALE,
   FALLBACK_OBJECT_COLOR,
   GRID_POINT_COLOR,
   GRID_POINT_RADIUS_RATIO,
@@ -81,15 +83,22 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
   })
 
   const pointRadius = fmt(s * GRID_POINT_RADIUS_RATIO)
+  const emptyPointRadius = fmt(s * GRID_POINT_RADIUS_RATIO * EMPTY_GRID_POINT_RADIUS_SCALE)
   const gridRange = {
     firstCol: 0,
     lastCol: model.grid.width - 1,
     firstRow: 0,
     lastRow: model.grid.height - 1,
   }
-  for (const point of coverageGridPoints(model, gridRange)) {
+  const { covered, empty } = gridPoints(model, gridRange)
+  for (const point of covered) {
     parts.push(
       `<circle cx="${fmt(point.x * s)}" cy="${fmt(point.y * s)}" r="${pointRadius}" fill="${GRID_POINT_COLOR}"/>`,
+    )
+  }
+  for (const point of empty) {
+    parts.push(
+      `<circle cx="${fmt(point.x * s)}" cy="${fmt(point.y * s)}" r="${emptyPointRadius}" fill="${EMPTY_GRID_POINT_COLOR}"/>`,
     )
   }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyCommand } from './commands'
 import { createEmptyMap } from './createEmptyMap'
-import { createCoverageTester, coverageGridPoints } from './coverage'
+import { createCoverageTester, coverageGridPoints, allGridPoints, gridPoints } from './coverage'
 import { createTerrainRegion } from './regions'
 import type { Point } from '@/shared/point'
 
@@ -133,5 +133,50 @@ describe('coverageGridPoints', () => {
 
   it('returns nothing when no cell is covered', () => {
     expect(coverageGridPoints(createEmptyMap(10, 10), full)).toEqual([])
+  })
+})
+
+describe('allGridPoints', () => {
+  it('enumerates every lattice corner of the range (cells + 1 each side)', () => {
+    const points = allGridPoints({ firstCol: 0, lastCol: 1, firstRow: 0, lastRow: 1 })
+    // 2×2 cells → 3×3 = 9 corners, unique and deterministic.
+    expect(points).toHaveLength(9)
+    expect(points).toContainEqual({ x: 0, y: 0 })
+    expect(points).toContainEqual({ x: 2, y: 2 })
+  })
+
+  it('offsets corners with the requested range', () => {
+    const points = allGridPoints({ firstCol: 2, lastCol: 2, firstRow: 3, lastRow: 3 })
+    expect(points).toEqual([
+      { x: 2, y: 3 },
+      { x: 3, y: 3 },
+      { x: 2, y: 4 },
+      { x: 3, y: 4 },
+    ])
+  })
+})
+
+describe('gridPoints', () => {
+  const full = { firstCol: 0, lastCol: 9, firstRow: 0, lastRow: 9 }
+
+  it('splits covered corners from the free field', () => {
+    const model = applyCommand(createEmptyMap(10, 10), {
+      kind: 'addRegion',
+      region: createTerrainRegion('floor', square(0, 0, 2), 0, 'r'),
+    })
+    const { covered, empty } = gridPoints(model, full)
+    expect(covered).toHaveLength(9)
+    // 11×11 = 121 corners; the 9 covered ones are removed from the free set.
+    expect(empty).toHaveLength(121 - 9)
+    const coveredKeys = new Set(covered.map((p) => `${p.x},${p.y}`))
+    expect(empty.every((p) => !coveredKeys.has(`${p.x},${p.y}`))).toBe(true)
+  })
+
+  it('marks the whole field free when nothing is covered', () => {
+    const range = { firstCol: 0, lastCol: 2, firstRow: 0, lastRow: 2 }
+    const { covered, empty } = gridPoints(createEmptyMap(3, 3), range)
+    expect(covered).toEqual([])
+    expect(empty).toHaveLength(16)
+    expect(empty).toEqual(allGridPoints(range))
   })
 })

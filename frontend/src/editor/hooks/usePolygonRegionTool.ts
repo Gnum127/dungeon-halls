@@ -6,7 +6,7 @@ import type { Viewport } from '../render/viewport'
 import { isEditableTarget } from '../dom/isEditableTarget'
 import { isInsideMap } from '../tools/isInsideMap'
 import { buildRegionCommand } from '../tools/regionCommit'
-import { regularPolygonPoints } from '../tools/regions'
+import { isCommittablePolygon, regularPolygonPoints } from '../tools/regions'
 import { useCellFromEvent } from './useCellFromEvent'
 
 interface PolygonRegionToolOptions {
@@ -61,8 +61,13 @@ export function usePolygonRegionTool(
     if (!center) return
     const centerPoint = { x: center.x + 0.5, y: center.y + 0.5 }
     const radialPoint = { x: radialCell.x + 0.5, y: radialCell.y + 0.5 }
-    const points = regularPolygonPoints(centerPoint, radialPoint, vertices)
-    if (points.length < 3) return
+    const points = regularPolygonPoints(centerPoint, radialPoint, vertices, {
+      cols: model.grid.width,
+      rows: model.grid.height,
+    })
+    // Кламп к границам карты мог схлопнуть полигон (радиус целиком за краем) —
+    // тогда не коммитим, чтобы не создавать вырожденный/битый регион.
+    if (!isCommittablePolygon(points)) return
     setCenter(null)
     setCurrent(null)
     onCommit(buildRegionCommand(model, tileType, points, autoWalls))

@@ -129,6 +129,13 @@ npm run build      # сборка + проверка типов tsc
   клетки: `round(worldCoord * 2) / 2`.
 - **Слои рендера** (порядок снизу вверх): фон → регионы (по zOrder) →
   лестницы → сетка → объекты → стены (тело + контур) → двери → свет.
+- **Сетка (этап 20)**: `model/coverage.ts` — `coverageGridPoints` (углы
+  покрытых клеток), `allGridPoints` (все углы диапазона), `gridPoints` →
+  `{ covered, empty }` (покрытие считается один раз; единый источник canvas/SVG).
+  Свободное поле — тусклые уменьшенные точки (`EMPTY_GRID_POINT_COLOR`).
+  Полигон-инструменты клампят вершины к границам карты (`clampPolygonToGrid` в
+  `tools/regions.ts`) и НЕ коммитят вырожденный/самопересекающийся полигон
+  (`isCommittablePolygon`); `regularPolygonPoints` принимает границы.
 - **Удаления (этап 14)**: код, содержащий `gridType`, `hex`, `vtt`, `uvtt`,
   `WallEdge`, `WallSide`, `normalizeEdge`, `edgeKey`, `Uint8Array` в модели
   тайлов — выпилить полностью. Старые тесты удалённого функционала — удалить.

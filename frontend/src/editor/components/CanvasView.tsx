@@ -22,7 +22,7 @@ import type { SpriteRenderContext } from '../render/sprites/loader'
 import { drawHoverHighlight } from '../render/hoverHighlight'
 import { drawSnapCandidates, toolUsesHoverSnap } from '../render/snapPreview'
 import { drawGhostPreview } from '../render/ghostPreview'
-import { rectPolygon, regularPolygonPoints } from '../tools/regions'
+import { isCommittablePolygon, rectPolygon, regularPolygonPoints } from '../tools/regions'
 import { drawRegionWithWalls } from '../tools/regionPreview'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
 import type { PanZoomState, Viewport } from '../render/viewport'
@@ -236,8 +236,11 @@ export function CanvasView({
     if (tool.type === 'region-polygon' && polygonPreview) {
       const centerPoint = { x: polygonPreview.center.x + 0.5, y: polygonPreview.center.y + 0.5 }
       const radialPoint = { x: polygonPreview.current.x + 0.5, y: polygonPreview.current.y + 0.5 }
-      const points = regularPolygonPoints(centerPoint, radialPoint, tool.vertices)
-      if (points.length >= 3) {
+      const points = regularPolygonPoints(centerPoint, radialPoint, tool.vertices, {
+        cols: model.grid.width,
+        rows: model.grid.height,
+      })
+      if (isCommittablePolygon(points)) {
         drawRegionWithWalls(ctx, model, viewport, tileType, points, autoWalls)
       }
     }

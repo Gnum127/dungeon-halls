@@ -77,8 +77,8 @@ public/sprites/
 
 1. Добавьте запись в `OBJECT_KIND_REGISTRY` (editor/model/objects.ts):
    `{ labelKey, color, category }` — палитра UI построится сама.
-   Опционально: `defaultScale` ({ w, h }) для многоклеточных,
-   `gridRestriction: 'square'` для несовместимых с гексами.
+   Опционально: `defaultScale` ({ w, h }) и `scales` (список размеров) для
+   многоклеточных, `defaultImage`/`imagePool` — картинки вида.
 2. Добавьте ключи i18n `<labelKey>` в `ru.json` И `en.json`
    (тест `model/objects.test.ts` упадёт без этого).
 3. Положите картинку в `public/sprites/objects/<id>.png` и добавьте запись

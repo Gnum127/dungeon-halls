@@ -8,9 +8,7 @@ import {
   OBJECT_KIND_REGISTRY,
   OBJECT_KINDS,
   cycleScale,
-  footprintCells,
   footprintInBounds,
-  isCellOccupied,
   isFootprintFree,
   isKnownKind,
   objectFootprint,
@@ -34,14 +32,21 @@ function resolveKey(resource: object, key: string): unknown {
 
 function obj(id: number, x: number, y: number, w = 1, h = 1): MapObject {
   return w === 1 && h === 1
-    ? { id, kindId: 'stairs', x, y }
-    : { id, kindId: 'stairs', x, y, scale: { w, h } }
+    ? { id, kindId: 'table', x, y }
+    : { id, kindId: 'table', x, y, scale: { w, h } }
 }
 
 describe('OBJECT_KIND_REGISTRY', () => {
   it('derives kinds, colors and entries from a single source', () => {
     expect(OBJECT_KINDS).toEqual([
-      'stairs', 'table', 'chair', 'chest', 'barrel', 'torch', 'bush', 'rock',
+      'table',
+      'chair',
+      'chest',
+      'barrel',
+      'torch',
+      'bush',
+      'tree',
+      'rock',
     ])
     expect(OBJECT_KIND_ENTRIES.map((entry) => entry.id)).toEqual(OBJECT_KINDS)
     expect(Object.keys(OBJECT_COLORS)).toEqual(OBJECT_KINDS)
@@ -72,13 +77,10 @@ describe('OBJECT_KIND_REGISTRY', () => {
     expect(table?.defaultScale).toEqual({ w: 2, h: 1 })
     const rock = OBJECT_KIND_ENTRIES.find((e) => e.id === 'rock')
     expect(rock?.defaultScale).toEqual({ w: 2, h: 2 })
+    const tree = OBJECT_KIND_ENTRIES.find((e) => e.id === 'tree')
+    expect(tree?.defaultScale).toEqual({ w: 2, h: 2 })
     const chair = OBJECT_KIND_ENTRIES.find((e) => e.id === 'chair')
     expect(chair?.defaultScale).toBeUndefined()
-  })
-
-  it('has gridRestriction for square-only objects', () => {
-    const torch = OBJECT_KIND_ENTRIES.find((e) => e.id === 'torch')
-    expect(torch?.gridRestriction).toBe('square')
   })
 
   it('keeps the default scale inside the available scales when scales are present', () => {
@@ -100,18 +102,18 @@ describe('OBJECT_KIND_REGISTRY', () => {
       { w: 1, h: 1 },
       { w: 2, h: 2 },
     ])
-    expect(OBJECT_KIND_ENTRIES.find((e) => e.id === 'stairs')?.scales).toEqual([
+    expect(OBJECT_KIND_ENTRIES.find((e) => e.id === 'tree')?.scales).toEqual([
       { w: 1, h: 1 },
-      { w: 1, h: 2 },
-      { w: 2, h: 1 },
+      { w: 2, h: 2 },
     ])
     // Одноклеточные виды — без списка (кнопки «Размер» нет).
     expect(OBJECT_KIND_ENTRIES.find((e) => e.id === 'chair')?.scales).toBeUndefined()
   })
 
   it('recognizes only registered kinds', () => {
-    expect(isKnownKind('stairs')).toBe(true)
+    expect(isKnownKind('tree')).toBe(true)
     expect(isKnownKind('torch')).toBe(true)
+    expect(isKnownKind('stairs')).toBe(false)
     expect(isKnownKind('dragon')).toBe(false)
     expect(isKnownKind('door')).toBe(false)
     // Свойства прототипа не должны проходить guard.
@@ -159,15 +161,9 @@ describe('cycleScale', () => {
     expect(cycleScale('table', { w: 2, h: 2 })).toEqual({ w: 1, h: 1 })
   })
 
-  it('cycles through the rock sizes', () => {
-    expect(cycleScale('rock', { w: 1, h: 1 })).toEqual({ w: 2, h: 2 })
-    expect(cycleScale('rock', { w: 2, h: 2 })).toEqual({ w: 1, h: 1 })
-  })
-
-  it('cycles through the stairs sizes', () => {
-    expect(cycleScale('stairs', { w: 1, h: 1 })).toEqual({ w: 1, h: 2 })
-    expect(cycleScale('stairs', { w: 1, h: 2 })).toEqual({ w: 2, h: 1 })
-    expect(cycleScale('stairs', { w: 2, h: 1 })).toEqual({ w: 1, h: 1 })
+  it('cycles through the tree sizes', () => {
+    expect(cycleScale('tree', { w: 1, h: 1 })).toEqual({ w: 2, h: 2 })
+    expect(cycleScale('tree', { w: 2, h: 2 })).toEqual({ w: 1, h: 1 })
   })
 
   it('wraps an unknown current scale to the start of the list', () => {
@@ -191,42 +187,28 @@ describe('footprint utilities', () => {
     expect(objectFootprint(o)).toEqual({ x: 2, y: 3, w: 3, h: 2 })
   })
 
-  it('footprintCells returns all cells for multi-cell objects', () => {
-    const o = obj(1, 0, 0, 2, 2)
-    expect(footprintCells(o).sort()).toEqual(['0,0', '0,1', '1,0', '1,1'].sort())
+  it('objectFootprint keeps float coordinates (world cells)', () => {
+    const o = obj(1, 2.25, 3.5, 2, 1)
+    expect(objectFootprint(o)).toEqual({ x: 2.25, y: 3.5, w: 2, h: 1 })
   })
 
-  it('footprintCells returns single cell for 1×1 objects', () => {
-    expect(footprintCells(obj(1, 5, 3))).toEqual(['5,3'])
-  })
-
-  it('rectsOverlap detects overlapping rectangles', () => {
+  it('rectsOverlap detects overlapping float rectangles', () => {
     expect(rectsOverlap({ x: 0, y: 0, w: 2, h: 2 }, { x: 1, y: 1, w: 2, h: 2 })).toBe(true)
     expect(rectsOverlap({ x: 0, y: 0, w: 1, h: 1 }, { x: 1, y: 1, w: 1, h: 1 })).toBe(false)
     expect(rectsOverlap({ x: 0, y: 0, w: 2, h: 1 }, { x: 0, y: 1, w: 2, h: 1 })).toBe(false)
     expect(rectsOverlap({ x: 0, y: 0, w: 3, h: 3 }, { x: 1, y: 1, w: 1, h: 1 })).toBe(true)
+    expect(rectsOverlap({ x: 0.5, y: 0.5, w: 1, h: 1 }, { x: 1, y: 1, w: 1, h: 1 })).toBe(true)
+    expect(rectsOverlap({ x: 0.5, y: 0.5, w: 1, h: 1 }, { x: 2, y: 1, w: 1, h: 1 })).toBe(false)
   })
 
-  it('footprintInBounds checks map dimensions', () => {
-    const o = obj(1, 0, 0, 3, 3)
-    expect(footprintInBounds(o, 3, 3)).toBe(true)
-    expect(footprintInBounds(o, 2, 3)).toBe(false)
-    expect(footprintInBounds(obj(1, 5, 5), 10, 10)).toBe(true)
-    expect(footprintInBounds(obj(1, 9, 9, 2, 2), 10, 10)).toBe(false)
-  })
-
-  it('isCellOccupied checks footprint, not just origin', () => {
-    const objects = [obj(1, 0, 0, 2, 2)]
-    expect(isCellOccupied(objects, 0, 0)).toBe(true)
-    expect(isCellOccupied(objects, 1, 1)).toBe(true)
-    expect(isCellOccupied(objects, 2, 0)).toBe(false)
-    expect(isCellOccupied(objects, 0, 2)).toBe(false)
-  })
-
-  it('isCellOccupied works with 1×1 objects', () => {
-    const objects = [obj(1, 3, 4)]
-    expect(isCellOccupied(objects, 3, 4)).toBe(true)
-    expect(isCellOccupied(objects, 3, 5)).toBe(false)
+  it('footprintInBounds constrains only the origin (overhang allowed)', () => {
+    expect(footprintInBounds(obj(1, 0, 0))).toBe(true)
+    expect(footprintInBounds(obj(1, 2.5, 3.25, 2, 2))).toBe(true)
+    // Правый-нижний край может свисать: origin валиден.
+    expect(footprintInBounds(obj(1, 9, 9, 2, 2))).toBe(true)
+    expect(footprintInBounds(obj(1, -1, 0))).toBe(false)
+    expect(footprintInBounds(obj(1, 0, -0.5))).toBe(false)
+    expect(footprintInBounds({ id: 1, kindId: 'table', x: Number.NaN, y: 0 })).toBe(false)
   })
 
   it('isFootprintFree detects overlapping and non-overlapping areas', () => {
@@ -234,12 +216,14 @@ describe('footprint utilities', () => {
     expect(isFootprintFree(objects, 3, 3, 2, 2)).toBe(true) // no overlap
     expect(isFootprintFree(objects, 4, 4, 2, 2)).toBe(false) // overlaps object 2 at (5,5)
     expect(isFootprintFree(objects, 4, 4, 1, 1)).toBe(true) // (4,4) doesn't overlap
+    expect(isFootprintFree(objects, 1.5, 1.5, 1, 1)).toBe(false) // float overlap
   })
 
-  it('topmostObjectAt returns the last object whose footprint contains the cell', () => {
+  it('topmostObjectAt returns the last object whose footprint contains the point', () => {
     const objects = [obj(1, 0, 0, 2, 2), obj(2, 1, 1)]
     expect(topmostObjectAt(objects, 1, 1)?.id).toBe(2)
     expect(topmostObjectAt(objects, 0, 0)?.id).toBe(1)
+    expect(topmostObjectAt(objects, 1.5, 1.5)?.id).toBe(2)
     expect(topmostObjectAt(objects, 5, 5)).toBeUndefined()
   })
 })

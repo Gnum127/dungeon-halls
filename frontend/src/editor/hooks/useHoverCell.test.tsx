@@ -12,6 +12,7 @@ const CELL = 32
 interface Hover {
   readonly cell: { x: number; y: number } | null
   readonly world: Point | null
+  readonly shift: boolean
 }
 
 function Harness({
@@ -25,14 +26,14 @@ function Harness({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = { current: viewport } as unknown as React.RefObject<Viewport>
-  const { hoverCell, hoverWorld, handlers } = useHoverCell({
+  const { hoverCell, hoverWorld, hoverShift, handlers } = useHoverCell({
     canvasRef,
     viewportRef,
     viewport,
     model,
   })
   useEffect(() => {
-    capture({ cell: hoverCell, world: hoverWorld })
+    capture({ cell: hoverCell, world: hoverWorld, shift: hoverShift })
   })
   return <canvas ref={canvasRef} data-testid="canvas" {...handlers} />
 }
@@ -42,7 +43,7 @@ function makeViewport(overrides: Partial<Viewport> = {}): Viewport {
 }
 
 function setup(model: MapModel = createEmptyMap(4, 4), viewport: Viewport = makeViewport()) {
-  const latest = { current: { cell: null, world: null } as Hover }
+  const latest = { current: { cell: null, world: null, shift: false } as Hover }
   const view = render(
     <Harness model={model} viewport={viewport} capture={(hover) => (latest.current = hover)} />,
   )
@@ -122,5 +123,14 @@ describe('useHoverCell', () => {
       />,
     )
     expect(latest.current.world).toBe(firstWorld)
+  })
+
+  it('tracks the Shift state of the last move (for snapped previews)', () => {
+    const { canvas, latest } = setup()
+    fireEvent.pointerMove(canvas, { clientX: 48, clientY: 80 })
+    expect(latest.current.shift).toBe(false)
+
+    fireEvent.pointerMove(canvas, { clientX: 48, clientY: 80, shiftKey: true })
+    expect(latest.current.shift).toBe(true)
   })
 })

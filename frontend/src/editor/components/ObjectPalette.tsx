@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ObjectCategory, ObjectKindEntry, ObjectKindId } from '../model/objects'
 import type { ObjectRotation, ObjectScale } from '../model/types'
@@ -13,12 +13,17 @@ const CATEGORY_LABELS: Record<ObjectCategory, string> = {
   dungeon: 'editor.objects.categories.dungeon',
 }
 
+const BY_CATEGORY = new Map<ObjectCategory, ObjectKindEntry[]>()
+for (const kind of OBJECT_KIND_ENTRIES) {
+  const list = BY_CATEGORY.get(kind.category) ?? []
+  list.push(kind)
+  BY_CATEGORY.set(kind.category, list)
+}
+
 interface ObjectPaletteProps {
   /** kindId активного инструмента-объекта, иначе null. */
   activeKindId: ObjectKindId | null
-  selectActive: boolean
   onSelectKind: (kindId: ObjectKindId) => void
-  onSelectSelectTool: () => void
   objectRotation: ObjectRotation
   objectScale: ObjectScale
   onRotate: () => void
@@ -29,11 +34,14 @@ interface ObjectPaletteProps {
   onSelectElementImage: (kindId: ObjectKindId, imageId: string | null) => void
 }
 
+/**
+ * Палитра объектов: категории и виды, поворот/размер и выбор изображения
+ * активного вида. Выбор объекта — по клику; режим перемещения — «Курсор»
+ * из нижней плашки.
+ */
 export function ObjectPalette({
   activeKindId,
-  selectActive,
   onSelectKind,
-  onSelectSelectTool,
   objectRotation,
   objectScale,
   onRotate,
@@ -42,19 +50,7 @@ export function ObjectPalette({
   onSelectElementImage,
 }: ObjectPaletteProps) {
   const { t } = useTranslation()
-  const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState<Partial<Record<ObjectCategory, boolean>>>({})
-
-  const filteredByCategory = useMemo(() => {
-    const map = new Map<ObjectCategory, ObjectKindEntry[]>()
-    for (const kind of OBJECT_KIND_ENTRIES) {
-      if (search && !t(kind.labelKey).toLowerCase().includes(search.toLowerCase())) continue
-      const list = map.get(kind.category) ?? []
-      list.push(kind)
-      map.set(kind.category, list)
-    }
-    return map
-  }, [search, t])
 
   const isActive = activeKindId !== null
   const activeKind = activeKindId
@@ -65,23 +61,6 @@ export function ObjectPalette({
 
   return (
     <div className={styles.palette}>
-      <button
-        type="button"
-        className={[styles.toolButton, selectActive ? styles.selected : '']
-          .filter(Boolean)
-          .join(' ')}
-        aria-pressed={selectActive}
-        onClick={onSelectSelectTool}
-      >
-        {t('editor.objects.select')}
-      </button>
-      <input
-        type="text"
-        className={styles.search}
-        placeholder={t('editor.objects.search')}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
       {isActive && (
         <div className={styles.rotationBar}>
           <span className={styles.rotationLabel}>{objectRotation}°</span>
@@ -129,7 +108,7 @@ export function ObjectPalette({
         </div>
       )}
       {CATEGORY_ORDER.map((cat) => {
-        const kinds = filteredByCategory.get(cat)
+        const kinds = BY_CATEGORY.get(cat)
         if (!kinds || kinds.length === 0) return null
         const isCollapsed = collapsed[cat] ?? false
         return (
@@ -155,10 +134,7 @@ export function ObjectPalette({
                     title={t(kind.labelKey)}
                     onClick={() => onSelectKind(kind.id)}
                   >
-                    <span
-                      style={{ backgroundColor: kind.color }}
-                      className={styles.dot}
-                    />
+                    <span style={{ backgroundColor: kind.color }} className={styles.dot} />
                     <span className={styles.name}>{t(kind.labelKey)}</span>
                     {kind.defaultScale && (
                       <span className={styles.scaleBadge}>

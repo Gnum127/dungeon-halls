@@ -5,32 +5,6 @@
   padding: 0.5rem;
 }
 
-.toolButton {
-  padding: 0.35rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  min-height: 2rem;
-  text-align: left;
-}
-
-.search {
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.8rem;
-  min-height: 1.8rem;
-}
-
-.search::placeholder {
-  color: var(--text);
-  opacity: 0.5;
-}
-
 .categoryGroup {
   display: flex;
   flex-direction: column;
@@ -82,7 +56,6 @@
   outline-offset: -1px;
 }
 
-.toolButton:focus-visible,
 .swatch:focus-visible {
   outline: 2px solid var(--accent);
 }

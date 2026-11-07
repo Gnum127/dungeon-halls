@@ -69,20 +69,18 @@
     },
     "objects": {
       "label": "Объекты",
-      "select": "Выбор (Del — удалить)",
-      "search": "Поиск...",
       "categories": {
         "structural": "Конструкции",
         "furniture": "Мебель",
         "dungeon": "Подземелье"
       },
-      "stairs": "Лестница",
       "table": "Стол",
       "chair": "Стул",
       "chest": "Сундук",
       "barrel": "Бочка",
       "torch": "Факел",
       "bush": "Куст",
+      "tree": "Дерево",
       "rock": "Камень",
       "rotate": "Повернуть (R)",
       "resize": "Размер",

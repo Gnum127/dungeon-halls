@@ -125,9 +125,16 @@ describe('renderMap', () => {
       (c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch,
     )
     const gridIndex = calls.findIndex((c) => c.op === 'fill' && c.fillStyle === GRID_POINT_COLOR)
+    const emptyGridIndex = calls.findIndex(
+      (c) => c.op === 'fill' && c.fillStyle === EMPTY_GRID_POINT_COLOR,
+    )
     expect(stepIndex).toBeGreaterThanOrEqual(0)
     expect(gridIndex).toBeGreaterThan(stepIndex)
     expect(objectFill).toBeGreaterThan(stepIndex)
+    expect(objectFill).toBeGreaterThan(gridIndex)
+    expect(emptyGridIndex).toBeGreaterThanOrEqual(0)
+    // Объекты рисуются ПОВЕРХ точечной сетки (в т.ч. свободного поля).
+    expect(objectFill).toBeGreaterThan(emptyGridIndex)
   })
 
   it('draws the point grid: bright on covered cells, dim on free field', () => {
@@ -341,6 +348,42 @@ describe('renderMap', () => {
     renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'torch', x: 1, y: 1 }] }), viewport)
 
     expect(calls.some((c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch)).toBe(true)
+  })
+
+  it('anchors object rendering at the float top-left plus half the footprint', () => {
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(
+      ctx,
+      baseModel({
+        objects: [{ id: 1, kindId: 'torch', x: 1.5, y: 2, scale: { w: 2, h: 1 } }],
+      }),
+      viewport,
+    )
+
+    // cx = 1.5*32 + (2*32)/2 = 80; cy = 2*32 + (1*32)/2 = 80.
+    const translate = calls.find((c) => c.op === 'translate')
+    expect(translate?.args).toEqual([1.5 * 32 + 32, 2 * 32 + 16])
+  })
+
+  it('draws objects below the walls (layer order)', () => {
+    const wall = createWallSegment(
+      [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+      ],
+      { id: 'w1' },
+    )
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(
+      ctx,
+      baseModel({ objects: [{ id: 1, kindId: 'torch', x: 1, y: 1 }], walls: [wall] }),
+      viewport,
+    )
+
+    const objectFill = calls.findIndex((c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch)
+    const wallStroke = calls.findIndex((c) => c.op === 'stroke' && c.fillStyle === WALL_BODY_COLOR)
+    expect(objectFill).toBeGreaterThanOrEqual(0)
+    expect(wallStroke).toBeGreaterThan(objectFill)
   })
 
   it('draws light glow and marker by default', () => {

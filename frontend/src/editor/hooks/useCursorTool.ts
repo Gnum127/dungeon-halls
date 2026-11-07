@@ -3,12 +3,12 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react'
 import { isEditableTarget } from '../dom/isEditableTarget'
 import type { Command } from '../model/commands'
-import { findObjectById } from '../model/objects'
+import { findObjectById, isFootprintFree, objectFootprint } from '../model/objects'
+import { snapToHalfGrid } from '../model/snap'
 import type { MapModel } from '../model/types'
-import { isInsideMap } from '../tools/isInsideMap'
-import { isCellFree, topmostObjectAt } from '../tools/objects'
+import { topmostObjectAt } from '../tools/objects'
 import type { Viewport } from '../render/viewport'
-import { useCellFromEvent } from './useCellFromEvent'
+import { useWorldPointFromEvent } from './useCellFromEvent'
 
 interface CursorToolOptions {
   canvasRef: RefObject<HTMLCanvasElement | null>
@@ -23,18 +23,25 @@ interface CursorToolOptions {
 interface DragState {
   pointerId: number
   objectId: number
-  fromX: number
-  fromY: number
-  lastX: number
-  lastY: number
+  /** Мировая точка (клетки) курсора в начале перетаскивания. */
+  pointerStartX: number
+  pointerStartY: number
+  /** Координата объекта (левый-верхний угол) в начале перетаскивания. */
+  objectStartX: number
+  objectStartY: number
+  /** Размер footprint'а (клетки). */
+  w: number
+  h: number
+  nextX: number
+  nextY: number
 }
 
 const LEFT_BUTTON = 0
 
 /**
  * Инструмент «Курсор»: клик выделяет объект (мимо — снимает выделение),
- * перетаскивание перемещает (одно перетаскивание = одна команда), Delete
- * удаляет выделенный объект. Пока клеточное размещение (float — этап 23).
+ * перетаскивание перемещает в float-координатах (одно перетаскивание = одна
+ * команда), Shift снапит к полуклетке, Delete/Backspace удаляет выделенный.
  */
 export function useCursorTool(options: CursorToolOptions): {
   handlers: {
@@ -47,7 +54,7 @@ export function useCursorTool(options: CursorToolOptions): {
   const { canvasRef, viewportRef, store, model, active, selectedId, onSelect } = options
   const dragRef = useRef<DragState | null>(null)
 
-  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
+  const worldPointFromEvent = useWorldPointFromEvent(canvasRef, viewportRef)
 
   function capturePointer(event: ReactPointerEvent<HTMLCanvasElement>) {
     try {
@@ -59,10 +66,10 @@ export function useCursorTool(options: CursorToolOptions): {
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (!active || event.button !== LEFT_BUTTON || dragRef.current !== null) return
-    const cell = cellFromEvent(event)
-    if (!isInsideMap(model, cell.x, cell.y)) return
+    const world = worldPointFromEvent(event)
+    if (!Number.isFinite(world.x) || !Number.isFinite(world.y)) return
 
-    const target = topmostObjectAt(model, cell.x, cell.y)
+    const target = topmostObjectAt(model, world.x, world.y)
     if (!target) {
       onSelect(null)
       return
@@ -70,13 +77,18 @@ export function useCursorTool(options: CursorToolOptions): {
     event.preventDefault()
     onSelect(target.id)
     capturePointer(event)
+    const { w, h } = objectFootprint(target)
     dragRef.current = {
       pointerId: event.pointerId,
       objectId: target.id,
-      fromX: target.x,
-      fromY: target.y,
-      lastX: target.x,
-      lastY: target.y,
+      pointerStartX: world.x,
+      pointerStartY: world.y,
+      objectStartX: target.x,
+      objectStartY: target.y,
+      w,
+      h,
+      nextX: target.x,
+      nextY: target.y,
     }
   }
 
@@ -88,12 +100,17 @@ export function useCursorTool(options: CursorToolOptions): {
       finishDrag()
       return
     }
-    const cell = cellFromEvent(event)
-    if (!isInsideMap(model, cell.x, cell.y)) return
-    const backToOrigin = cell.x === drag.fromX && cell.y === drag.fromY
-    if (!backToOrigin && !isCellFree(model, cell.x, cell.y)) return
-    drag.lastX = cell.x
-    drag.lastY = cell.y
+    const world = worldPointFromEvent(event)
+    if (!Number.isFinite(world.x) || !Number.isFinite(world.y)) return
+    let nextX = drag.objectStartX + (world.x - drag.pointerStartX)
+    let nextY = drag.objectStartY + (world.y - drag.pointerStartY)
+    if (event.shiftKey) {
+      const snapped = snapToHalfGrid({ x: nextX, y: nextY })
+      nextX = snapped.x
+      nextY = snapped.y
+    }
+    drag.nextX = Math.max(0, nextX)
+    drag.nextY = Math.max(0, nextY)
   }
 
   function onPointerUp(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -110,12 +127,17 @@ export function useCursorTool(options: CursorToolOptions): {
     const drag = dragRef.current
     dragRef.current = null
     if (!drag) return
-    if (drag.lastX === drag.fromX && drag.lastY === drag.fromY) return
-    // Объект могли удалить (Delete во время drag) или клетку занять —
+    if (drag.nextX === drag.objectStartX && drag.nextY === drag.objectStartY) return
+    // Объект могли удалить (Delete во время drag) или место занято —
     // невалидную команду не отправляем, чтобы не крэшить UI-поток.
     if (!findObjectById(model.objects, drag.objectId)) return
-    if (!isCellFree(model, drag.lastX, drag.lastY)) return
-    store.dispatch({ kind: 'moveObject', id: drag.objectId, x: drag.lastX, y: drag.lastY })
+    // Origin должен оставаться в границах карты (как при размещении кликом):
+    // свисание края разрешено, полный уход за поле — нет.
+    const { width, height } = model.grid
+    if (drag.nextX < 0 || drag.nextY < 0 || drag.nextX >= width || drag.nextY >= height) return
+    const others = model.objects.filter((candidate) => candidate.id !== drag.objectId)
+    if (!isFootprintFree(others, drag.nextX, drag.nextY, drag.w, drag.h)) return
+    store.dispatch({ kind: 'moveObject', id: drag.objectId, x: drag.nextX, y: drag.nextY })
   }
 
   useEffect(() => {

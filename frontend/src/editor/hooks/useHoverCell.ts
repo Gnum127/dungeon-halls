@@ -18,6 +18,8 @@ interface HoverCellOptions {
 interface HoverState {
   readonly cell: { x: number; y: number }
   readonly world: Point
+  /** Был ли зажат Shift на последнем движении (для снапа превью). */
+  readonly shiftKey: boolean
 }
 
 /**
@@ -27,6 +29,7 @@ interface HoverState {
 export function useHoverCell(options: HoverCellOptions): {
   hoverCell: { x: number; y: number } | null
   hoverWorld: Point | null
+  hoverShift: boolean
   recompute: () => void
   handlers: {
     onPointerMove: (event: ReactPointerEvent<HTMLCanvasElement>) => void
@@ -34,7 +37,9 @@ export function useHoverCell(options: HoverCellOptions): {
   }
 } {
   const { canvasRef, viewportRef, viewport, model } = options
-  const clientPointRef = useRef<{ clientX: number; clientY: number } | null>(null)
+  const clientPointRef = useRef<{ clientX: number; clientY: number; shiftKey: boolean } | null>(
+    null,
+  )
   const [hover, setHover] = useState<HoverState | null>(null)
 
   const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
@@ -54,15 +59,20 @@ export function useHoverCell(options: HoverCellOptions): {
       previous.cell.x === cell.x &&
       previous.cell.y === cell.y &&
       previous.world.x === world.x &&
-      previous.world.y === world.y
+      previous.world.y === world.y &&
+      previous.shiftKey === point.shiftKey
         ? previous
-        : { cell, world },
+        : { cell, world, shiftKey: point.shiftKey },
     )
   }, [cellFromEvent, worldFromEvent, model])
 
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
-      clientPointRef.current = { clientX: event.clientX, clientY: event.clientY }
+      clientPointRef.current = {
+        clientX: event.clientX,
+        clientY: event.clientY,
+        shiftKey: event.shiftKey,
+      }
       recompute()
     },
     [recompute],
@@ -81,6 +91,7 @@ export function useHoverCell(options: HoverCellOptions): {
   return {
     hoverCell: hover?.cell ?? null,
     hoverWorld: hover?.world ?? null,
+    hoverShift: hover?.shiftKey ?? false,
     recompute,
     handlers: { onPointerMove, onPointerLeave },
   }

@@ -5,6 +5,7 @@ import {
   isKnownKind,
   nextObjectId,
   objectFootprint,
+  rectsOverlap,
 } from './objects'
 import { findLightById, isValidLightColor, isValidLightRadius, nextLightId } from './lights'
 import { assertValidRegion, nextZOrder } from './regions'
@@ -166,22 +167,12 @@ function assertUniqueIds(items: readonly { readonly id: string }[], label: strin
   }
 }
 
-function assertValidObject(object: MapObject, grid: MapGrid): void {
+function assertValidObject(object: MapObject): void {
   if (!Number.isInteger(object.id) || object.id < 1) {
     throw new RangeError(`Object id must be a positive integer, got ${String(object.id)}`)
   }
   if (!isKnownKind(object.kindId)) {
     throw new RangeError(`Unknown object kind: ${object.kindId}`)
-  }
-  if (
-    !Number.isInteger(object.x) ||
-    !Number.isInteger(object.y) ||
-    object.x < 0 ||
-    object.y < 0 ||
-    object.x >= grid.width ||
-    object.y >= grid.height
-  ) {
-    throw new RangeError(`Object (${object.x}, ${object.y}) is out of grid bounds`)
   }
   if (object.rotation !== undefined && ![0, 90, 180, 270].includes(object.rotation)) {
     throw new RangeError(`Invalid object rotation: ${String(object.rotation)}`)
@@ -192,8 +183,8 @@ function assertValidObject(object: MapObject, grid: MapGrid): void {
       throw new RangeError('Object scale must be integers >= 1')
     }
   }
-  if (!footprintInBounds(object, grid.width, grid.height)) {
-    throw new RangeError(`Object ${object.id} footprint exceeds grid ${grid.width}×${grid.height}`)
+  if (!footprintInBounds(object)) {
+    throw new RangeError(`Object ${object.id} origin is outside the map`)
   }
 }
 
@@ -251,19 +242,16 @@ function validateSnapshot(snapshot: MapSnapshot): void {
     assertValidStairsPolygon(stairs)
   }
 
-  const seenCells = new Set<string>()
+  const seenObjects: MapObject[] = []
   for (const object of snapshot.objects) {
-    assertValidObject(object, grid)
-    const { w, h } = objectFootprint(object)
-    for (let dx = 0; dx < w; dx += 1) {
-      for (let dy = 0; dy < h; dy += 1) {
-        const key = `${object.x + dx},${object.y + dy}`
-        if (seenCells.has(key)) {
-          throw new RangeError(`Object ${object.id} overlaps another object at ${key}`)
-        }
-        seenCells.add(key)
+    assertValidObject(object)
+    const footprint = objectFootprint(object)
+    for (const other of seenObjects) {
+      if (rectsOverlap(footprint, objectFootprint(other))) {
+        throw new RangeError(`Object ${object.id} overlaps object ${other.id}`)
       }
     }
+    seenObjects.push(object)
   }
   for (const light of snapshot.lights) {
     assertValidLight(light, grid)
@@ -406,7 +394,6 @@ function addObject(
   rotation?: ObjectRotation,
   scale?: ObjectScale,
 ): MapModel {
-  assertCellInside(model, x, y)
   if (!isKnownKind(kindId)) {
     throw new RangeError(`Unknown object kind: ${kindId}`)
   }
@@ -418,10 +405,8 @@ function addObject(
     ...(rotation !== undefined && { rotation }),
     ...(scale !== undefined && { scale }),
   }
-  if (!footprintInBounds(object, model.grid.width, model.grid.height)) {
-    throw new RangeError(
-      `Object footprint is out of bounds ${model.grid.width}×${model.grid.height}`,
-    )
+  if (!footprintInBounds(object)) {
+    throw new RangeError(`Object origin (${x}, ${y}) is out of bounds`)
   }
   const { w, h } = objectFootprint(object)
   if (!isFootprintFree(model.objects, x, y, w, h)) {
@@ -431,7 +416,6 @@ function addObject(
 }
 
 function moveObject(model: MapModel, id: number, x: number, y: number): MapModel {
-  assertCellInside(model, x, y)
   const object = findObjectById(model.objects, id)
   if (!object) {
     throw new RangeError(`Object ${id} not found`)
@@ -440,8 +424,8 @@ function moveObject(model: MapModel, id: number, x: number, y: number): MapModel
     return model
   }
   const moved = { ...object, x, y }
-  if (!footprintInBounds(moved, model.grid.width, model.grid.height)) {
-    throw new RangeError(`Object footprint at (${x}, ${y}) is out of bounds`)
+  if (!footprintInBounds(moved)) {
+    throw new RangeError(`Object origin (${x}, ${y}) is out of bounds`)
   }
   const { w, h } = objectFootprint(moved)
   const others = model.objects.filter((candidate) => candidate.id !== id)

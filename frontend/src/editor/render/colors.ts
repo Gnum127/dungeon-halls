@@ -2,7 +2,8 @@ import type { TileTypeName } from '../model/types'
 
 /** Цвета плиток рендера без спрайтов; палитра UI — в src/index.css. */
 export const TILE_COLORS: Record<TileTypeName, string> = {
-  empty: '#14141f',
+  // «Пусто» совпадает с фоном холста: стёртая область читается как чистый лист.
+  empty: '#ffffff',
   floor: '#8a7f66',
   grass: '#3f6d3a',
   water: '#2f5f8a',
@@ -21,16 +22,16 @@ export const GRID_POINT_COLOR = '#4a4a63'
 export const GRID_POINT_RADIUS = 1.5
 /** Радиус точки сетки в SVG (доля клетки) — для печати. */
 export const GRID_POINT_RADIUS_RATIO = 0.04
-export const CANVAS_BACKGROUND_COLOR = '#101018'
+export const CANVAS_BACKGROUND_COLOR = '#ffffff'
 export const FALLBACK_OBJECT_COLOR = '#888888'
 export const OBJECT_OUTLINE_COLOR = '#00000066'
-export const HIGHLIGHT_COLOR = '#8b5cf6'
+export const HIGHLIGHT_COLOR = '#6c47c8'
 /** Цвет точек-кандидатов привязки при наведении. */
 export const SNAP_CANDIDATE_COLOR = '#7d7da3'
 /** Радиус точки-кандидата в экранных пикселях. */
 export const SNAP_CANDIDATE_RADIUS = 2
 /** Цвет ближайшей к курсору точки-кандидата (контрастная подсветка). */
-export const SNAP_NEAREST_COLOR = '#f5f5ff'
+export const SNAP_NEAREST_COLOR = '#1a1a2e'
 /** Радиус ближайшей точки-кандидата в экранных пикселях. */
 export const SNAP_NEAREST_RADIUS = 3.5
 export const WALL_LINE_COLOR = '#1d1a2e'

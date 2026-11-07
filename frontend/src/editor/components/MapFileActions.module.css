@@ -9,7 +9,7 @@
   padding: 0.35rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: transparent;
+  background: var(--surface);
   color: var(--text);
   cursor: pointer;
   min-height: 2rem;
@@ -28,7 +28,7 @@
   padding: 0.35rem 0.25rem;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: transparent;
+  background: var(--surface);
   color: var(--text);
   min-height: 2rem;
 }

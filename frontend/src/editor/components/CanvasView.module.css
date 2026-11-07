@@ -10,6 +10,11 @@
   display: block;
   width: 100%;
   touch-action: none;
+  /* Рамка outline не влияет на box и на getBoundingClientRect — перевод
+     курсора в мировые координаты не смещается на толщину границы. */
+  background: var(--surface);
+  outline: 1px solid var(--border);
+  outline-offset: -1px;
 }
 
 .status {

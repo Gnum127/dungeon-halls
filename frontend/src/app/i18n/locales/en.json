@@ -16,19 +16,26 @@
       "expand": "Expand",
       "collapse": "Collapse"
     },
-    "regionTools": {
-      "label": "Build tools",
+    "bottomBar": {
+      "label": "Tools",
+      "cursor": "Cursor",
+      "pan": "Pan",
       "rect": "Rectangle",
       "polygon": "Polygon",
-      "eraser": "Eraser",
-      "wall": "Wall",
-      "door": "Door",
       "stairs": "Stairs",
+      "door": "Door"
+    },
+    "toolParams": {
+      "label": "Tool settings",
+      "eraser": "Erase area",
+      "erases": "clears the area",
       "vertices": "Vertices",
       "autoWalls": "Auto walls",
-      "erases": "clears the area",
       "doorTexture": "Door texture",
-      "doorAngle": "Leaf angle"
+      "doorAngle": "Leaf angle",
+      "cursorHint": "Click — select, drag — move, Delete — remove",
+      "panHint": "Hold and drag to pan the map",
+      "stairsHint": "Three clicks: start → base → far edge"
     },
     "doors": {
       "none": "No texture (line)",

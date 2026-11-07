@@ -1,7 +1,7 @@
 .panel {
   display: flex;
   flex-direction: column;
-  min-width: 13rem;
+  width: 15rem;
   height: 100%;
   border-right: 1px solid var(--border);
   background: var(--surface);

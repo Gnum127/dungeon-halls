@@ -11,58 +11,67 @@ beforeAll(() => {
   )
 })
 
+async function renderPage() {
+  await act(async () => {
+    render(<EditorPage />)
+  })
+  return { bar: screen.getByRole('toolbar', { name: 'Tools' }) }
+}
+
 describe('EditorPage', () => {
-  it('eraser button switches the active fill to erasing (regression: it did nothing)', async () => {
-    await act(async () => {
-      render(<EditorPage />)
-    })
+  it('starts in cursor mode and shows its hint', async () => {
+    const { bar } = await renderPage()
 
-    const tools = screen.getByRole('group', { name: 'Build tools' })
-    expect(within(tools).getByText('Floor')).toBeInTheDocument()
+    expect(within(bar).getByRole('button', { name: 'Cursor' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(
+      screen.getByText('Click — select, drag — move, Delete — remove'),
+    ).toBeInTheDocument()
+  })
 
-    fireEvent.click(within(tools).getByRole('button', { name: 'Eraser' }))
+  it('eraser toggle switches the fill to erasing (regression: it did nothing)', async () => {
+    const { bar } = await renderPage()
+    fireEvent.click(within(bar).getByRole('button', { name: 'Rectangle' }))
 
-    expect(within(tools).getByText('clears the area')).toBeInTheDocument()
-    expect(within(tools).queryByText('Floor')).toBeNull()
+    const params = screen.getByRole('group', { name: 'Tool settings' })
+    fireEvent.click(within(params).getByRole('button', { name: 'Erase area' }))
+
+    expect(within(params).getByText('clears the area')).toBeInTheDocument()
   })
 
   it('opens and closes editor sections from the rail', async () => {
-    await act(async () => {
-      render(<EditorPage />)
-    })
+    const { bar } = await renderPage()
+    fireEvent.click(within(bar).getByRole('button', { name: 'Rectangle' }))
 
-    expect(screen.getByRole('group', { name: 'Build tools' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Tool settings' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'File & export' }))
-    expect(screen.queryByRole('group', { name: 'Build tools' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Tool settings' })).not.toBeInTheDocument()
   })
 
   it('keeps the chosen door leaf angle across tool switches', async () => {
-    await act(async () => {
-      render(<EditorPage />)
-    })
+    const { bar } = await renderPage()
+    fireEvent.click(within(bar).getByRole('button', { name: 'Door' }))
 
-    const tools = screen.getByRole('group', { name: 'Build tools' })
-    fireEvent.click(within(tools).getByRole('button', { name: 'Door' }))
     const angle = screen.getByRole('spinbutton', { name: 'Leaf angle' })
     expect(angle).toHaveValue(30)
 
     fireEvent.change(angle, { target: { value: '45' } })
     expect(angle).toHaveValue(45)
 
-    fireEvent.click(within(tools).getByRole('button', { name: 'Wall' }))
-    fireEvent.click(within(tools).getByRole('button', { name: 'Door' }))
+    fireEvent.click(within(bar).getByRole('button', { name: 'Stairs' }))
+    expect(screen.queryByRole('spinbutton', { name: 'Leaf angle' })).toBeNull()
+
+    fireEvent.click(within(bar).getByRole('button', { name: 'Door' }))
     expect(screen.getByRole('spinbutton', { name: 'Leaf angle' })).toHaveValue(45)
   })
 
-  it('switches to the stairs tool from the build tools', async () => {
-    await act(async () => {
-      render(<EditorPage />)
-    })
+  it('switches to the stairs tool from the bottom bar', async () => {
+    const { bar } = await renderPage()
+    fireEvent.click(within(bar).getByRole('button', { name: 'Stairs' }))
 
-    const tools = screen.getByRole('group', { name: 'Build tools' })
-    fireEvent.click(within(tools).getByRole('button', { name: 'Stairs' }))
-
-    expect(within(tools).getByRole('button', { name: 'Stairs' })).toHaveAttribute(
+    expect(within(bar).getByRole('button', { name: 'Stairs' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
@@ -71,9 +80,7 @@ describe('EditorPage', () => {
   })
 
   it('drops the removed rail sections and trims the file panel to save/load/png', async () => {
-    await act(async () => {
-      render(<EditorPage />)
-    })
+    await renderPage()
 
     // Removed panels must not be reachable from the rail anymore.
     for (const name of ['Light', 'View', 'Generation', 'Elements']) {

@@ -5,6 +5,7 @@ import { useDevicePixelRatio } from '../hooks/useDevicePixelRatio'
 import { useMiddleButtonPan } from '../hooks/useMiddleButtonPan'
 import { useWheelZoom } from '../hooks/useWheelZoom'
 import { useObjectTools } from '../hooks/useObjectTools'
+import { useCursorTool } from '../hooks/useCursorTool'
 import { useHoverCell } from '../hooks/useHoverCell'
 import { useLightTool } from '../hooks/useLightTool'
 import { useDoorTool } from '../hooks/useDoorTool'
@@ -91,7 +92,9 @@ export function CanvasView({
       offsetY: current.offsetY - deltaY,
     }))
   }, [])
-  const { handlers: panHandlers } = useMiddleButtonPan(canvasRef, handlePan)
+  const { handlers: panHandlers } = useMiddleButtonPan(canvasRef, handlePan, {
+    leftButton: tool.type === 'pan',
+  })
 
   const onCommit = useCallback(
     (command: Command | null) => {
@@ -169,6 +172,14 @@ export function CanvasView({
     store,
     model,
     tool,
+  })
+
+  const { handlers: cursorHandlers } = useCursorTool({
+    canvasRef,
+    viewportRef,
+    store,
+    model,
+    active: tool.type === 'cursor',
     selectedId: selectedObjectId,
     onSelect: handleSelect,
   })
@@ -328,6 +339,7 @@ export function CanvasView({
       mergePointerHandlers(
         panHandlers,
         objectHandlers,
+        cursorHandlers,
         hoverHandlers,
         lightHandlers,
         doorHandlers,
@@ -339,6 +351,7 @@ export function CanvasView({
     [
       panHandlers,
       objectHandlers,
+      cursorHandlers,
       hoverHandlers,
       lightHandlers,
       doorHandlers,

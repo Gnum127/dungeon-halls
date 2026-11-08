@@ -19,6 +19,7 @@ import { useWallTool } from '../hooks/useWallTool'
 import type { EditorStore } from '../store/EditorStore'
 import type { Command } from '../model/commands'
 import { renderMap } from '../render/renderMap'
+import type { TextureRenderContext } from '../render/sprites/loader'
 import { drawHoverHighlight } from '../render/hoverHighlight'
 import { drawSnapCandidates, toolUsesHoverSnap } from '../render/snapPreview'
 import { drawGhostPreview } from '../render/ghostPreview'
@@ -42,6 +43,8 @@ interface CanvasViewProps {
   tileType: TileTypeName
   /** Авто-стены: пересчитывать контур при построении регионов. */
   autoWalls: boolean
+  /** Атлас текстур ландшафта и объектов (необязателен — иначе цветной fallback). */
+  textures?: TextureRenderContext
 }
 
 /** Параметры инструмента света по умолчанию; панель скрыта (этапы 21/24). */
@@ -55,6 +58,7 @@ export function CanvasView({
   onSelectObject,
   tileType,
   autoWalls,
+  textures,
 }: CanvasViewProps) {
   const model = useEditor(store)
   const wrapRef = useRef<HTMLDivElement | null>(null)
@@ -212,7 +216,7 @@ export function CanvasView({
     if (!ctx) return
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    renderMap(ctx, model, viewport)
+    renderMap(ctx, model, viewport, textures)
 
     if (tool.type === 'stairs' && stairsSelectedId) {
       const selected = model.stairs.find((stairs) => stairs.id === stairsSelectedId)
@@ -337,6 +341,7 @@ export function CanvasView({
     stairsSelectedId,
     tileType,
     autoWalls,
+    textures,
   ])
 
   const pointerHandlers = useMemo(

@@ -3,10 +3,10 @@ import { OBJECT_KINDS } from '../../model/objects'
 import type { TileTypeName } from '@/shared/tiles'
 import { TILE_TYPES } from '@/shared/tiles'
 
-export const SPRITE_MANIFEST_VERSION = 1
+export const TEXTURE_MANIFEST_VERSION = 2
 
-/** Путь к манифесту относительно base URL статики Vite. */
-export const SPRITE_MANIFEST_PATH = 'sprites/manifest.json'
+/** Путь к манифесту текстур относительно base URL статики Vite. */
+export const TEXTURE_MANIFEST_PATH = 'sprites/manifest.json'
 
 export const ELEMENT_IMAGE_MANIFEST_VERSION = 1
 
@@ -24,17 +24,33 @@ export interface ElementImageManifest {
   readonly items: Readonly<Record<string, string>>
 }
 
+/** Текстура ландшафта: бесшовная картинка `size×size`, тайлится по региону. */
+export interface TileTextureEntry {
+  readonly path: string
+  /** Размер текстурной плитки в пикселях (сторона квадрата). */
+  readonly size: number
+  /**
+   * Опциональный пул вариантов: при тайлинге вариант выбирается
+   * детерминированно по координате текстурной плитки (`shared/random`).
+   * Если пул задан, он предпочитается одиночному `path`.
+   */
+  readonly pool?: readonly string[]
+}
+
+/** Текстура объекта: картинка растягивается на footprint (без тайлинга). */
+export interface ObjectTextureEntry {
+  readonly path: string
+}
+
 /**
- * Записи опциональны: нет записи — рендер уходит в fallback на цвет.
- * Единственный источник путей к спрайтам — манифест.
- * `tilePools` — необязательный пул вариантов текстуры тайла: при тайлинге
- * варианта выбирается детерминированно по координате клетки (shared/random).
+ * Манифест текстур (v2): тайлы ландшафта тайлятся под сеткой, текстуры
+ * объектов растягиваются на footprint поверх сетки. Записи опциональны:
+ * нет записи — рендер уходит в fallback на цвет.
  */
-export interface SpriteManifest {
-  readonly version: typeof SPRITE_MANIFEST_VERSION
-  readonly tiles: Partial<Record<TileTypeName, string>>
-  readonly objects: Partial<Record<ObjectKindId, string>>
-  readonly tilePools?: Partial<Record<TileTypeName, readonly string[]>>
+export interface TextureManifest {
+  readonly version: typeof TEXTURE_MANIFEST_VERSION
+  readonly tileTextures: Partial<Record<TileTypeName, TileTextureEntry>>
+  readonly objectTextures: Partial<Record<ObjectKindId, ObjectTextureEntry>>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -51,7 +67,7 @@ export function validateElementManifest(data: unknown): ElementImageManifest | n
   const { version, items } = data
   if (version !== ELEMENT_IMAGE_MANIFEST_VERSION) return null
 
-  const validatedItems = validatePaths(items, null)
+  const validatedItems = validateStringMap(items)
   if (!validatedItems) return null
 
   return {
@@ -60,69 +76,77 @@ export function validateElementManifest(data: unknown): ElementImageManifest | n
   }
 }
 
-function validatePaths(
-  value: unknown,
-  allowedKeys: readonly string[] | null,
-): Record<string, string> | null {
+function validateStringMap(value: unknown): Record<string, string> | null {
   if (!isRecord(value)) return null
   const paths: Record<string, string> = {}
   for (const [key, path] of Object.entries(value)) {
-    if (
-      (allowedKeys && !allowedKeys.includes(key)) ||
-      typeof path !== 'string' ||
-      path.length === 0
-    ) {
-      return null
-    }
+    if (typeof path !== 'string' || path.length === 0) return null
     paths[key] = path
   }
   return paths
 }
 
 /**
- * Строгая валидация: битый JSON / неизвестные ключи тайлов или видов /
- * неподдерживаемая version ⇒ null («манифест невалиден») — вызывающий
- * уходит в цветной режим, падения нет. Отсутствие записи ошибкой не является.
+ * Строгая валидация манифеста текстур: битый JSON / неизвестные ключи тайлов
+ * или видов / неположительный `size` / неподдерживаемая version ⇒ null
+ * («манифест невалиден») — вызывающий уходит в цветной режим, падения нет.
+ * Отсутствие записи ошибкой не является.
  */
-export function validateManifest(data: unknown): SpriteManifest | null {
+export function validateTextureManifest(data: unknown): TextureManifest | null {
   if (!isRecord(data)) return null
-  const { version, tiles, objects, tilePools } = data
-  if (version !== SPRITE_MANIFEST_VERSION) return null
+  const { version, tileTextures, objectTextures } = data
+  if (version !== TEXTURE_MANIFEST_VERSION) return null
 
-  const validatedTiles = validatePaths(tiles, TILE_TYPES as readonly string[])
+  const validatedTiles = validateTileTextures(tileTextures)
   if (!validatedTiles) return null
-  const validatedObjects = validatePaths(objects, OBJECT_KINDS as readonly string[])
+  const validatedObjects = validateObjectTextures(objectTextures)
   if (!validatedObjects) return null
 
-  const manifest: SpriteManifest = {
-    version: SPRITE_MANIFEST_VERSION,
-    tiles: validatedTiles,
-    objects: validatedObjects,
+  return {
+    version: TEXTURE_MANIFEST_VERSION,
+    tileTextures: validatedTiles,
+    objectTextures: validatedObjects,
   }
-  if (tilePools === undefined) return manifest
-
-  const validatedPools = validatePools(tilePools)
-  if (!validatedPools) return null
-  return { ...manifest, tilePools: validatedPools }
 }
 
-/**
- * Пул вариантов текстур: ключи — только известные тайлы, значения — непустые
- * массивы непустых путей (пустой пул бессмыслен и отклоняется).
- */
-function validatePools(value: unknown): Partial<Record<TileTypeName, readonly string[]>> | null {
+function validateTileTextures(
+  value: unknown,
+): Partial<Record<TileTypeName, TileTextureEntry>> | null {
   if (!isRecord(value)) return null
-  const pools: Partial<Record<TileTypeName, readonly string[]>> = {}
-  for (const [key, paths] of Object.entries(value)) {
+  const entries: Partial<Record<TileTypeName, TileTextureEntry>> = {}
+  for (const [key, entry] of Object.entries(value)) {
     if (!(TILE_TYPES as readonly string[]).includes(key)) return null
-    if (
-      !Array.isArray(paths) ||
-      paths.length === 0 ||
-      !paths.every((path) => typeof path === 'string' && path.length > 0)
-    ) {
-      return null
+    if (!isRecord(entry)) return null
+    const { path, size, pool } = entry
+    if (typeof path !== 'string' || path.length === 0) return null
+    if (typeof size !== 'number' || !Number.isFinite(size) || size <= 0) return null
+    if (pool !== undefined) {
+      if (
+        !Array.isArray(pool) ||
+        pool.length === 0 ||
+        !pool.every((variant) => typeof variant === 'string' && variant.length > 0)
+      ) {
+        return null
+      }
+      entries[key as TileTypeName] = { path, size, pool: pool as string[] }
+      continue
     }
-    pools[key as TileTypeName] = paths as string[]
+    entries[key as TileTypeName] = { path, size }
   }
-  return pools
+  return entries
+}
+
+function validateObjectTextures(
+  value: unknown,
+): Partial<Record<ObjectKindId, ObjectTextureEntry>> | null {
+  if (!isRecord(value)) return null
+  const entries: Partial<Record<ObjectKindId, ObjectTextureEntry>> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (!(OBJECT_KINDS as readonly string[]).includes(key)) return null
+    if (!isRecord(entry)) return null
+    const { path } = entry
+    if (typeof path !== 'string' || path.length === 0) return null
+    entries[key as ObjectKindId] = { path }
+  }
+  return entries
 }

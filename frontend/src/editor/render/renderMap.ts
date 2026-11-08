@@ -7,7 +7,7 @@ import type { MapModel } from '../model/types'
 import type { TerrainRegion } from '../model/regions'
 import type { StairsPolygon } from '../model/stairs'
 import type { Point } from '@/shared/point'
-import type { SpriteRenderContext } from './sprites/loader'
+import type { TextureRenderContext } from './sprites/loader'
 import {
   CANVAS_BACKGROUND_COLOR,
   DOOR_FILL_COLOR,
@@ -34,6 +34,7 @@ import {
   wallRuns,
 } from './geometry'
 import { pickIndexFromCoords } from '@/shared/random'
+import { DEFAULT_CELL_SIZE } from '@/config/map.config'
 import type { Viewport } from './viewport'
 
 export interface RenderMapOptions {
@@ -42,34 +43,46 @@ export interface RenderMapOptions {
 }
 
 /**
+ * Верхний предел числа плиток текстуры на один регион: страховка от абсурдно
+ * малого `size` в манифесте (иначе тайлинг мог бы «подвесить» канву). При
+ * превышении регион остаётся с цветной заливкой.
+ */
+export const MAX_TEXTURE_TILES_PER_REGION = 20_000
+
+/**
  * Изображение объекта по приоритету:
- * override изображения для вида → defaultImage вида → спрайт-ассет → undefined
- * (= цветной свотч). Отсутствие записи пула или нарушение дефолта молча
- * уходит ниже по цепочке, без лога — как в спрайт-пайплайне.
+ * override изображения для вида (localStorage) → текстурный ассет вида (манифест
+ * текстур) → defaultImage вида (element-images) → undefined (= цветной свотч).
+ *
+ * Текстурный ассет идёт ВЫШЕ element-image по умолчанию: сгенерированные
+ * крупные текстуры объектов — основная графика этапа 24, а `defaultImage` из
+ * element-images остаётся лишь фолбэком для видов без текстуры. Явный выбор
+ * пользователя (override) по-прежнему побеждает всё.
  */
 function resolveObjectImage(
-  sprites: SpriteRenderContext | undefined,
+  textures: TextureRenderContext | undefined,
   kindId: string,
 ): HTMLImageElement | undefined {
-  if (!sprites || !isKnownKind(kindId)) return undefined
+  if (!textures || !isKnownKind(kindId)) return undefined
 
-  const overrideId = sprites.imageOverrides?.[kindId]
-  const overrideImage = overrideId ? sprites.elementImages[overrideId] : undefined
+  const overrideId = textures.imageOverrides?.[kindId]
+  const overrideImage = overrideId ? textures.elementImages[overrideId] : undefined
   if (overrideImage) return overrideImage
+
+  const texture = textures.objectTextures[kindId]
+  if (texture) return texture
 
   const entry = OBJECT_KIND_ENTRIES.find((e) => e.id === kindId)
   const defaultId = entry?.defaultImage
-  const defaultImage = defaultId ? sprites.elementImages[defaultId] : undefined
-  if (defaultImage) return defaultImage
-
-  return sprites.objects[kindId]
+  const defaultImage = defaultId ? textures.elementImages[defaultId] : undefined
+  return defaultImage
 }
 
 /**
  * Единственная точка рендера карты: чистая функция от модели и вьюпорта.
  * Порядок слоёв: фон → регионы (по zOrder) → лестницы → сетка → объекты →
- * стены → двери → свет. Спрайтовый режим включается опциональным атласом;
- * отсутствие атласа/спрайта = fallback на цвет.
+ * стены → двери → свет. Текстуры всегда с fallback на цвет: отсутствие
+ * атласа/текстуры = цветная плитка/свотч.
  *
  * Контракт: вызывающий обязан выставить ctx.setTransform(dpr,…) и передать
  * viewport в CSS-пикселях; renderMap работает в CSS-координатах.
@@ -78,7 +91,7 @@ export function renderMap(
   ctx: CanvasRenderingContext2D,
   model: MapModel,
   viewport: Viewport,
-  sprites?: SpriteRenderContext,
+  textures?: TextureRenderContext,
   options?: RenderMapOptions,
 ): void {
   const { width, height } = viewport
@@ -86,13 +99,9 @@ export function renderMap(
   ctx.fillStyle = CANVAS_BACKGROUND_COLOR
   ctx.fillRect(0, 0, width, height)
 
-  // Пиксель-арт при зуме остаётся чётким; предыдущее значение возвращаем.
-  const smoothingBefore = ctx.imageSmoothingEnabled
-  if (sprites) ctx.imageSmoothingEnabled = false
-
   const sortedRegions = [...model.regions].sort((a, b) => a.zOrder - b.zOrder)
   for (const region of sortedRegions) {
-    drawRegion(ctx, region, viewport, sprites)
+    drawRegion(ctx, region, viewport, textures)
   }
 
   for (const stairs of model.stairs) {
@@ -102,7 +111,7 @@ export function renderMap(
   drawGridPoints(ctx, model, viewport)
 
   for (const object of model.objects) {
-    drawObject(ctx, object, viewport, sprites)
+    drawObject(ctx, object, viewport, textures)
   }
 
   for (const wall of model.walls) {
@@ -110,10 +119,8 @@ export function renderMap(
   }
 
   for (const door of model.doors) {
-    drawDoor(ctx, door, viewport, sprites)
+    drawDoor(ctx, door, viewport, textures)
   }
-
-  if (sprites) ctx.imageSmoothingEnabled = smoothingBefore
 
   if (options?.includeLight !== false) {
     drawLights(ctx, model, viewport)
@@ -137,41 +144,50 @@ function tracePolygonPoints(
   ctx.closePath()
 }
 
-/** Заливка полигона региона цветом; в спрайтовом режиме — тайлинг текстуры. */
+/**
+ * Заливка полигона региона цветом (fallback) + тайлинг текстуры поверх, если
+ * загружена. Текстура привязана к миру: ассет `size`px = `size / DEFAULT_CELL_SIZE`
+ * клеткам, поэтому на экране плитка масштабируется с зумом
+ * (`worldSize * viewport.cellSize`), а фаза тайлинга выровнена по мировому нулю
+ * (рисунок согласован между регионами и независим от вьюпорта). При абсурдно
+ * большом числе плиток регион остаётся с цветной заливкой.
+ */
 function drawRegion(
   ctx: CanvasRenderingContext2D,
   region: TerrainRegion,
   viewport: Viewport,
-  sprites?: SpriteRenderContext,
+  textures?: TextureRenderContext,
 ): void {
   const { cellSize, offsetX, offsetY } = viewport
   tracePolygonPoints(ctx, region.polygon, viewport)
   ctx.fillStyle = TILE_COLORS[region.tileType] ?? CANVAS_BACKGROUND_COLOR
   ctx.fill()
 
-  const pool = sprites?.tilePools?.[region.tileType]
-  const hasPool = pool !== undefined && pool.length > 0
-  const sprite = sprites?.tiles[region.tileType]
-  if (hasPool || sprite) {
-    const bounds = regionBounds(region)
-    const startX = Math.floor(bounds.minX)
-    const startY = Math.floor(bounds.minY)
-    const endX = Math.ceil(bounds.maxX)
-    const endY = Math.ceil(bounds.maxY)
-    ctx.save()
-    // Путь контекста мог быть изменён между вызовами — трассируем заново.
-    tracePolygonPoints(ctx, region.polygon, viewport)
-    ctx.clip()
-    for (let row = startY; row < endY; row += 1) {
-      for (let col = startX; col < endX; col += 1) {
-        // Пул: вариант выбирается детерминированно по координате клетки.
-        const image = hasPool ? pool[pickIndexFromCoords(col, row, pool.length)] : sprite
-        if (!image) continue
-        ctx.drawImage(image, col * cellSize - offsetX, row * cellSize - offsetY, cellSize, cellSize)
-      }
+  const texture = textures?.tileTextures[region.tileType]
+  if (!texture) return
+  const { image, size, pool } = texture
+  // Ассет = size/REF клеток; на экране плитка масштабируется с зумом.
+  const worldSize = size / DEFAULT_CELL_SIZE
+  const screenSize = worldSize * cellSize
+  const bounds = regionBounds(region)
+  const startCol = Math.floor(bounds.minX / worldSize)
+  const startRow = Math.floor(bounds.minY / worldSize)
+  const endCol = Math.ceil(bounds.maxX / worldSize)
+  const endRow = Math.ceil(bounds.maxY / worldSize)
+  if ((endCol - startCol) * (endRow - startRow) > MAX_TEXTURE_TILES_PER_REGION) return
+
+  // Путь полигона ещё активен после fill(): clip() обрезает тайлинг по региону.
+  ctx.save()
+  ctx.clip()
+  for (let row = startRow; row < endRow; row += 1) {
+    for (let col = startCol; col < endCol; col += 1) {
+      // Пул: вариант выбирается детерминированно по координате текстурной плитки.
+      const variant =
+        pool && pool.length > 0 ? pool[pickIndexFromCoords(col, row, pool.length)] : image
+      ctx.drawImage(variant, col * screenSize - offsetX, row * screenSize - offsetY, screenSize, screenSize)
     }
-    ctx.restore()
   }
+  ctx.restore()
 }
 
 /**
@@ -244,7 +260,7 @@ function drawObject(
   ctx: CanvasRenderingContext2D,
   object: MapModel['objects'][number],
   viewport: Viewport,
-  sprites?: SpriteRenderContext,
+  textures?: TextureRenderContext,
 ): void {
   const { width, height, cellSize, offsetX, offsetY } = viewport
   // x/y — float-координата левого-верхнего угла в мировых клетках.
@@ -263,7 +279,7 @@ function drawObject(
     return
   }
   const rotation = object.rotation ?? 0
-  const sprite = resolveObjectImage(sprites, object.kindId)
+  const image = resolveObjectImage(textures, object.kindId)
 
   ctx.save()
   ctx.translate(cx, cy)
@@ -271,8 +287,8 @@ function drawObject(
     ctx.rotate((rotation * Math.PI) / 180)
   }
 
-  if (sprite) {
-    ctx.drawImage(sprite, -w / 2, -h / 2, w, h)
+  if (image) {
+    ctx.drawImage(image, -w / 2, -h / 2, w, h)
   } else {
     const baseRadius = Math.max(3, cellSize * 0.3)
     const rx = baseRadius * scaleX
@@ -340,7 +356,7 @@ function drawDoor(
   ctx: CanvasRenderingContext2D,
   door: MapModel['doors'][number],
   viewport: Viewport,
-  sprites?: SpriteRenderContext,
+  textures?: TextureRenderContext,
 ): void {
   const { cellSize, offsetX, offsetY } = viewport
   const thickness = Math.max(4, cellSize * DOOR_THICKNESS_FRACTION)
@@ -353,7 +369,7 @@ function drawDoor(
   ctx.rotate(angle)
 
   const image =
-    door.imageId && door.openAngle === 0 ? sprites?.elementImages[door.imageId] : undefined
+    door.imageId && door.openAngle === 0 ? textures?.elementImages[door.imageId] : undefined
   ctx.fillStyle = DOOR_FILL_COLOR
   if (image) {
     ctx.drawImage(image, 0, -thickness / 2, length, thickness)

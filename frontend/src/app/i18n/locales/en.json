@@ -48,13 +48,6 @@
       "radius": "Radius (cells)",
       "color": "Light color"
     },
-    "renderMode": {
-      "label": "Graphics",
-      "colors": "Color tiles",
-      "sprites": "Sprites",
-      "loading": "Loading sprites…",
-      "unavailable": "Sprites are unavailable, color tiles are shown"
-    },
     "palette": {
       "label": "Terrain types"
     },

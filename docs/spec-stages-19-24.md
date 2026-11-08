@@ -536,6 +536,10 @@ interface MapObject {
   `h = obj.scale.h * cellSize`.
 - Поворот вокруг центра.
 - Текстура выбирается: override (localStorage) → `defaultImage` → манифест.
+  ПРИМЕЧАНИЕ (реализация): приоритет текстурного ассета изменён на
+  override → манифест (`objectTextures`) → `defaultImage` → цвет, иначе
+  сгенерированные текстуры объектов не использовались бы (у всех видов есть
+  `defaultImage`). См. `docs/roadmap.md` (этап 24).
 
 **Манифест объектов:**
 - `public/sprites/manifest.json` — секция `objectTextures`:

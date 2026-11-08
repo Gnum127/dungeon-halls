@@ -31,7 +31,12 @@ UVTT-экспорт, клеточная модель `tiles: Uint8Array` и рё
 привязан к сетке (свисание за правый/нижний край разрешено, origin ≥ 0);
 размещение и перетаскивание в произвольной точке, Shift — снап 0.5; реестр:
 `stairs` → `tree`, `gridRestriction` убран; `ObjectPalette` без поиска и кнопки
-«Выбор»; `MAP_VERSION = 6`. Следующий — этап 24 (текстурный пайплайн).
+«Выбор»; `MAP_VERSION = 6`.
+Этап 24: текстурный пайплайн — режим отображения единственный (текстуры + цветной
+fallback); `RenderModePicker`/`renderMode.ts`/`useSpriteAtlas` удалены, добавлены
+`useTextureAtlas` и манифест `public/sprites/manifest.json` v2
+(`tileTextures` с `size`/пулом, `objectTextures`); проп `sprites` → `textures`.
+План этапов 19–24 выполнен.
 
 ## Перед началом работы
 
@@ -125,11 +130,12 @@ npm run build      # сборка + проверка типов tsc
   canvas и SVG/PDF. Инструмент в 3 клика (`stairsVertices`: 4-я вершина —
   зеркало относительно серединного перпендикуляра к базе), снап 0.5; клик
   выделяет (`stairsHitTest`), Delete/правый клик удаляет.
-- **Псевдорандом тайлов**: `shared/random.ts` — `hashFromCoords(x, y): number`,
-  на основе `mulberry32` (реэкспорт из generator/). Seed = `x * 31 + y`.
-  Индекс текстуры = `hash % pool.length`. Пул `tilePools` — в манифесте
-  спрайтов (опциональная секция); рендер предпочитает пул одиночному спрайту,
-  вариант выбирается по координате клетки (`pickIndexFromCoords`).
+- **Псевдорандом текстур**: `shared/random.ts` — собственный целочисленный хеш
+  `hashFromCoords(x, y)` (`Math.imul`-микс; без зависимости от `generator/`),
+  `pickIndexFromCoords(x, y, len)` = `hash % len`. Пул — `tileTextures[tile].pool`
+  в манифесте текстур (опционально); рендер предпочитает пул одиночному `path`,
+  вариант выбирается по индексу ТЕКСТУРНОЙ плитки (args — номера плиток `col`,
+  `row`, а не координаты в клетках).
 - **Авто-стены**: ОДНА составная команда `addRegionWithWalls`, не две отдельных
   (иначе undo в два шага). Реализация (`model/autoWalls.ts`): точная граница
   union'а непустых регионов через boolean-операции `polygon-clipping`
@@ -168,6 +174,17 @@ npm run build      # сборка + проверка типов tsc
   (`useWorldPointFromEvent`); рендер объектов — ПОСЛЕ точечной сетки (поверх).
   `footprintCells`/`isCellOccupied` удалены; в `useCursorTool` — float-драг и
   Shift-снап 0.5.
+
+- **Текстурный пайплайн (этап 24)**: манифест `public/sprites/manifest.json` v2 —
+  `tileTextures: { tile: { path, size, pool? } }` (бесшовные текстуры, тайлятся
+  шагом `size` пикселей, под сеткой, клип по полигону) и
+  `objectTextures: { kind: { path } }` (растягиваются на footprint, поверх сетки).
+  Загрузчик `render/sprites/loader.ts` (`loadTextureManifest`/`loadElementManifest`/
+  `loadTextures`), хук `hooks/useTextureAtlas.ts`. Атлас → `TextureRenderContext`
+  (`textures`) в `CanvasView`/`MapFileActions`, дальше в `renderMap`/PNG-экспорт.
+  Приоритет текстуры объекта: element-image override → `objectTextures` →
+  `defaultImage` → цвет. `element-images` остаются для дверей и явного выбора.
+  Режима «цвета/спрайты» нет — `RenderModePicker`/`renderMode.ts` удалены.
 
 - **Удаления (этап 14)**: код, содержащий `gridType`, `hex`, `vtt`, `uvtt`,
   `WallEdge`, `WallSide`, `normalizeEdge`, `edgeKey`, `Uint8Array` в модели

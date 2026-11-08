@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderMap } from './renderMap'
+import { MAX_TEXTURE_TILES_PER_REGION, renderMap } from './renderMap'
 import { wallPath } from './geometry'
 import { makeFakeCtx } from './testFakeCtx'
 import { createTerrainRegion } from '../model/regions'
@@ -23,6 +23,7 @@ import {
 } from './colors'
 import type { MapModel } from '../model/types'
 import type { Point } from '@/shared/point'
+import { pickIndexFromCoords } from '@/shared/random'
 import type { Viewport } from './viewport'
 
 const viewport: Viewport = { width: 256, height: 256, cellSize: 32, offsetX: 0, offsetY: 0 }
@@ -270,9 +271,24 @@ describe('renderMap', () => {
       openAngle: 0,
       imageId: 'door-iron',
     }
-    const sprites = { tiles: {}, objects: {}, elementImages: {}, tilePools: {} }
+    const textures = { tileTextures: {}, objectTextures: {}, elementImages: {} }
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ doors: [door] }), viewport, sprites)
+    renderMap(ctx, baseModel({ doors: [door] }), viewport, textures)
+
+    expect(calls.some((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR)).toBe(true)
+    expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
+  })
+
+  it('falls back to a filled door when the whole atlas is absent', () => {
+    const door = {
+      id: 'd1',
+      a: { x: 1, y: 0 },
+      b: { x: 2, y: 0 },
+      openAngle: 0,
+      imageId: 'door-iron',
+    }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ doors: [door] }), viewport)
 
     expect(calls.some((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR)).toBe(true)
     expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
@@ -287,9 +303,9 @@ describe('renderMap', () => {
       imageId: 'door-iron',
     }
     const image = {} as HTMLImageElement
-    const sprites = { tiles: {}, objects: {}, elementImages: { 'door-iron': image }, tilePools: {} }
+    const textures = { tileTextures: {}, objectTextures: {}, elementImages: { 'door-iron': image } }
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ doors: [door] }), viewport, sprites)
+    renderMap(ctx, baseModel({ doors: [door] }), viewport, textures)
 
     expect(calls.some((c) => c.op === 'drawImage' && c.args[0] === image)).toBe(true)
     expect(calls.some((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR)).toBe(false)
@@ -305,9 +321,9 @@ describe('renderMap', () => {
       imageId: 'door-iron',
     }
     const image = {} as HTMLImageElement
-    const sprites = { tiles: {}, objects: {}, elementImages: { 'door-iron': image }, tilePools: {} }
+    const textures = { tileTextures: {}, objectTextures: {}, elementImages: { 'door-iron': image } }
     const { ctx, raw, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ doors: [door] }), viewport, sprites)
+    renderMap(ctx, baseModel({ doors: [door] }), viewport, textures)
 
     expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
     expect(
@@ -412,73 +428,288 @@ describe('renderMap', () => {
     expect(calls.some((c) => c.op === 'fill' && c.fillStyle === LIGHT_GLOW_COLOR)).toBe(false)
   })
 
-  it('tiles a region with its sprite and restores image smoothing', () => {
-    const sprite = {} as HTMLImageElement
-    const sprites = { tiles: { floor: sprite }, objects: {}, elementImages: {}, tilePools: {} }
-    const region = createTerrainRegion('floor', square(0, 0, 2, 2), 0, 'r')
-    const { ctx, raw, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ regions: [region] }), viewport, sprites)
+  it('draws an object with its texture stretched to the footprint', () => {
+    const image = {} as HTMLImageElement
+    const textures = { tileTextures: {}, objectTextures: { table: image }, elementImages: {} }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(
+      ctx,
+      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1, scale: { w: 2, h: 1 } }] }),
+      viewport,
+      textures,
+    )
 
-    expect(calls.some((c) => c.op === 'clip')).toBe(true)
-    expect(calls.some((c) => c.op === 'drawImage')).toBe(true)
-    expect(raw.imageSmoothingEnabled).toBe(true)
+    // w=64, h=32 → drawImage(-32, -16, 64, 32) around the translated centre.
+    const drawn = calls.find((c) => c.op === 'drawImage' && c.args[0] === image)
+    expect(drawn?.args).toEqual([image, -32, -16, 64, 32])
+    // No colour swatch when a texture is present.
+    expect(calls.some((c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.table)).toBe(false)
   })
 
-  it('tiles a region with pseudo-random variants from the tile pool', () => {
-    const single = {} as HTMLImageElement
-    const variantA = {} as HTMLImageElement
-    const variantB = {} as HTMLImageElement
-    const sprites = {
-      tiles: { floor: single },
-      objects: {},
+  it('rotates an object texture around its centre', () => {
+    const image = {} as HTMLImageElement
+    const textures = { tileTextures: {}, objectTextures: { table: image }, elementImages: {} }
+    const { ctx, calls, raw } = makeFakeCtx()
+    renderMap(
+      ctx,
+      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1, rotation: 90 }] }),
+      viewport,
+      textures,
+    )
+
+    expect(raw.lastRotate).toBeCloseTo(Math.PI / 2)
+    expect(calls.some((c) => c.op === 'drawImage' && c.args[0] === image)).toBe(true)
+  })
+
+  it('prefers the user image override over the object texture', () => {
+    const texture = {} as HTMLImageElement
+    const override = {} as HTMLImageElement
+    const textures = {
+      tileTextures: {},
+      objectTextures: { table: texture },
+      elementImages: { 'table-round': override },
+      imageOverrides: { table: 'table-round' },
+    }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }), viewport, textures)
+
+    const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
+    expect(drawn).toContain(override)
+    expect(drawn).not.toContain(texture)
+  })
+
+  it('falls through to the object texture when the override image is absent', () => {
+    const texture = {} as HTMLImageElement
+    const textures = {
+      tileTextures: {},
+      objectTextures: { table: texture },
       elementImages: {},
-      tilePools: { floor: [variantA, variantB] },
+      imageOverrides: { table: 'table-round' },
+    }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }), viewport, textures)
+
+    expect(calls.some((c) => c.op === 'drawImage' && c.args[0] === texture)).toBe(true)
+  })
+
+  it('treats an explicit null override as the kind default (uses the manifest texture)', () => {
+    const texture = {} as HTMLImageElement
+    const defaultImage = {} as HTMLImageElement
+    const textures = {
+      tileTextures: {},
+      objectTextures: { table: texture },
+      elementImages: { 'table-wooden': defaultImage },
+      imageOverrides: { table: null },
+    }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }), viewport, textures)
+
+    const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
+    expect(drawn).toContain(texture)
+    expect(drawn).not.toContain(defaultImage)
+  })
+
+  it('falls back to the kind default element image when no texture is loaded', () => {
+    const fallback = {} as HTMLImageElement
+    const textures = {
+      tileTextures: {},
+      objectTextures: {},
+      elementImages: { 'table-wooden': fallback },
+    }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }), viewport, textures)
+
+    expect(calls.some((c) => c.op === 'drawImage' && c.args[0] === fallback)).toBe(true)
+  })
+
+  it('prefers the kind object texture over its default element image', () => {
+    const texture = {} as HTMLImageElement
+    const elementImage = {} as HTMLImageElement
+    const textures = {
+      tileTextures: {},
+      objectTextures: { table: texture },
+      elementImages: { 'table-wooden': elementImage },
+    }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }), viewport, textures)
+
+    const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
+    expect(drawn).toContain(texture)
+    expect(drawn).not.toContain(elementImage)
+  })
+
+  it('draws landscape textures before the grid and object textures after it', () => {
+    const regionImage = {} as HTMLImageElement
+    const objectImage = {} as HTMLImageElement
+    const textures = {
+      tileTextures: { floor: { image: regionImage, size: 64 } },
+      objectTextures: { table: objectImage },
+      elementImages: {},
     }
     const region = createTerrainRegion('floor', square(0, 0, 4, 4), 0, 'r')
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ regions: [region] }), viewport, sprites)
+    renderMap(
+      ctx,
+      baseModel({ regions: [region], objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }),
+      viewport,
+      textures,
+    )
 
-    const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
-    expect(drawn).toHaveLength(16)
-    expect(drawn).not.toContain(single)
-    expect(new Set(drawn).size).toBe(2)
+    const regionIndex = calls.findIndex((c) => c.op === 'drawImage' && c.args[0] === regionImage)
+    const gridIndex = calls.findIndex((c) => c.op === 'arc')
+    const objectIndex = calls.findIndex((c) => c.op === 'drawImage' && c.args[0] === objectImage)
+    expect(regionIndex).toBeGreaterThanOrEqual(0)
+    expect(gridIndex).toBeGreaterThan(regionIndex)
+    expect(objectIndex).toBeGreaterThan(gridIndex)
   })
 
-  it('tiles deterministically: the same region renders the same variants', () => {
-    const variantA = {} as HTMLImageElement
-    const variantB = {} as HTMLImageElement
-    const sprites = {
-      tiles: {},
-      objects: {},
+  it('tiles a region with its texture, scaled by the viewport cell size', () => {
+    const image = {} as HTMLImageElement
+    const textures = {
+      tileTextures: { floor: { image, size: 64 } },
+      objectTextures: {},
       elementImages: {},
-      tilePools: { floor: [variantA, variantB] },
+    }
+    // size 64 = 1 клетка (ref 64); cellSize 32 → плитка 32px; 4×4 клетки → 4×4 плиток.
+    const region = createTerrainRegion('floor', square(0, 0, 4, 4), 0, 'r')
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ regions: [region] }), viewport, textures)
+
+    expect(calls.some((c) => c.op === 'clip')).toBe(true)
+    const drawn = calls.filter((c) => c.op === 'drawImage')
+    expect(drawn).toHaveLength(16)
+    expect(drawn[0].args).toEqual([image, 0, 0, 32, 32])
+    expect(drawn[15].args).toEqual([image, 96, 96, 32, 32])
+  })
+
+  it('scales the texture tile with the zoom (cell size)', () => {
+    const image = {} as HTMLImageElement
+    const textures = {
+      tileTextures: { floor: { image, size: 128 } },
+      objectTextures: {},
+      elementImages: {},
+    }
+    const region = createTerrainRegion('floor', square(0, 0, 4, 4), 0, 'r')
+    const { ctx, calls } = makeFakeCtx(512, 512)
+    renderMap(ctx, baseModel({ regions: [region] }), { ...viewport, cellSize: 64 }, textures)
+
+    // size 128 = 2 клетки; cellSize 64 → плитка 128px; 4×4 клетки → 2×2 плиток.
+    const drawn = calls.filter((c) => c.op === 'drawImage')
+    expect(drawn).toHaveLength(4)
+    expect(drawn[0].args).toEqual([image, 0, 0, 128, 128])
+  })
+
+  it('anchors the texture phase to the world, independent of scroll', () => {
+    const image = {} as HTMLImageElement
+    const textures = {
+      tileTextures: { floor: { image, size: 64 } },
+      objectTextures: {},
+      elementImages: {},
+    }
+    // Регион не выровнен по мировому нулю; вьюпорт прокручен.
+    const region = createTerrainRegion('floor', square(0.5, 0.5, 2.5, 1.5), 0, 'r')
+    const scrolled: Viewport = { ...viewport, offsetX: 10, offsetY: 20 }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ regions: [region] }), scrolled, textures)
+
+    const drawn = calls.filter((c) => c.op === 'drawImage')
+    // worldSize 1 клетка; cols 0..2, rows 0..1 → 6 плиток, фаза от мирового нуля.
+    expect(drawn).toHaveLength(6)
+    expect(drawn[0].args).toEqual([image, -10, -20, 32, 32])
+    expect(drawn[5].args).toEqual([image, 54, 12, 32, 32])
+  })
+
+  it('falls back to colour when the texture tile count exceeds the cap', () => {
+    const image = {} as HTMLImageElement
+    const textures = {
+      tileTextures: { floor: { image, size: 64 } },
+      objectTextures: {},
+      elementImages: {},
+    }
+    const side = Math.ceil(Math.sqrt(MAX_TEXTURE_TILES_PER_REGION)) + 1
+    const region = createTerrainRegion('floor', square(0, 0, side, side), 0, 'r')
+    const { ctx, calls } = makeFakeCtx(64, 64)
+    renderMap(ctx, baseModel({ regions: [region] }), viewport, textures)
+
+    expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
+    expect(calls.some((c) => c.op === 'fill' && c.fillStyle === TILE_COLORS.floor)).toBe(true)
+  })
+
+  it('still tiles a region whose tile count is just under the cap', () => {
+    const image = {} as HTMLImageElement
+    const textures = {
+      tileTextures: { floor: { image, size: 64 } },
+      objectTextures: {},
+      elementImages: {},
+    }
+    const side = Math.floor(Math.sqrt(MAX_TEXTURE_TILES_PER_REGION)) - 2
+    const region = createTerrainRegion('floor', square(0, 0, side, side), 0, 'r')
+    const { ctx, calls } = makeFakeCtx(64, 64)
+    renderMap(ctx, baseModel({ regions: [region] }), viewport, textures)
+
+    expect(calls.filter((c) => c.op === 'drawImage')).toHaveLength(side * side)
+  })
+
+  it('tiles a region deterministically across renders', () => {
+    const image = {} as HTMLImageElement
+    const textures = {
+      tileTextures: { floor: { image, size: 64 } },
+      objectTextures: {},
+      elementImages: {},
     }
     const region = createTerrainRegion('floor', square(0, 0, 4, 4), 0, 'r')
     const first = makeFakeCtx()
     const second = makeFakeCtx()
-    renderMap(first.ctx, baseModel({ regions: [region] }), viewport, sprites)
-    renderMap(second.ctx, baseModel({ regions: [region] }), viewport, sprites)
+    renderMap(first.ctx, baseModel({ regions: [region] }), viewport, textures)
+    renderMap(second.ctx, baseModel({ regions: [region] }), viewport, textures)
 
     const drawnArgs = (calls: { op: string; args: unknown[] }[]) =>
       calls.filter((c) => c.op === 'drawImage').map((c) => c.args)
     expect(drawnArgs(second.calls)).toEqual(drawnArgs(first.calls))
   })
 
-  it('falls back to the single sprite when the pool is empty', () => {
-    const single = {} as HTMLImageElement
-    const sprites = {
-      tiles: { floor: single },
-      objects: {},
-      elementImages: {},
-      tilePools: { floor: [] },
-    }
-    const region = createTerrainRegion('floor', square(0, 0, 2, 2), 0, 'r')
+  it('renders a region with colour only when no texture is loaded', () => {
+    const region = createTerrainRegion('floor', square(0, 0, 4, 4), 0, 'r')
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ regions: [region] }), viewport, sprites)
+    renderMap(ctx, baseModel({ regions: [region] }), viewport)
 
-    const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
-    expect(drawn).toHaveLength(4)
-    expect(drawn.every((image) => image === single)).toBe(true)
+    expect(calls.some((c) => c.op === 'fill' && c.fillStyle === TILE_COLORS.floor)).toBe(true)
+    expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
+  })
+
+  it('tiles a region with deterministic variants from the texture pool', () => {
+    const base = {} as HTMLImageElement
+    const variantA = {} as HTMLImageElement
+    const variantB = {} as HTMLImageElement
+    const textures = {
+      tileTextures: { floor: { image: base, size: 64, pool: [variantA, variantB] } },
+      objectTextures: {},
+      elementImages: {},
+    }
+    const region = createTerrainRegion('floor', square(0, 0, 4, 4), 0, 'r')
+    const first = makeFakeCtx()
+    const second = makeFakeCtx()
+    renderMap(first.ctx, baseModel({ regions: [region] }), viewport, textures)
+    renderMap(second.ctx, baseModel({ regions: [region] }), viewport, textures)
+
+    const imagesOf = (calls: { op: string; args: unknown[] }[]) =>
+      calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
+    const firstImages = imagesOf(first.calls)
+    expect(firstImages).toHaveLength(16)
+    expect(firstImages).not.toContain(base)
+    expect(new Set(firstImages).size).toBeGreaterThan(1)
+    // Вариант — функция координаты плитки (col, row), а не порядка обхода:
+    // сверяем всю row-major последовательность (ловит и транспонирование, и
+    // смену обхода цикла).
+    const pool = [variantA, variantB]
+    const expected: HTMLImageElement[] = []
+    for (let row = 0; row < 4; row += 1) {
+      for (let col = 0; col < 4; col += 1) {
+        expected.push(pool[pickIndexFromCoords(col, row, pool.length)])
+      }
+    }
+    expect(firstImages).toEqual(expected)
+    expect(imagesOf(second.calls)).toEqual(firstImages)
   })
 })
 

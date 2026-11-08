@@ -3,7 +3,7 @@ import type { ChangeEvent as ReactChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { deserializeMap, serializeMap } from '../model/io'
 import { EXPORT_CELL_SIZE, exportMapToPng } from '../tools/pngExport'
-import type { SpriteRenderContext } from '../render/sprites/loader'
+import type { TextureRenderContext } from '../render/sprites/loader'
 import type { MapModel } from '../model/types'
 import styles from './MapFileActions.module.css'
 
@@ -13,15 +13,14 @@ interface MapFileActionsProps {
   getModel: () => MapModel
   onLoaded: (model: MapModel) => void
   onResult: (status: FileActionStatus) => void
-  /** Атлас спрайтов для PNG-экспорта; вызывающий пока его не передаёт —
-      всегда цветной экспорт (текстуры — этап 24). */
-  sprites?: SpriteRenderContext
+  /** Атлас текстур для PNG-экспорта; отсутствует — цветной экспорт. */
+  textures?: TextureRenderContext
   /** Инъекция для тестов: перехватывает браузерное скачивание. */
   download?: (filename: string, content: Blob | string, mime?: string) => void
   /** Инъекция для тестов: перехватывает чтение файла. */
   readJsonFile?: (file: File, onDone: (json: string) => void, onError: () => void) => void
   /** Инъекция для тестов: подменяет PNG-экспорт. */
-  exportPng?: (model: MapModel, sprites?: SpriteRenderContext) => Promise<Blob>
+  exportPng?: (model: MapModel, textures?: TextureRenderContext) => Promise<Blob>
 }
 
 const MAP_FILENAME = 'dungeon-halls-map.json'
@@ -51,11 +50,11 @@ function defaultReadJsonFile(
 }
 
 export function MapFileActions(props: MapFileActionsProps) {
-  const { getModel, onLoaded, onResult, sprites } = props
+  const { getModel, onLoaded, onResult, textures } = props
   const download = props.download ?? browserDownload
   const readFile = props.readJsonFile ?? defaultReadJsonFile
   const exportPng =
-    props.exportPng ?? ((model, sprites) => exportMapToPng(model, EXPORT_CELL_SIZE, sprites))
+    props.exportPng ?? ((model, textures) => exportMapToPng(model, EXPORT_CELL_SIZE, textures))
   const inputRef = useRef<HTMLInputElement | null>(null)
   const { t } = useTranslation()
 
@@ -67,7 +66,7 @@ export function MapFileActions(props: MapFileActionsProps) {
   function handleExportPng() {
     // Оборачиваем в Promise.resolve: инъекция может бросить синхронно.
     Promise.resolve()
-      .then(() => exportPng(getModel(), sprites))
+      .then(() => exportPng(getModel(), textures))
       .then((blob) => {
         download(MAP_PNG_FILENAME, blob, 'image/png')
         onResult('exported')

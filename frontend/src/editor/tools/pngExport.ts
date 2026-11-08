@@ -1,6 +1,6 @@
 import { renderMap } from '../render/renderMap'
 import { mapPixelBounds } from '../render/geometry'
-import type { SpriteRenderContext } from '../render/sprites/loader'
+import type { TextureRenderContext } from '../render/sprites/loader'
 import type { MapModel } from '../model/types'
 import type { PageRect } from '../print/pages'
 
@@ -55,16 +55,16 @@ export interface RenderToCanvasOptions {
 
 /**
  * Рендерит карту в offscreen canvas и отдаёт PNG через тот же renderMap,
- * что и на экране. Сетка сохраняется для печати. Атлас опционален:
+ * что и на экране. Сетка сохраняется для печати. Атлас текстур опционален:
  * недоступен/неполон — экспорт цветами, без ожидания и ошибок.
  */
 export function exportMapToPng(
   model: MapModel,
   cellSize = EXPORT_CELL_SIZE,
-  sprites?: SpriteRenderContext,
+  textures?: TextureRenderContext,
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    const canvas = renderToCanvas(model, cellSize, sprites)
+    const canvas = renderToCanvas(model, cellSize, textures)
     canvas.toBlob((blob) => {
       if (blob) resolve(blob)
       else reject(new Error('PNG encoding failed'))
@@ -82,7 +82,7 @@ export function exportMapToPng(
 export function renderToCanvas(
   model: MapModel,
   cellSize = EXPORT_CELL_SIZE,
-  sprites?: SpriteRenderContext,
+  textures?: TextureRenderContext,
   options?: RenderToCanvasOptions,
 ): HTMLCanvasElement {
   const page = options?.page
@@ -126,7 +126,7 @@ export function renderToCanvas(
   }
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
-  renderMap(ctx, model, { width, height, cellSize, offsetX, offsetY }, sprites, {
+  renderMap(ctx, model, { width, height, cellSize, offsetX, offsetY }, textures, {
     includeLight: options?.includeLight,
   })
   return canvas

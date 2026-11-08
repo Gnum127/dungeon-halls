@@ -1,25 +1,19 @@
 {
-  "version": 1,
-  "tiles": {
-    "floor": "sprites/tiles/floor.png",
-    "grass": "sprites/tiles/grass.png",
-    "water": "sprites/tiles/water.png",
-    "stone": "sprites/tiles/stone.png",
-    "sand": "sprites/tiles/sand.png",
-    "wall": "sprites/tiles/wall.png"
+  "version": 2,
+  "tileTextures": {
+    "floor": { "path": "sprites/tiles/floor_stone.png", "size": 1024 },
+    "grass": { "path": "sprites/tiles/grass.png", "size": 1024 },
+    "stone": { "path": "sprites/tiles/stone_rough.png", "size": 1024 },
+    "water": { "path": "sprites/tiles/water.png", "size": 1024 },
+    "sand": { "path": "sprites/tiles/sand.png", "size": 1024 }
   },
-  "tilePools": {
-    "floor": ["sprites/tiles/floor_01.png", "sprites/tiles/floor_02.png"],
-    "grass": ["sprites/tiles/grass_01.png", "sprites/tiles/grass_02.png"]
-  },
-  "objects": {
-    "stairs": "sprites/objects/stairs.png",
-    "table": "sprites/objects/table.png",
-    "chair": "sprites/objects/chair.png",
-    "chest": "sprites/objects/chest.png",
-    "barrel": "sprites/objects/barrel.png",
-    "torch": "sprites/objects/torch.png",
-    "bush": "sprites/objects/bush.png",
-    "rock": "sprites/objects/rock.png"
+  "objectTextures": {
+    "table": { "path": "sprites/objects/table_wooden.png" },
+    "chair": { "path": "sprites/objects/chair_wooden.png" },
+    "chest": { "path": "sprites/objects/chest_wooden.png" },
+    "barrel": { "path": "sprites/objects/barrel_wooden.png" },
+    "bush": { "path": "sprites/objects/bush_green.png" },
+    "rock": { "path": "sprites/objects/rock_boulder.png" },
+    "tree": { "path": "sprites/objects/tree_oak.png" }
   }
 }

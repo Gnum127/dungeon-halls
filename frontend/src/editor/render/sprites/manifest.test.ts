@@ -1,17 +1,23 @@
 import { describe, expect, it } from 'vitest'
+import { TILE_TYPES } from '@/shared/tiles'
+import { OBJECT_KINDS } from '../../model/objects'
+import textureManifest from '../../../../public/sprites/manifest.json'
 import {
   ELEMENT_IMAGE_MANIFEST_PATH,
   ELEMENT_IMAGE_MANIFEST_VERSION,
-  SPRITE_MANIFEST_PATH,
-  SPRITE_MANIFEST_VERSION,
+  TEXTURE_MANIFEST_PATH,
+  TEXTURE_MANIFEST_VERSION,
   validateElementManifest,
-  validateManifest,
+  validateTextureManifest,
 } from './manifest'
 
 const VALID = {
-  version: 1,
-  tiles: { floor: 'tiles/floor.png', wall: 'tiles/wall.png' },
-  objects: { table: 'objects/table.png' },
+  version: 2,
+  tileTextures: {
+    floor: { path: 'sprites/tiles/floor_stone.png', size: 256 },
+    grass: { path: 'sprites/tiles/grass.png', size: 512 },
+  },
+  objectTextures: { table: { path: 'sprites/objects/table_wooden.png' } },
 }
 
 const VALID_ELEMENT = {
@@ -19,71 +25,137 @@ const VALID_ELEMENT = {
   items: { 'table-wooden': 'element-images/table-wooden.png', 'door-iron': 'element-images/door-iron.png' },
 }
 
-describe('validateManifest', () => {
+describe('validateTextureManifest', () => {
   it('accepts a valid manifest and an empty one', () => {
-    expect(validateManifest(VALID)).toEqual({
-      version: 1,
-      tiles: { floor: 'tiles/floor.png', wall: 'tiles/wall.png' },
-      objects: { table: 'objects/table.png' },
+    expect(validateTextureManifest(VALID)).toEqual({
+      version: 2,
+      tileTextures: {
+        floor: { path: 'sprites/tiles/floor_stone.png', size: 256 },
+        grass: { path: 'sprites/tiles/grass.png', size: 512 },
+      },
+      objectTextures: { table: { path: 'sprites/objects/table_wooden.png' } },
     })
-    expect(validateManifest({ version: 1, tiles: {}, objects: {} })).toEqual({
-      version: 1,
-      tiles: {},
-      objects: {},
+    expect(validateTextureManifest({ version: 2, tileTextures: {}, objectTextures: {} })).toEqual({
+      version: 2,
+      tileTextures: {},
+      objectTextures: {},
     })
   })
 
   it('rejects non-objects, null and arrays', () => {
-    expect(validateManifest(null)).toBeNull()
-    expect(validateManifest(undefined)).toBeNull()
-    expect(validateManifest('manifest')).toBeNull()
-    expect(validateManifest(42)).toBeNull()
-    expect(validateManifest([])).toBeNull()
+    expect(validateTextureManifest(null)).toBeNull()
+    expect(validateTextureManifest(undefined)).toBeNull()
+    expect(validateTextureManifest('manifest')).toBeNull()
+    expect(validateTextureManifest(42)).toBeNull()
+    expect(validateTextureManifest([])).toBeNull()
   })
 
   it('rejects unsupported versions', () => {
-    expect(validateManifest({ ...VALID, version: 0 })).toBeNull()
-    expect(validateManifest({ ...VALID, version: 2 })).toBeNull()
-    expect(validateManifest({ ...VALID, version: '1' })).toBeNull()
-    expect(validateManifest({ tiles: {}, objects: {} })).toBeNull()
+    expect(validateTextureManifest({ ...VALID, version: 1 })).toBeNull()
+    expect(validateTextureManifest({ ...VALID, version: 3 })).toBeNull()
+    expect(validateTextureManifest({ ...VALID, version: '2' })).toBeNull()
+    expect(validateTextureManifest({ tileTextures: {}, objectTextures: {} })).toBeNull()
   })
 
   it('rejects unknown tile or object keys', () => {
-    expect(validateManifest({ ...VALID, tiles: { lava: 'tiles/lava.png' } })).toBeNull()
-    expect(validateManifest({ ...VALID, objects: { dragon: 'objects/dragon.png' } })).toBeNull()
+    expect(
+      validateTextureManifest({ ...VALID, tileTextures: { lava: { path: 'x.png', size: 256 } } }),
+    ).toBeNull()
+    expect(
+      validateTextureManifest({ ...VALID, objectTextures: { dragon: { path: 'x.png' } } }),
+    ).toBeNull()
   })
 
-  it('rejects missing sections and bad paths', () => {
-    expect(validateManifest({ version: 1, objects: {} })).toBeNull()
-    expect(validateManifest({ version: 1, tiles: {} })).toBeNull()
-    expect(validateManifest({ ...VALID, tiles: { floor: '' } })).toBeNull()
-    expect(validateManifest({ ...VALID, objects: { table: 42 } })).toBeNull()
+  it('rejects missing sections, bad paths and bad sizes', () => {
+    expect(validateTextureManifest({ version: 2, objectTextures: {} })).toBeNull()
+    expect(validateTextureManifest({ version: 2, tileTextures: {} })).toBeNull()
+    expect(
+      validateTextureManifest({ ...VALID, tileTextures: { floor: { path: '', size: 256 } } }),
+    ).toBeNull()
+    expect(
+      validateTextureManifest({ ...VALID, tileTextures: { floor: { path: 'x.png' } } }),
+    ).toBeNull()
+    expect(
+      validateTextureManifest({ ...VALID, tileTextures: { floor: { path: 'x.png', size: 0 } } }),
+    ).toBeNull()
+    expect(
+      validateTextureManifest({
+        ...VALID,
+        tileTextures: { floor: { path: 'x.png', size: Number.POSITIVE_INFINITY } },
+      }),
+    ).toBeNull()
+    expect(
+      validateTextureManifest({
+        ...VALID,
+        tileTextures: { floor: { path: 'x.png', size: Number.NaN } },
+      }),
+    ).toBeNull()
+    expect(validateTextureManifest({ ...VALID, objectTextures: { table: {} } })).toBeNull()
+    expect(validateTextureManifest({ ...VALID, objectTextures: { table: 42 } })).toBeNull()
+    expect(validateTextureManifest({ ...VALID, tileTextures: { floor: 42 } })).toBeNull()
   })
 
   it('exposes the manifest path and schema version constants', () => {
-    expect(SPRITE_MANIFEST_PATH).toBe('sprites/manifest.json')
-    expect(SPRITE_MANIFEST_VERSION).toBe(1)
+    expect(TEXTURE_MANIFEST_PATH).toBe('sprites/manifest.json')
+    expect(TEXTURE_MANIFEST_VERSION).toBe(2)
   })
 
-  it('accepts a tile pool and omits the field when absent', () => {
-    const pools = { floor: ['tiles/floor_01.png', 'tiles/floor_02.png'] }
-    expect(validateManifest({ ...VALID, tilePools: pools })).toEqual({
-      version: 1,
-      tiles: { floor: 'tiles/floor.png', wall: 'tiles/wall.png' },
-      objects: { table: 'objects/table.png' },
-      tilePools: pools,
+  it('accepts an optional tile pool and rejects malformed pools', () => {
+    expect(
+      validateTextureManifest({
+        ...VALID,
+        tileTextures: { floor: { path: 'x.png', size: 256, pool: ['a.png', 'b.png'] } },
+      }),
+    ).toEqual({
+      version: 2,
+      tileTextures: { floor: { path: 'x.png', size: 256, pool: ['a.png', 'b.png'] } },
+      objectTextures: { table: { path: 'sprites/objects/table_wooden.png' } },
     })
-    expect(validateManifest(VALID)).not.toHaveProperty('tilePools')
+    expect(
+      validateTextureManifest({
+        ...VALID,
+        tileTextures: { floor: { path: 'x.png', size: 256, pool: [] } },
+      }),
+    ).toBeNull()
+    expect(
+      validateTextureManifest({
+        ...VALID,
+        tileTextures: { floor: { path: 'x.png', size: 256, pool: [''] } },
+      }),
+    ).toBeNull()
+    expect(
+      validateTextureManifest({
+        ...VALID,
+        tileTextures: { floor: { path: 'x.png', size: 256, pool: [42] } },
+      }),
+    ).toBeNull()
+    expect(
+      validateTextureManifest({
+        ...VALID,
+        tileTextures: { floor: { path: 'x.png', size: 256, pool: 'x.png' } },
+      }),
+    ).toBeNull()
+    expect(
+      validateTextureManifest({
+        ...VALID,
+        tileTextures: { floor: { path: 'x.png', size: 256, pool: null } },
+      }),
+    ).toBeNull()
   })
+})
 
-  it('rejects malformed tile pools', () => {
-    expect(validateManifest({ ...VALID, tilePools: { lava: ['tiles/x.png'] } })).toBeNull()
-    expect(validateManifest({ ...VALID, tilePools: { floor: [] } })).toBeNull()
-    expect(validateManifest({ ...VALID, tilePools: { floor: [''] } })).toBeNull()
-    expect(validateManifest({ ...VALID, tilePools: { floor: [42] } })).toBeNull()
-    expect(validateManifest({ ...VALID, tilePools: { floor: 'tiles/x.png' } })).toBeNull()
-    expect(validateManifest({ ...VALID, tilePools: null })).toBeNull()
-    expect(validateManifest({ ...VALID, tilePools: [] })).toBeNull()
+describe('shipped texture manifest', () => {
+  it('validates and covers only known tiles and object kinds', () => {
+    const parsed = validateTextureManifest(textureManifest)
+    expect(parsed).not.toBeNull()
+
+    const tileKeys = Object.keys(parsed?.tileTextures ?? {})
+    expect(tileKeys).toContain('floor')
+    expect(tileKeys.every((key) => (TILE_TYPES as readonly string[]).includes(key))).toBe(true)
+
+    const objectKeys = Object.keys(parsed?.objectTextures ?? {})
+    expect(objectKeys.length).toBeGreaterThan(0)
+    expect(objectKeys.every((key) => (OBJECT_KINDS as readonly string[]).includes(key))).toBe(true)
   })
 })
 

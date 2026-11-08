@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BottomBar } from './components/BottomBar'
 import { CanvasView } from './components/CanvasView'
@@ -16,6 +16,8 @@ import type { ObjectKindId } from './model/objects'
 import type { ObjectRotation, ObjectScale, TileTypeName } from './model/types'
 import { loadElementImage, saveElementImage } from './render/elementImage'
 import { loadDoorImageId, saveDoorImageId } from './render/doorTexture'
+import { useTextureAtlas } from './hooks/useTextureAtlas'
+import type { TextureRenderContext } from './render/sprites/loader'
 import { DEFAULT_DOOR_OPEN_ANGLE, MAX_DOOR_OPEN_ANGLE } from './model/doors'
 import { EditorStore } from './store/EditorStore'
 import type { EditorTool } from './tools/editorTool'
@@ -71,6 +73,13 @@ export function EditorPage() {
     for (const entry of OBJECT_KIND_ENTRIES) initial[entry.id] = loadElementImage(entry.id)
     return initial
   })
+
+  const atlas = useTextureAtlas()
+  // Контекст рендера: атлас текстур + выбранные пользователем изображения видов.
+  const textures = useMemo<TextureRenderContext | undefined>(
+    () => (atlas ? { ...atlas, imageOverrides: elementImageOverrides } : undefined),
+    [atlas, elementImageOverrides],
+  )
 
   function selectTile(next: TileTypeName) {
     setSelectedObjectId(null)
@@ -223,6 +232,7 @@ export function EditorPage() {
               getModel={() => store.getModel()}
               onLoaded={(loaded) => store.reset(loaded)}
               onResult={setFileStatus}
+              textures={textures}
             />
             {fileStatus !== null && (
               <p className={styles.fileStatus} role="status">
@@ -260,6 +270,7 @@ export function EditorPage() {
           onSelectObject={setSelectedObjectId}
           tileType={tileType}
           autoWalls={autoWalls}
+          textures={textures}
         />
         <BottomBar
           activeTool={tool}

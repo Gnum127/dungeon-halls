@@ -6,6 +6,7 @@ import {
   MIN_CELL_SIZE,
   clampCellSize,
   screenToCell,
+  screenToWorld,
   zoomAt,
 } from './viewport'
 import type { Viewport } from './viewport'
@@ -60,11 +61,27 @@ describe('screenToCell', () => {
       for (let row = 0; row < 6; row += 1) {
         for (let col = 0; col < 6; col += 1) {
           const center = cellCenterAt(col, row, viewport.cellSize)
-          const cell = screenToCell(viewport, center.x - viewport.offsetX, center.y - viewport.offsetY)
+          const cell = screenToCell(
+            viewport,
+            center.x - viewport.offsetX,
+            center.y - viewport.offsetY,
+          )
           expect(cell).toEqual({ x: col, y: row })
         }
       }
     }
+  })
+})
+
+describe('screenToWorld', () => {
+  it('maps screen pixels to fractional world cells without rounding', () => {
+    expect(screenToWorld(vp(), 10, 10)).toEqual({ x: 10 / 32, y: 10 / 32 })
+    expect(screenToWorld(vp(), 48, 80)).toEqual({ x: 1.5, y: 2.5 })
+  })
+
+  it('accounts for zoom and scroll', () => {
+    const viewport = vp({ cellSize: 16, offsetX: 100, offsetY: -48 })
+    expect(screenToWorld(viewport, 20, 20)).toEqual({ x: 7.5, y: -1.75 })
   })
 })
 

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Command } from '../model/commands'
+import { snapToHalfGrid } from '../model/snap'
 import type { MapModel, TileTypeName } from '../model/types'
 import type { Viewport } from '../render/viewport'
 import { isEditableTarget } from '../dom/isEditableTarget'
-import { isInsideMap } from '../tools/isInsideMap'
+import { isWorldPointInsideMap } from '../tools/isInsideMap'
 import { buildRegionCommand } from '../tools/regionCommit'
 import { isCommittablePolygon, regularPolygonPoints } from '../tools/regions'
-import { useCellFromEvent } from './useCellFromEvent'
+import { useWorldPointFromEvent } from './useCellFromEvent'
 
 interface PolygonRegionToolOptions {
   canvasRef: RefObject<HTMLCanvasElement | null>
@@ -30,11 +31,10 @@ const LEFT_BUTTON = 0
 /**
  * Инструмент «Регион-многогранник»: первый клик — центр, курсор тянет
  * радиусную точку (задаёт поворот и размер), второй клик фиксирует правильный
- * N-угольник. Esc отменяет.
+ * N-угольник. Точки — мировые float, привязанные к 0.5 в момент клика. Esc
+ * отменяет.
  */
-export function usePolygonRegionTool(
-  options: PolygonRegionToolOptions,
-): {
+export function usePolygonRegionTool(options: PolygonRegionToolOptions): {
   preview: PolygonPreview | null
   handlers: {
     onPointerDown: (event: ReactPointerEvent<HTMLCanvasElement>) => void
@@ -45,7 +45,7 @@ export function usePolygonRegionTool(
   const { canvasRef, active, model, tileType, vertices, autoWalls, viewportRef, onCommit } = options
   const [center, setCenter] = useState<{ x: number; y: number } | null>(null)
   const [current, setCurrent] = useState<{ x: number; y: number } | null>(null)
-  const cellFromEvent = useCellFromEvent(canvasRef, viewportRef)
+  const worldFromEvent = useWorldPointFromEvent(canvasRef, viewportRef)
   // При деактивации инструмента сбрасываем недостроенный полигон во время
   // рендера (не в эффекте — иначе лишний каскадный рендер React).
   const [wasActive, setWasActive] = useState(active)
@@ -57,11 +57,18 @@ export function usePolygonRegionTool(
     }
   }
 
-  function commit(radialCell: { x: number; y: number }) {
+  /** Мировая точка события: границы карты проверяются до снапа, затем — 0.5. */
+  function pointFromEvent(
+    event: ReactPointerEvent<HTMLCanvasElement>,
+  ): { x: number; y: number } | null {
+    const world = worldFromEvent(event)
+    if (!isWorldPointInsideMap(model, world.x, world.y)) return null
+    return snapToHalfGrid(world)
+  }
+
+  function commit(radialPoint: { x: number; y: number }) {
     if (!center) return
-    const centerPoint = { x: center.x + 0.5, y: center.y + 0.5 }
-    const radialPoint = { x: radialCell.x + 0.5, y: radialCell.y + 0.5 }
-    const points = regularPolygonPoints(centerPoint, radialPoint, vertices, {
+    const points = regularPolygonPoints(center, radialPoint, vertices, {
       cols: model.grid.width,
       rows: model.grid.height,
     })
@@ -75,20 +82,21 @@ export function usePolygonRegionTool(
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (!active || event.button !== LEFT_BUTTON) return
-    const cell = cellFromEvent(event)
-    if (!isInsideMap(model, cell.x, cell.y)) return
+    const point = pointFromEvent(event)
+    if (!point) return
     event.preventDefault()
     if (!center) {
-      setCenter(cell)
-      setCurrent(cell)
+      setCenter(point)
+      setCurrent(point)
       return
     }
-    commit(cell)
+    commit(point)
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (!active || !center) return
-    setCurrent(cellFromEvent(event))
+    const point = pointFromEvent(event)
+    if (point) setCurrent(point)
   }
 
   function onPointerLeave() {

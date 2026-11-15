@@ -36,6 +36,27 @@ export function hoverSnapCandidates(model: MapModel, cell: Point): Point[] {
 }
 
 /**
+ * Маркер фактической точки привязки текстурного инструмента: не углы клетки,
+ * а ближайшая точка полуклеточной сетки (совпадает с точкой будущего клика).
+ */
+export function drawHalfGridSnapPoint(
+  ctx: CanvasRenderingContext2D,
+  target: Point,
+  viewport: Viewport,
+): void {
+  ctx.fillStyle = SNAP_NEAREST_COLOR
+  ctx.beginPath()
+  ctx.arc(
+    target.x * viewport.cellSize - viewport.offsetX,
+    target.y * viewport.cellSize - viewport.offsetY,
+    SNAP_NEAREST_RADIUS,
+    0,
+    Math.PI * 2,
+  )
+  ctx.fill()
+}
+
+/**
  * Точки-кандидаты привязки в клетке под курсором; ближайшая к курсору
  * подсвечивается контрастно. Радиусы постоянные (экранные пиксели).
  */

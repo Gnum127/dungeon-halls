@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  drawHalfGridSnapPoint,
   drawSnapCandidates,
   hoverSnapCandidates,
   toolPaintsTexture,
@@ -81,6 +82,27 @@ describe('hoverSnapCandidates', () => {
     const model = coveredModel()
     expect(hoverSnapCandidates(model, { x: 1, y: 1 })).toHaveLength(9)
     expect(hoverSnapCandidates(model, { x: 8, y: 8 })).toHaveLength(4)
+  })
+})
+
+describe('drawHalfGridSnapPoint', () => {
+  it('draws one nearest-colour dot at the snapped world point', () => {
+    const { ctx, calls } = makeFakeCtx()
+    drawHalfGridSnapPoint(ctx, { x: 1.5, y: 2 }, viewport)
+
+    const arcs = calls.filter((c) => c.op === 'arc')
+    expect(arcs).toHaveLength(1)
+    expect(arcs[0].fillStyle).toBe(SNAP_NEAREST_COLOR)
+    expect(arcs[0].args).toEqual([1.5 * 32, 2 * 32, SNAP_NEAREST_RADIUS, 0, Math.PI * 2])
+  })
+
+  it('maps the point through the viewport', () => {
+    const { ctx, calls } = makeFakeCtx()
+    const zoomed: Viewport = { width: 128, height: 128, cellSize: 64, offsetX: 32, offsetY: 16 }
+    drawHalfGridSnapPoint(ctx, { x: 0.5, y: 1.5 }, zoomed)
+
+    const arc = calls.find((c) => c.op === 'arc')
+    expect(arc?.args).toEqual([0.5 * 64 - 32, 1.5 * 64 - 16, SNAP_NEAREST_RADIUS, 0, Math.PI * 2])
   })
 })
 

@@ -36,7 +36,10 @@ UVTT-экспорт, клеточная модель `tiles: Uint8Array` и рё
 fallback); `RenderModePicker`/`renderMode.ts`/`useSpriteAtlas` удалены, добавлены
 `useTextureAtlas` и манифест `public/sprites/manifest.json` v2
 (`tileTextures` с `size`/пулом, `objectTextures`); проп `sprites` → `textures`.
-План этапов 19–24 выполнен.
+Этап 25: регионы (прямоугольник/многогранник) строятся по мировым float-точкам
+с привязкой к 0.5 (`rectPolygon` — «от точки до точки»); Esc/смена инструмента
+сбрасывают драг; «Курсор»/«Панорама» не подсвечивают клетку под курсором.
+План этапов 19–25 выполнен.
 
 ## Перед началом работы
 
@@ -185,6 +188,13 @@ npm run build      # сборка + проверка типов tsc
   Приоритет текстуры объекта: element-image override → `objectTextures` →
   `defaultImage` → цвет. `element-images` остаются для дверей и явного выбора.
   Режима «цвета/спрайты» нет — `RenderModePicker`/`renderMode.ts` удалены.
+
+- **Полуклеточные регионы (этап 25)**: `useRectRegionTool`/`usePolygonRegionTool`
+  берут мировую точку (`useWorldPointFromEvent`) и снапят её `snapToHalfGrid`
+  в момент клика; `rectPolygon` не добавляет `+1` — полигон строится «от точки
+  до точки». Границы проверяет `isWorldPointInsideMap` (`[0, cols] × [0, rows]`).
+  `drawHoverHighlight` ничего не рисует для `cursor`/`pan`; деактивация
+  инструмента сбрасывает недостроенную фигуру.
 
 - **Удаления (этап 14)**: код, содержащий `gridType`, `hex`, `vtt`, `uvtt`,
   `WallEdge`, `WallSide`, `normalizeEdge`, `edgeKey`, `Uint8Array` в модели

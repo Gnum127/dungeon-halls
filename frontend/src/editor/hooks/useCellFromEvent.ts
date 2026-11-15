@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { RefObject } from 'react'
 import type { Viewport } from '../render/viewport'
-import { screenToCell } from '../render/viewport'
+import { screenToCell, screenToWorld } from '../render/viewport'
 
 /** Минимум, нужный для перевода точки в клетку карты. */
 export type ClientPoint = Pick<ReactPointerEvent<HTMLCanvasElement>, 'clientX' | 'clientY'>
@@ -18,10 +18,7 @@ export function useWorldPointFromEvent(
       const viewport = viewportRef.current
       if (!canvas || !viewport) return { x: Number.NaN, y: Number.NaN }
       const rect = canvas.getBoundingClientRect()
-      return {
-        x: (point.clientX - rect.left + viewport.offsetX) / viewport.cellSize,
-        y: (point.clientY - rect.top + viewport.offsetY) / viewport.cellSize,
-      }
+      return screenToWorld(viewport, point.clientX - rect.left, point.clientY - rect.top)
     },
     [canvasRef, viewportRef],
   )

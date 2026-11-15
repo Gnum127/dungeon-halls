@@ -24,6 +24,6 @@ export type EditorTool =
       readonly vertices: number
     }
   | { readonly type: 'wall' }
-  | { readonly type: 'door'; readonly imageId: string | null; readonly openAngle: number }
+  | { readonly type: 'door'; readonly imageId: string | null }
   | { readonly type: 'stairs' }
   | { readonly type: 'light' }

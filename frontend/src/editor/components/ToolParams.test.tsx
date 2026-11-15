@@ -13,13 +13,11 @@ function renderParams(overrides: Partial<ToolParamsProps> = {}) {
     vertexCount: 6,
     autoWalls: true,
     doorImageId: null,
-    doorOpenAngle: 30,
     onSelectTile: vi.fn(),
     onToggleEraser: vi.fn(),
     onVertexCountChange: vi.fn(),
     onAutoWallsChange: vi.fn(),
     onDoorImageChange: vi.fn(),
-    onDoorAngleChange: vi.fn(),
     ...overrides,
   }
   render(<ToolParams {...props} />)
@@ -69,9 +67,9 @@ describe('ToolParams — фигуры', () => {
 })
 
 describe('ToolParams — дверь', () => {
-  const doorTool: EditorTool = { type: 'door', imageId: null, openAngle: 30 }
+  const doorTool: EditorTool = { type: 'door', imageId: null }
 
-  it('maps the texture choice (default → null) and reports the angle', () => {
+  it('maps the texture choice (default → null)', () => {
     const props = renderParams({ tool: doorTool })
 
     const select = screen.getByRole('combobox', { name: 'Door texture' })
@@ -86,10 +84,6 @@ describe('ToolParams — дверь', () => {
     const imageId = DOOR_CATALOG[0].defaultImageId
     fireEvent.change(select, { target: { value: imageId } })
     expect(props.onDoorImageChange).toHaveBeenLastCalledWith(imageId)
-
-    const angle = screen.getByRole('spinbutton', { name: 'Leaf angle' })
-    fireEvent.change(angle, { target: { value: '45' } })
-    expect(props.onDoorAngleChange).toHaveBeenCalledWith(45)
   })
 
   it('binds the texture dropdown to the persisted door image', () => {
@@ -99,23 +93,9 @@ describe('ToolParams — дверь', () => {
     expect(screen.getByRole('combobox', { name: 'Door texture' })).toHaveValue(imageId)
   })
 
-  it('accepts the 0..150 bounds, a cleared field as 0, and rejects the rest', () => {
-    const props = renderParams({ tool: doorTool })
-    const angle = screen.getByRole('spinbutton', { name: 'Leaf angle' })
-
-    fireEvent.change(angle, { target: { value: '0' } })
-    fireEvent.change(angle, { target: { value: '150' } })
-    expect(props.onDoorAngleChange).toHaveBeenNthCalledWith(1, 0)
-    expect(props.onDoorAngleChange).toHaveBeenNthCalledWith(2, 150)
-
-    // A cleared field is parsed as 0 (regression from the removed RegionTools test).
-    fireEvent.change(angle, { target: { value: '' } })
-    expect(props.onDoorAngleChange).toHaveBeenNthCalledWith(3, 0)
-
-    for (const invalid of ['999', '-5', '45.5']) {
-      fireEvent.change(angle, { target: { value: invalid } })
-    }
-    expect(props.onDoorAngleChange).toHaveBeenCalledTimes(3)
+  it('shows no leaf-angle field anymore', () => {
+    renderParams({ tool: doorTool })
+    expect(screen.queryByRole('spinbutton')).toBeNull()
   })
 })
 

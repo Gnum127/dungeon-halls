@@ -14,6 +14,7 @@
     "barrel": { "path": "sprites/objects/barrel_wooden.png" },
     "bush": { "path": "sprites/objects/bush_green.png" },
     "rock": { "path": "sprites/objects/rock_boulder.png" },
-    "tree": { "path": "sprites/objects/tree_oak.png" }
+    "tree": { "path": "sprites/objects/tree_oak.png" },
+    "door": { "path": "sprites/objects/door_wooden.png" }
   }
 }

@@ -11,7 +11,7 @@ import { findLightById, isValidLightColor, isValidLightRadius, nextLightId } fro
 import { assertValidRegion, nextZOrder } from './regions'
 import { isAutoWallSegmentId } from './autoWalls'
 import { assertValidWallSegment } from './wallSegments'
-import { assertValidDoor, createDoor, findDoorById, isValidDoorOpenAngle } from './doors'
+import { assertValidDoor, createDoor, findDoorById } from './doors'
 import { assertValidStairsPolygon, createStairsPolygon } from './stairs'
 import { isMapDimension } from '@/config/map.config'
 import { MAP_VERSION } from './types'
@@ -57,11 +57,9 @@ export type Command =
       readonly kind: 'addDoor'
       readonly a: Point
       readonly b: Point
-      readonly openAngle?: number
       readonly imageId?: string | null
     }
   | { readonly kind: 'removeDoor'; readonly id: string }
-  | { readonly kind: 'setDoorAngle'; readonly id: string; readonly openAngle: number }
   | { readonly kind: 'addStairs'; readonly polygon: readonly Point[] }
   | { readonly kind: 'removeStairs'; readonly id: string }
   | {
@@ -109,7 +107,6 @@ function cloneDoor(door: Door): Door {
     id: door.id,
     a: { x: door.a.x, y: door.a.y },
     b: { x: door.b.x, y: door.b.y },
-    openAngle: door.openAngle,
     imageId: door.imageId,
   }
 }
@@ -340,14 +337,8 @@ function setWalls(model: MapModel, updates: readonly WallUpdate[]): MapModel {
   return { ...model, walls: [...wallsById.values()] }
 }
 
-function addDoor(
-  model: MapModel,
-  a: Point,
-  b: Point,
-  openAngle: number,
-  imageId: string | null,
-): MapModel {
-  const door = createDoor(a, b, { openAngle, imageId })
+function addDoor(model: MapModel, a: Point, b: Point, imageId: string | null): MapModel {
+  const door = createDoor(a, b, { imageId })
   return { ...model, doors: [...model.doors, door] }
 }
 
@@ -356,23 +347,6 @@ function removeDoor(model: MapModel, id: string): MapModel {
     throw new RangeError(`Door ${id} not found`)
   }
   return { ...model, doors: model.doors.filter((door) => door.id !== id) }
-}
-
-function setDoorAngle(model: MapModel, id: string, openAngle: number): MapModel {
-  if (!isValidDoorOpenAngle(openAngle)) {
-    throw new RangeError(`Door openAngle out of range: ${String(openAngle)}`)
-  }
-  const door = findDoorById(model.doors, id)
-  if (!door) {
-    throw new RangeError(`Door ${id} not found`)
-  }
-  if (door.openAngle === openAngle) return model
-  return {
-    ...model,
-    doors: model.doors.map((candidate) =>
-      candidate.id === id ? { ...candidate, openAngle } : candidate,
-    ),
-  }
 }
 
 function addStairs(model: MapModel, polygon: readonly Point[]): MapModel {
@@ -502,11 +476,9 @@ export function applyCommand(model: MapModel, command: Command): MapModel {
     case 'setWalls':
       return setWalls(model, command.updates)
     case 'addDoor':
-      return addDoor(model, command.a, command.b, command.openAngle ?? 0, command.imageId ?? null)
+      return addDoor(model, command.a, command.b, command.imageId ?? null)
     case 'removeDoor':
       return removeDoor(model, command.id)
-    case 'setDoorAngle':
-      return setDoorAngle(model, command.id, command.openAngle)
     case 'addStairs':
       return addStairs(model, command.polygon)
     case 'removeStairs':

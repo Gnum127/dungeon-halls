@@ -3,7 +3,6 @@ import { isValidLightColor, isValidLightRadius } from './lights'
 import { isMapDimension } from '@/config/map.config'
 import { assertValidRegion, isTileTypeName, isValidPolygon } from './regions'
 import { isWallExtends } from './wallSegments'
-import { isValidDoorOpenAngle } from './doors'
 import { isValidStairsPolygon } from './stairs'
 import { MAP_VERSION } from './types'
 import type { MapGrid, MapModel } from './types'
@@ -123,7 +122,7 @@ function parseDoors(value: unknown): Door[] {
     if (typeof candidate !== 'object' || candidate === null) {
       throw new MapLoadError('Every door must be a JSON object')
     }
-    const { id, a, b, openAngle, imageId } = candidate as Record<string, unknown>
+    const { id, a, b, imageId } = candidate as Record<string, unknown>
     if (typeof id !== 'string' || id.length === 0) {
       throw new MapLoadError('Door id must be a non-empty string')
     }
@@ -134,13 +133,14 @@ function parseDoors(value: unknown): Door[] {
     if (pointA.x === pointB.x && pointA.y === pointB.y) {
       throw new MapLoadError(`Door ${id} endpoints must not coincide`)
     }
-    if (!isValidDoorOpenAngle(openAngle)) {
-      throw new MapLoadError(`Door openAngle must be within ±150°, got ${String(openAngle)}`)
-    }
-    if (imageId !== null && (typeof imageId !== 'string' || imageId.length === 0)) {
+    if (
+      imageId !== null &&
+      imageId !== undefined &&
+      (typeof imageId !== 'string' || imageId.length === 0)
+    ) {
       throw new MapLoadError('Door imageId must be null or a non-empty string')
     }
-    doors.push({ id, a: pointA, b: pointB, openAngle, imageId })
+    doors.push({ id, a: pointA, b: pointB, imageId: imageId ?? null })
   }
   return doors
 }
@@ -286,7 +286,6 @@ export function serializeMap(model: MapModel): string {
       id: door.id,
       a: [door.a.x, door.a.y],
       b: [door.b.x, door.b.y],
-      openAngle: door.openAngle,
       imageId: door.imageId,
     })),
     stairs: model.stairs.map((entry) => ({

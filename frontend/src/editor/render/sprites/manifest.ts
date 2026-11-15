@@ -43,6 +43,12 @@ export interface ObjectTextureEntry {
 }
 
 /**
+ * Ключи текстур поверхностей, растягиваемых на прямоугольник: виды объектов
+ * плюс зарезервированный `door` (текстура двери по умолчанию, этап 26).
+ */
+export type ObjectTextureKey = ObjectKindId | 'door'
+
+/**
  * Манифест текстур (v2): тайлы ландшафта тайлятся под сеткой, текстуры
  * объектов растягиваются на footprint поверх сетки. Записи опциональны:
  * нет записи — рендер уходит в fallback на цвет.
@@ -50,7 +56,7 @@ export interface ObjectTextureEntry {
 export interface TextureManifest {
   readonly version: typeof TEXTURE_MANIFEST_VERSION
   readonly tileTextures: Partial<Record<TileTypeName, TileTextureEntry>>
-  readonly objectTextures: Partial<Record<ObjectKindId, ObjectTextureEntry>>
+  readonly objectTextures: Partial<Record<ObjectTextureKey, ObjectTextureEntry>>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -138,15 +144,15 @@ function validateTileTextures(
 
 function validateObjectTextures(
   value: unknown,
-): Partial<Record<ObjectKindId, ObjectTextureEntry>> | null {
+): Partial<Record<ObjectTextureKey, ObjectTextureEntry>> | null {
   if (!isRecord(value)) return null
-  const entries: Partial<Record<ObjectKindId, ObjectTextureEntry>> = {}
+  const entries: Partial<Record<ObjectTextureKey, ObjectTextureEntry>> = {}
   for (const [key, entry] of Object.entries(value)) {
-    if (!(OBJECT_KINDS as readonly string[]).includes(key)) return null
+    if (!(OBJECT_KINDS as readonly string[]).includes(key) && key !== 'door') return null
     if (!isRecord(entry)) return null
     const { path } = entry
     if (typeof path !== 'string' || path.length === 0) return null
-    entries[key as ObjectKindId] = { path }
+    entries[key as ObjectTextureKey] = { path }
   }
   return entries
 }

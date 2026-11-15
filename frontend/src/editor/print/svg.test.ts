@@ -65,9 +65,7 @@ describe('buildSvg', () => {
   it('rotates a float-anchored object around its float center', () => {
     const svg = buildSvg(
       model({
-        objects: [
-          { id: 1, kindId: 'torch', x: 1.5, y: 2, scale: { w: 2, h: 1 }, rotation: 90 },
-        ],
+        objects: [{ id: 1, kindId: 'torch', x: 1.5, y: 2, scale: { w: 2, h: 1 }, rotation: 90 }],
       }),
     )
     const s = SVG_UNITS_PER_CELL
@@ -159,7 +157,7 @@ describe('buildSvg', () => {
       ],
       { id: 'w1' },
     )
-    const door = { id: 'd1', a: { x: 1.5, y: 0 }, b: { x: 2.5, y: 0 }, openAngle: 0, imageId: null }
+    const door = { id: 'd1', a: { x: 1.5, y: 0 }, b: { x: 2.5, y: 0 }, imageId: null }
     const svg = buildSvg(model({ walls: [wall], doors: [door] }))
     const body = svg.split('\n').find((line) => line.includes(`stroke="${WALL_BODY_COLOR}"`))
     expect(body).toBeDefined()
@@ -173,9 +171,7 @@ describe('buildSvg', () => {
     const empty = buildSvg(model())
     expect(empty).not.toContain(GRID_POINT_COLOR)
     // Empty 4×4 map → 5×5 = 25 free corners.
-    const emptyDots = empty.match(
-      new RegExp(`<circle[^>]*fill="${EMPTY_GRID_POINT_COLOR}"`, 'g'),
-    )
+    const emptyDots = empty.match(new RegExp(`<circle[^>]*fill="${EMPTY_GRID_POINT_COLOR}"`, 'g'))
     expect(emptyDots).toHaveLength(25)
 
     const withRegion = buildSvg(
@@ -191,11 +187,8 @@ describe('buildSvg', () => {
 
     // Free-field points are drawn smaller than the bright coverage points.
     const brightRadius = Number(
-      (
-        withRegion.match(
-          new RegExp(`<circle[^>]*r="([^"]+)"[^>]*fill="${GRID_POINT_COLOR}"`),
-        ) ?? []
-      )[1],
+      (withRegion.match(new RegExp(`<circle[^>]*r="([^"]+)"[^>]*fill="${GRID_POINT_COLOR}"`)) ??
+        [])[1],
     )
     const freeRadii = [
       ...withRegion.matchAll(
@@ -227,27 +220,25 @@ describe('buildSvg', () => {
   })
 
   it('renders a door as a filled rectangle along its opening', () => {
-    const door = { id: 'd1', a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, openAngle: 0, imageId: null }
+    const door = { id: 'd1', a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, imageId: null }
     const svg = buildSvg(model({ doors: [door] }))
 
     expect(svg).toContain(`fill="${DOOR_FILL_COLOR}"`)
   })
 
-  it('rotates the leaf around the hinge by the open angle', () => {
-    const door = { id: 'd1', a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, openAngle: 90, imageId: null }
+  it('rotates the door strip along the a–b segment', () => {
+    const door = { id: 'd1', a: { x: 0, y: 0 }, b: { x: 0, y: 1 }, imageId: null }
     const svg = buildSvg(model({ doors: [door] }))
 
-    // Hinge at the origin, leaf along +x rotated 90°; 1 cell = 64 units wide.
+    // Start at the origin, segment along +y → 90°; 1 cell = 64 units wide.
     expect(svg).toContain('transform="translate(0 0) rotate(90)"')
     expect(svg).toMatch(/width="64"/)
   })
 
-  it('anchors the SVG leaf rotation at the hinge', () => {
-    const door = { id: 'd1', a: { x: 2, y: 3 }, b: { x: 3, y: 3 }, openAngle: 90, imageId: null }
-    // 64 units/cell → hinge at (128, 192).
-    expect(buildSvg(model({ doors: [door] }))).toContain(
-      'transform="translate(128 192) rotate(90)"',
-    )
+  it('anchors the SVG door rotation at the segment start', () => {
+    const door = { id: 'd1', a: { x: 2, y: 3 }, b: { x: 3, y: 3 }, imageId: null }
+    // 64 units/cell → start at (128, 192), segment along +x → 0°.
+    expect(buildSvg(model({ doors: [door] }))).toContain('transform="translate(128 192) rotate(0)"')
   })
 
   it('draws a stairs entity contour and steps clipped to it', () => {

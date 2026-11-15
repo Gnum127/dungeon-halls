@@ -10,7 +10,6 @@ import { useHoverCell } from '../hooks/useHoverCell'
 import { useLightTool } from '../hooks/useLightTool'
 import { useDoorTool } from '../hooks/useDoorTool'
 import { useStairsTool } from '../hooks/useStairsTool'
-import { DEFAULT_DOOR_OPEN_ANGLE, doorLeafEnd } from '../model/doors'
 import { DOOR_FILL_COLOR, DOOR_THICKNESS_FRACTION, STAIRS_OUTLINE_COLOR } from '../render/colors'
 import { drawStairsSelection } from '../render/stairsHighlight'
 import { useRectRegionTool } from '../hooks/useRectRegionTool'
@@ -142,7 +141,6 @@ export function CanvasView({
     active: tool.type === 'door',
     model,
     imageId: tool.type === 'door' ? tool.imageId : null,
-    openAngle: tool.type === 'door' ? tool.openAngle : DEFAULT_DOOR_OPEN_ANGLE,
     viewportRef,
     onCommit,
   })
@@ -271,32 +269,19 @@ export function CanvasView({
     }
 
     if (tool.type === 'door' && doorPreview) {
-      const leaf = doorLeafEnd({
-        id: 'preview',
-        a: doorPreview.a,
-        b: doorPreview.b,
-        openAngle: tool.openAngle,
-        imageId: null,
-      })
       ctx.strokeStyle = DOOR_FILL_COLOR
       ctx.lineWidth = Math.max(4, viewport.cellSize * DOOR_THICKNESS_FRACTION)
       ctx.lineCap = 'butt'
-      const ax = doorPreview.a.x * viewport.cellSize - viewport.offsetX
-      const ay = doorPreview.a.y * viewport.cellSize - viewport.offsetY
-      // Линия проёма — подсказка о месте двери (на финальном рендере проём
-      // вырезается в стене); створка — под углом панели.
+      // Линия проёма — подсказка о месте двери; на финальном рендере створка
+      // закрыта и лежит на этом же отрезке, а стена разрывается по пересечению.
       ctx.beginPath()
-      ctx.moveTo(ax, ay)
+      ctx.moveTo(
+        doorPreview.a.x * viewport.cellSize - viewport.offsetX,
+        doorPreview.a.y * viewport.cellSize - viewport.offsetY,
+      )
       ctx.lineTo(
         doorPreview.b.x * viewport.cellSize - viewport.offsetX,
         doorPreview.b.y * viewport.cellSize - viewport.offsetY,
-      )
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.moveTo(ax, ay)
-      ctx.lineTo(
-        leaf.x * viewport.cellSize - viewport.offsetX,
-        leaf.y * viewport.cellSize - viewport.offsetY,
       )
       ctx.stroke()
     }

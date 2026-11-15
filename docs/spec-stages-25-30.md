@@ -131,8 +131,8 @@
   переключает угол).
 - `editor/render/renderMap.ts`: `drawDoor` — створка всегда закрыта
   (лежит на отрезке a–b).
-- i18n: удалить ключи `doorAngle`, `doorTexture` из ru.json/en.json
-  (параметры двери теперь в ToolParams).
+- i18n: удалить ключ `doorAngle` из ru.json/en.json (выбор текстуры двери
+  остаётся в ToolParams, ключ `doorTexture` нужен).
 
 ### 26.2 Свободное размещение (без привязки к стене)
 

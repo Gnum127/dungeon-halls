@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Command } from '../model/commands'
-import { cycleDoorOpenAngle } from '../model/doors'
 import { doorHitTest } from '../tools/doorHitTest'
 import { doorEndpoints } from '../tools/doorPlacement'
 import type { MapModel } from '../model/types'
@@ -15,8 +14,6 @@ interface DoorToolOptions {
   model: MapModel
   /** Текстура ставящейся двери (null = жирная линия). */
   imageId: string | null
-  /** Угол створки для новой двери и шаг цикла кликом (градусы). */
-  openAngle: number
   viewportRef: RefObject<Viewport>
   onCommit: (command: Command | null) => void
 }
@@ -37,9 +34,9 @@ function pointsEqual(a: Point, b: Point): boolean {
 
 /**
  * Инструмент дверей в 2 клика: первый клик — начало проёма, второй — конец
- * (снап к характеристическим точкам; на стене — вдоль стены). Клик по
- * существующей двери цикличный угол створки (`+A → −A → 0`), правый клик —
- * удаляет. Хит-тест двери — `doorHitTest`.
+ * (оба конца — к характеристическим точкам своих клеток). Дверь не привязана
+ * к стене; правый клик по существующей двери удаляет её, левый — ничего не
+ * делает. Хит-тест двери — `doorHitTest`.
  */
 export function useDoorTool(options: DoorToolOptions): {
   preview: DoorPreview | null
@@ -49,7 +46,7 @@ export function useDoorTool(options: DoorToolOptions): {
     onPointerCancel: () => void
   }
 } {
-  const { canvasRef, active, model, imageId, openAngle, viewportRef, onCommit } = options
+  const { canvasRef, active, model, imageId, viewportRef, onCommit } = options
   const worldFromEvent = useWorldPointFromEvent(canvasRef, viewportRef)
   const [pending, setPending] = useState<{ startWorld: Point; a: Point; b: Point } | null>(null)
   // При деактивации инструмента сбрасываем недостроенный проём во время рендера.
@@ -57,21 +54,6 @@ export function useDoorTool(options: DoorToolOptions): {
   if (active !== wasActive) {
     setWasActive(active)
     if (!active) setPending(null)
-  }
-
-  function handleDoorHit(hitDoorId: string, button: number): void {
-    const door = model.doors.find((candidate) => candidate.id === hitDoorId)
-    if (!door) return
-    setPending(null)
-    if (button === RIGHT_BUTTON) {
-      onCommit({ kind: 'removeDoor', id: hitDoorId })
-    } else {
-      onCommit({
-        kind: 'setDoorAngle',
-        id: hitDoorId,
-        openAngle: cycleDoorOpenAngle(door.openAngle, openAngle),
-      })
-    }
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -82,8 +64,12 @@ export function useDoorTool(options: DoorToolOptions): {
 
     const hitDoorId = doorHitTest(world, model.doors, DOOR_HIT_RADIUS)
     if (hitDoorId) {
+      // По двери: правый клик удаляет, левый ничего не делает (угол створки
+      // и её текстура правятся в панели параметров — этап 28).
+      if (event.button !== RIGHT_BUTTON) return
       event.preventDefault()
-      handleDoorHit(hitDoorId, event.button)
+      setPending(null)
+      onCommit({ kind: 'removeDoor', id: hitDoorId })
       return
     }
     if (event.button !== LEFT_BUTTON) return
@@ -97,7 +83,7 @@ export function useDoorTool(options: DoorToolOptions): {
     const { a, b } = doorEndpoints(model, pending.startWorld, world)
     setPending(null)
     if (pointsEqual(a, b)) return
-    onCommit({ kind: 'addDoor', a, b, openAngle, imageId })
+    onCommit({ kind: 'addDoor', a, b, imageId })
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {

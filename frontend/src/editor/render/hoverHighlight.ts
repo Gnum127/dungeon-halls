@@ -14,8 +14,9 @@ import type { Viewport } from './viewport'
 
 /**
  * Подсветка под курсором: текстурные инструменты подсвечивают квадрант
- * 0.5×0.5, остальные — целую клетку. Курсор и панорамирование карту не
- * подсвечивают вообще. Единая точка выбора для CanvasView.
+ * 0.5×0.5, остальные — целую клетку. Курсор, панорамирование и дверь карту не
+ * подсвечивают вообще (у двери — только точки снапа). Единая точка выбора для
+ * CanvasView.
  */
 export function drawHoverHighlight(
   ctx: CanvasRenderingContext2D,
@@ -24,7 +25,7 @@ export function drawHoverHighlight(
   world: Point,
   viewport: Viewport,
 ): void {
-  if (tool.type === 'cursor' || tool.type === 'pan') return
+  if (tool.type === 'cursor' || tool.type === 'pan' || tool.type === 'door') return
   if (toolPaintsTexture(tool)) {
     drawQuadrantHighlight(ctx, world, viewport)
   } else {

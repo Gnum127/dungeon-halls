@@ -155,21 +155,17 @@ describe('renderMap', () => {
     // A 2×2 covered block shares lattice corners → 3×3 = 9 unique bright points.
     expect(dots).toHaveLength(9)
     // The remaining corners stay dim.
-    const emptyDots = calls.filter(
-      (c) => c.op === 'fill' && c.fillStyle === EMPTY_GRID_POINT_COLOR,
-    )
+    const emptyDots = calls.filter((c) => c.op === 'fill' && c.fillStyle === EMPTY_GRID_POINT_COLOR)
     expect(emptyDots).toHaveLength(81 - 9)
     expect(calls.filter((c) => c.op === 'arc')).toHaveLength(81)
 
     // Bright points are full size, free-field points are smaller (spec 20.1).
     const brightArcs = calls.filter((c) => c.op === 'arc' && c.fillStyle === GRID_POINT_COLOR)
     expect(brightArcs.every((c) => c.args[2] === GRID_POINT_RADIUS)).toBe(true)
-    const emptyArcs = calls.filter(
-      (c) => c.op === 'arc' && c.fillStyle === EMPTY_GRID_POINT_COLOR,
-    )
-    expect(emptyArcs.every((c) => c.args[2] === GRID_POINT_RADIUS * EMPTY_GRID_POINT_RADIUS_SCALE)).toBe(
-      true,
-    )
+    const emptyArcs = calls.filter((c) => c.op === 'arc' && c.fillStyle === EMPTY_GRID_POINT_COLOR)
+    expect(
+      emptyArcs.every((c) => c.args[2] === GRID_POINT_RADIUS * EMPTY_GRID_POINT_RADIUS_SCALE),
+    ).toBe(true)
   })
 
   it('draws walls with a body and an outline', () => {
@@ -195,7 +191,7 @@ describe('renderMap', () => {
       ],
       { id: 'w1' },
     )
-    const door = { id: 'd1', a: { x: 1.5, y: 0 }, b: { x: 2.5, y: 0 }, openAngle: 0, imageId: null }
+    const door = { id: 'd1', a: { x: 1.5, y: 0 }, b: { x: 2.5, y: 0 }, imageId: null }
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, baseModel({ walls: [wall], doors: [door] }), viewport)
 
@@ -254,8 +250,8 @@ describe('renderMap', () => {
     expect(raw.lineCap).toBe('round')
   })
 
-  it('draws a closed door as a filled rectangle along its opening', () => {
-    const door = { id: 'd1', a: { x: 1, y: 0 }, b: { x: 2, y: 0 }, openAngle: 0, imageId: null }
+  it('draws a door as a filled rectangle along its opening', () => {
+    const door = { id: 'd1', a: { x: 1, y: 0 }, b: { x: 2, y: 0 }, imageId: null }
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, baseModel({ doors: [door] }), viewport)
 
@@ -268,7 +264,6 @@ describe('renderMap', () => {
       id: 'd1',
       a: { x: 1, y: 0 },
       b: { x: 2, y: 0 },
-      openAngle: 0,
       imageId: 'door-iron',
     }
     const textures = { tileTextures: {}, objectTextures: {}, elementImages: {} }
@@ -284,7 +279,6 @@ describe('renderMap', () => {
       id: 'd1',
       a: { x: 1, y: 0 },
       b: { x: 2, y: 0 },
-      openAngle: 0,
       imageId: 'door-iron',
     }
     const { ctx, calls } = makeFakeCtx()
@@ -294,12 +288,11 @@ describe('renderMap', () => {
     expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
   })
 
-  it('draws a textured closed door from the element image pool', () => {
+  it('draws a textured door from the element image pool', () => {
     const door = {
       id: 'd1',
       a: { x: 1, y: 0 },
       b: { x: 2, y: 0 },
-      openAngle: 0,
       imageId: 'door-iron',
     }
     const image = {} as HTMLImageElement
@@ -311,47 +304,74 @@ describe('renderMap', () => {
     expect(calls.some((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR)).toBe(false)
   })
 
-  it('draws an open door as a leaf strip (no texture rotation)', () => {
-    // A textured door, but open → the leaf is a plain fill, not the texture.
-    const door = {
-      id: 'd1',
-      a: { x: 1, y: 1 },
-      b: { x: 2, y: 1 },
-      openAngle: 90,
-      imageId: 'door-iron',
-    }
+  it('draws a door with the default door texture from the manifest', () => {
+    const door = { id: 'd1', a: { x: 1, y: 0 }, b: { x: 2, y: 0 }, imageId: null }
     const image = {} as HTMLImageElement
-    const textures = { tileTextures: {}, objectTextures: {}, elementImages: { 'door-iron': image } }
-    const { ctx, raw, calls } = makeFakeCtx()
+    const textures = { tileTextures: {}, objectTextures: { door: image }, elementImages: {} }
+    const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, baseModel({ doors: [door] }), viewport, textures)
 
-    expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
-    expect(
-      calls.filter((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR),
-    ).toHaveLength(1)
-    // 90° rotation about the hinge maps the leaf onto the vertical axis.
-    expect(raw.lastRotate).toBeCloseTo(Math.PI / 2)
+    expect(calls.some((c) => c.op === 'drawImage' && c.args[0] === image)).toBe(true)
+    expect(calls.some((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR)).toBe(false)
   })
 
-  it('rotates the leaf by an arbitrary open angle', () => {
+  it('prefers the per-instance element image over the default door texture', () => {
     const door = {
       id: 'd1',
-      a: { x: 1, y: 1 },
-      b: { x: 2, y: 1 },
-      openAngle: 45,
-      imageId: null,
+      a: { x: 1, y: 0 },
+      b: { x: 2, y: 0 },
+      imageId: 'door-iron',
     }
+    const own = {} as HTMLImageElement
+    const fallback = {} as HTMLImageElement
+    const textures = {
+      tileTextures: {},
+      objectTextures: { door: fallback },
+      elementImages: { 'door-iron': own },
+    }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ doors: [door] }), viewport, textures)
+
+    const drawn = calls.find((c) => c.op === 'drawImage')
+    expect(drawn?.args[0]).toBe(own)
+  })
+
+  it('falls back to the default door texture when the instance image is missing', () => {
+    const door = {
+      id: 'd1',
+      a: { x: 1, y: 0 },
+      b: { x: 2, y: 0 },
+      imageId: 'door-iron',
+    }
+    const fallback = {} as HTMLImageElement
+    const textures = {
+      tileTextures: {},
+      objectTextures: { door: fallback },
+      elementImages: {},
+    }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel({ doors: [door] }), viewport, textures)
+
+    const drawn = calls.find((c) => c.op === 'drawImage')
+    expect(drawn?.args[0]).toBe(fallback)
+    expect(
+      calls.filter((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR),
+    ).toHaveLength(0)
+  })
+
+  it('rotates the door strip along the a–b segment', () => {
+    const door = { id: 'd1', a: { x: 1, y: 1 }, b: { x: 1, y: 2 }, imageId: null }
     const { ctx, raw, calls } = makeFakeCtx()
     renderMap(ctx, baseModel({ doors: [door] }), viewport)
 
     expect(
       calls.filter((c) => c.op === 'fillRect' && c.fillStyle === DOOR_FILL_COLOR),
     ).toHaveLength(1)
-    expect(raw.lastRotate).toBeCloseTo(Math.PI / 4)
+    expect(raw.lastRotate).toBeCloseTo(Math.PI / 2)
   })
 
-  it('anchors the door translation at the hinge point', () => {
-    const door = { id: 'd1', a: { x: 2, y: 3 }, b: { x: 3, y: 3 }, openAngle: 0, imageId: null }
+  it('anchors the door translation at the segment start', () => {
+    const door = { id: 'd1', a: { x: 2, y: 3 }, b: { x: 3, y: 3 }, imageId: null }
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, baseModel({ doors: [door] }), viewport)
 
@@ -396,7 +416,9 @@ describe('renderMap', () => {
       viewport,
     )
 
-    const objectFill = calls.findIndex((c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch)
+    const objectFill = calls.findIndex(
+      (c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.torch,
+    )
     const wallStroke = calls.findIndex((c) => c.op === 'stroke' && c.fillStyle === WALL_BODY_COLOR)
     expect(objectFill).toBeGreaterThanOrEqual(0)
     expect(wallStroke).toBeGreaterThan(objectFill)
@@ -471,7 +493,12 @@ describe('renderMap', () => {
       imageOverrides: { table: 'table-round' },
     }
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }), viewport, textures)
+    renderMap(
+      ctx,
+      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }),
+      viewport,
+      textures,
+    )
 
     const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
     expect(drawn).toContain(override)
@@ -487,7 +514,12 @@ describe('renderMap', () => {
       imageOverrides: { table: 'table-round' },
     }
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }), viewport, textures)
+    renderMap(
+      ctx,
+      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }),
+      viewport,
+      textures,
+    )
 
     expect(calls.some((c) => c.op === 'drawImage' && c.args[0] === texture)).toBe(true)
   })
@@ -502,7 +534,12 @@ describe('renderMap', () => {
       imageOverrides: { table: null },
     }
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }), viewport, textures)
+    renderMap(
+      ctx,
+      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }),
+      viewport,
+      textures,
+    )
 
     const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
     expect(drawn).toContain(texture)
@@ -517,7 +554,12 @@ describe('renderMap', () => {
       elementImages: { 'table-wooden': fallback },
     }
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }), viewport, textures)
+    renderMap(
+      ctx,
+      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }),
+      viewport,
+      textures,
+    )
 
     expect(calls.some((c) => c.op === 'drawImage' && c.args[0] === fallback)).toBe(true)
   })
@@ -531,7 +573,12 @@ describe('renderMap', () => {
       elementImages: { 'table-wooden': elementImage },
     }
     const { ctx, calls } = makeFakeCtx()
-    renderMap(ctx, baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }), viewport, textures)
+    renderMap(
+      ctx,
+      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }),
+      viewport,
+      textures,
+    )
 
     const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
     expect(drawn).toContain(texture)

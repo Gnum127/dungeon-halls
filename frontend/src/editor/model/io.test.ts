@@ -52,7 +52,6 @@ function richModel(): MapModel {
     kind: 'addDoor',
     a: { x: 0, y: 0 },
     b: { x: 1, y: 0 },
-    openAngle: -30,
     imageId: 'door-wooden',
   })
   model = applyCommand(model, {
@@ -281,14 +280,7 @@ describe('deserializeMap rejects malformed sections', () => {
     ).toThrow(/at least 2/)
   })
 
-  it('rejects a door with a bad openAngle, coinciding endpoints or bad imageId', () => {
-    expect(() =>
-      deserializeMap(
-        JSON.stringify(
-          withRaw((raw) => ((raw.doors as Record<string, unknown>[])[0].openAngle = 999)),
-        ),
-      ),
-    ).toThrow(/openAngle/)
+  it('rejects a door with coinciding endpoints or a bad imageId', () => {
     expect(() =>
       deserializeMap(
         JSON.stringify(withRaw((raw) => ((raw.doors as Record<string, unknown>[])[0].b = [0, 0]))),
@@ -301,6 +293,16 @@ describe('deserializeMap rejects malformed sections', () => {
         ),
       ),
     ).toThrow(/imageId/)
+  })
+
+  it('ignores a legacy openAngle field when loading a door', () => {
+    const loaded = deserializeMap(
+      JSON.stringify(
+        withRaw((raw) => ((raw.doors as Record<string, unknown>[])[0].openAngle = 90)),
+      ),
+    )
+    expect(loaded.doors).toHaveLength(1)
+    expect(loaded.doors[0]).not.toHaveProperty('openAngle')
   })
 
   it('rejects a stairs entry with a degenerate polygon or duplicate id', () => {

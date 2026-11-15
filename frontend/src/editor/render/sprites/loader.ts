@@ -1,6 +1,6 @@
 import type { ObjectKindId } from '../../model/objects'
 import type { TileTypeName } from '@/shared/tiles'
-import type { ElementImageManifest, TextureManifest } from './manifest'
+import type { ElementImageManifest, ObjectTextureKey, TextureManifest } from './manifest'
 import {
   ELEMENT_IMAGE_MANIFEST_PATH,
   TEXTURE_MANIFEST_PATH,
@@ -25,7 +25,7 @@ export interface TileTexture {
  */
 export interface TextureAtlas {
   readonly tileTextures: Partial<Record<TileTypeName, TileTexture>>
-  readonly objectTextures: Partial<Record<ObjectKindId, HTMLImageElement>>
+  readonly objectTextures: Partial<Record<ObjectTextureKey, HTMLImageElement>>
   /** Пул готовых изображений элементов по imageId (см. ElementImageManifest). */
   readonly elementImages: Readonly<Partial<Record<string, HTMLImageElement>>>
 }
@@ -115,10 +115,7 @@ export async function loadElementManifest(
   return loadJson(path, validateElementManifest)
 }
 
-async function loadJson<T>(
-  path: string,
-  validate: (data: unknown) => T | null,
-): Promise<T | null> {
+async function loadJson<T>(path: string, validate: (data: unknown) => T | null): Promise<T | null> {
   try {
     const response = await fetch(resolveSpriteUrl(path))
     if (!response.ok) return null
@@ -165,7 +162,9 @@ async function resolveTileTextures(
 }
 
 /** Пул вариантов: отказ отдельного файла не убирает весь пул; пустой пул — undefined. */
-async function requestPool(paths: readonly string[]): Promise<readonly HTMLImageElement[] | undefined> {
+async function requestPool(
+  paths: readonly string[],
+): Promise<readonly HTMLImageElement[] | undefined> {
   const images = await Promise.all(paths.map((path) => requestImage(resolveSpriteUrl(path))))
   const loaded = images.filter((image): image is HTMLImageElement => image !== null)
   return loaded.length > 0 ? loaded : undefined
@@ -173,7 +172,7 @@ async function requestPool(paths: readonly string[]): Promise<readonly HTMLImage
 
 async function resolveObjectTextures(
   entries: TextureManifest['objectTextures'],
-): Promise<Partial<Record<ObjectKindId, HTMLImageElement>>> {
+): Promise<Partial<Record<ObjectTextureKey, HTMLImageElement>>> {
   const resolved = await Promise.all(
     Object.entries(entries).map(async ([key, entry]) => {
       if (!entry) return null
@@ -181,9 +180,9 @@ async function resolveObjectTextures(
       return image ? ([key, image] as const) : null
     }),
   )
-  const result: Partial<Record<ObjectKindId, HTMLImageElement>> = {}
+  const result: Partial<Record<ObjectTextureKey, HTMLImageElement>> = {}
   for (const item of resolved) {
-    if (item) result[item[0] as ObjectKindId] = item[1]
+    if (item) result[item[0] as ObjectTextureKey] = item[1]
   }
   return result
 }

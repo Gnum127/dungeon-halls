@@ -7,7 +7,7 @@ beforeAll(() => {
   // jsdom не реализует 2D-контекст: отдаём записывающий фейк, чтобы рендер
   // прошёл без «Not implemented» и тест проверял именно поведение редактора.
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
-    () => makeFakeCtx().ctx as never,
+    () => makeFakeCtx().ctx as unknown as CanvasRenderingContext2D,
   )
 })
 
@@ -26,9 +26,7 @@ describe('EditorPage', () => {
       'aria-pressed',
       'true',
     )
-    expect(
-      screen.getByText('Click — select, drag — move, Delete — remove'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('Click — select, drag — move, Delete — remove')).toBeInTheDocument()
   })
 
   it('eraser toggle switches the fill to erasing (regression: it did nothing)', async () => {
@@ -50,21 +48,23 @@ describe('EditorPage', () => {
     expect(screen.queryByRole('group', { name: 'Tool settings' })).not.toBeInTheDocument()
   })
 
-  it('keeps the chosen door leaf angle across tool switches', async () => {
+  it('keeps the chosen door texture across tool switches and drops the angle field', async () => {
     const { bar } = await renderPage()
     fireEvent.click(within(bar).getByRole('button', { name: 'Door' }))
 
-    const angle = screen.getByRole('spinbutton', { name: 'Leaf angle' })
-    expect(angle).toHaveValue(30)
-
-    fireEvent.change(angle, { target: { value: '45' } })
-    expect(angle).toHaveValue(45)
-
-    fireEvent.click(within(bar).getByRole('button', { name: 'Stairs' }))
+    const select = screen.getByRole('combobox', { name: 'Door texture' })
+    expect(select).toHaveValue('')
+    // The leaf-angle field is gone for good.
     expect(screen.queryByRole('spinbutton', { name: 'Leaf angle' })).toBeNull()
 
+    fireEvent.change(select, { target: { value: 'door-wooden' } })
+    expect(select).toHaveValue('door-wooden')
+
+    fireEvent.click(within(bar).getByRole('button', { name: 'Stairs' }))
+    expect(screen.queryByRole('combobox', { name: 'Door texture' })).toBeNull()
+
     fireEvent.click(within(bar).getByRole('button', { name: 'Door' }))
-    expect(screen.getByRole('spinbutton', { name: 'Leaf angle' })).toHaveValue(45)
+    expect(screen.getByRole('combobox', { name: 'Door texture' })).toHaveValue('door-wooden')
   })
 
   it('switches to the stairs tool from the bottom bar', async () => {
@@ -76,7 +76,7 @@ describe('EditorPage', () => {
       'true',
     )
     // Door-only field disappears with the non-door tool.
-    expect(screen.queryByRole('spinbutton', { name: 'Leaf angle' })).toBeNull()
+    expect(screen.queryByRole('combobox', { name: 'Door texture' })).toBeNull()
   })
 
   it('drops the removed rail sections and trims the file panel to save/load/png', async () => {

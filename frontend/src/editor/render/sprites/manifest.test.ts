@@ -22,7 +22,10 @@ const VALID = {
 
 const VALID_ELEMENT = {
   version: 1,
-  items: { 'table-wooden': 'element-images/table-wooden.png', 'door-iron': 'element-images/door-iron.png' },
+  items: {
+    'table-wooden': 'element-images/table-wooden.png',
+    'door-iron': 'element-images/door-iron.png',
+  },
 }
 
 describe('validateTextureManifest', () => {
@@ -64,6 +67,22 @@ describe('validateTextureManifest', () => {
     expect(
       validateTextureManifest({ ...VALID, objectTextures: { dragon: { path: 'x.png' } } }),
     ).toBeNull()
+  })
+
+  it('accepts the reserved door surface texture key', () => {
+    expect(
+      validateTextureManifest({
+        ...VALID,
+        objectTextures: { door: { path: 'sprites/objects/door_wooden.png' } },
+      }),
+    ).toEqual({
+      version: 2,
+      tileTextures: {
+        floor: { path: 'sprites/tiles/floor_stone.png', size: 256 },
+        grass: { path: 'sprites/tiles/grass.png', size: 512 },
+      },
+      objectTextures: { door: { path: 'sprites/objects/door_wooden.png' } },
+    })
   })
 
   it('rejects missing sections, bad paths and bad sizes', () => {
@@ -155,7 +174,13 @@ describe('shipped texture manifest', () => {
 
     const objectKeys = Object.keys(parsed?.objectTextures ?? {})
     expect(objectKeys.length).toBeGreaterThan(0)
-    expect(objectKeys.every((key) => (OBJECT_KINDS as readonly string[]).includes(key))).toBe(true)
+    // Keys are object kinds plus the reserved `door` surface texture.
+    expect(
+      objectKeys.every(
+        (key) => key === 'door' || (OBJECT_KINDS as readonly string[]).includes(key),
+      ),
+    ).toBe(true)
+    expect(objectKeys).toContain('door')
   })
 })
 

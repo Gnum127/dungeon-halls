@@ -3,7 +3,6 @@ import { applyCommand } from './commands'
 import { createEmptyMap } from './createEmptyMap'
 import { createTerrainRegion } from './regions'
 import { createWallSegment } from './wallSegments'
-import { findDoorById } from './doors'
 import type { MapModel } from './types'
 
 const SQUARE = [
@@ -122,13 +121,12 @@ describe('doors', () => {
       imageId: 'door-wooden',
     })
 
-  it('adds a door as an independent segment with the given angle', () => {
+  it('adds a door as an independent segment', () => {
     const model = addDoor(makeMap())
     expect(model.doors).toHaveLength(1)
     expect(model.doors[0]).toMatchObject({
       a: { x: 1, y: 0 },
       b: { x: 2, y: 0 },
-      openAngle: 0,
       imageId: 'door-wooden',
     })
   })
@@ -145,37 +143,9 @@ describe('doors', () => {
     ).toThrow(/coincide/)
   })
 
-  it('rejects an out-of-range openAngle at creation', () => {
-    expect(() =>
-      applyCommand(makeMap(), {
-        kind: 'addDoor',
-        a: { x: 1, y: 0 },
-        b: { x: 2, y: 0 },
-        openAngle: 200,
-      }),
-    ).toThrow(/openAngle/)
-  })
-
-  it('throws when setting an angle on an unknown door', () => {
-    expect(() =>
-      applyCommand(makeMap(), { kind: 'setDoorAngle', id: 'nope', openAngle: 30 }),
-    ).toThrow(/not found/)
-  })
-
-  it('sets the angle and no-ops on the same value', () => {
-    const model = addDoor(makeMap())
-    const id = model.doors[0].id
-    const opened = applyCommand(model, { kind: 'setDoorAngle', id, openAngle: -30 })
-    expect(findDoorById(opened.doors, id)?.openAngle).toBe(-30)
-    expect(applyCommand(opened, { kind: 'setDoorAngle', id, openAngle: -30 })).toBe(opened)
-  })
-
-  it('rejects an out-of-range angle at set time', () => {
-    const model = addDoor(makeMap())
-    const id = model.doors[0].id
-    expect(() => applyCommand(model, { kind: 'setDoorAngle', id, openAngle: 999 })).toThrow(
-      /out of range/,
-    )
+  it('defaults the image to null when none is given', () => {
+    const model = applyCommand(makeMap(), { kind: 'addDoor', a: { x: 1, y: 0 }, b: { x: 2, y: 0 } })
+    expect(model.doors[0].imageId).toBeNull()
   })
 
   it('removes a door and throws for an unknown id', () => {
@@ -346,7 +316,18 @@ describe('replaceMap', () => {
     expect(() =>
       applyCommand(makeMap(), {
         kind: 'replaceMap',
-        snapshot: { ...snapshot, stairs: [{ id: 's2', polygon: [{ x: 0, y: 0 }, { x: 1, y: 1 }] }] },
+        snapshot: {
+          ...snapshot,
+          stairs: [
+            {
+              id: 's2',
+              polygon: [
+                { x: 0, y: 0 },
+                { x: 1, y: 1 },
+              ],
+            },
+          ],
+        },
       }),
     ).toThrow(RangeError)
   })
@@ -487,7 +468,7 @@ describe('replaceMap (invariants & aliasing)', () => {
           grid: { width: 10, height: 10, cellSize: 64 },
           regions: [],
           walls: [],
-          doors: [{ id: 'd1', a: { x: 1, y: 1 }, b: { x: 1, y: 1 }, openAngle: 0, imageId: null }],
+          doors: [{ id: 'd1', a: { x: 1, y: 1 }, b: { x: 1, y: 1 }, imageId: null }],
           stairs: [],
           objects: [],
           lights: [],

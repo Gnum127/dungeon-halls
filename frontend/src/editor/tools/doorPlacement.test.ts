@@ -3,8 +3,7 @@ import { applyCommand } from '../model/commands'
 import { createEmptyMap } from '../model/createEmptyMap'
 import { createTerrainRegion } from '../model/regions'
 import { createWallSegment } from '../model/wallSegments'
-import { distance } from '@/shared/point'
-import { DOOR_WALL_DISTANCE, doorEndpoints, MIN_DOOR_LENGTH } from './doorPlacement'
+import { doorEndpoints } from './doorPlacement'
 import type { MapModel } from '../model/types'
 import type { Point } from '@/shared/point'
 
@@ -24,26 +23,6 @@ function withWall(): MapModel {
           [
             { x: 0, y: 0 },
             { x: 10, y: 0 },
-          ],
-          { id: 'w1' },
-        ),
-        present: true,
-      },
-    ],
-  })
-}
-
-/** Г-образная стена: (0,0)→(6,0)→(6,6). */
-function withElbowWall(): MapModel {
-  return applyCommand(createEmptyMap(12, 12), {
-    kind: 'setWalls',
-    updates: [
-      {
-        segment: createWallSegment(
-          [
-            { x: 0, y: 0 },
-            { x: 6, y: 0 },
-            { x: 6, y: 6 },
           ],
           { id: 'w1' },
         ),
@@ -83,41 +62,19 @@ describe('doorEndpoints', () => {
     })
   })
 
-  it('runs the door along a wall, rounding the length to 0.5', () => {
-    expect(doorEndpoints(withWall(), { x: 4, y: 0 }, { x: 6.2, y: 0 })).toEqual({
+  it('does NOT snap the door onto a wall — it stays on the cell lattice', () => {
+    // Off-lattice start near the wall axis: wall-align would project the anchor
+    // onto the axis (4.5,0)→(6.5,0), while the door keeps cell-lattice ends.
+    expect(doorEndpoints(withWall(), { x: 4.4, y: 0.3 }, { x: 6.6, y: 0.3 })).toEqual({
       a: { x: 4, y: 0 },
-      b: { x: 6, y: 0 },
-    })
-    expect(doorEndpoints(withWall(), { x: 6, y: 0 }, { x: 3.8, y: 0 })).toEqual({
-      a: { x: 6, y: 0 },
-      b: { x: 4, y: 0 },
+      b: { x: 7, y: 0 },
     })
   })
 
-  it('lays the anchor on the wall axis, even off the lattice', () => {
-    // Anchor 0.5 above the wall: still aligned, projected onto the axis.
-    const { a, b } = doorEndpoints(withWall(), { x: 4, y: DOOR_WALL_DISTANCE }, { x: 6.5, y: 0.5 })
-    expect(a).toEqual({ x: 4, y: 0 })
-    expect(b).toEqual({ x: 6.5, y: 0 })
-  })
-
-  it('keeps a minimum half-cell length along a wall', () => {
-    const { a, b } = doorEndpoints(withWall(), { x: 4, y: 0 }, { x: 4.05, y: 0 })
-    expect(distance(a, b)).toBe(MIN_DOOR_LENGTH)
-  })
-
-  it('picks the segment under the anchor on a multi-segment wall', () => {
-    // Anchor near the vertical leg of the elbow: the door runs along x=6.
-    expect(doorEndpoints(withElbowWall(), { x: 6, y: 3 }, { x: 6, y: 5.2 })).toEqual({
-      a: { x: 6, y: 3 },
-      b: { x: 6, y: 5 },
-    })
-  })
-
-  it('stays free when the first click is not on a wall', () => {
-    expect(doorEndpoints(withWall(), { x: 4, y: 1.2 }, { x: 6.7, y: 1.2 })).toEqual({
+  it('keeps an arbitrary (non-wall) direction between the two clicks', () => {
+    expect(doorEndpoints(withWall(), { x: 4.2, y: 1.2 }, { x: 6.2, y: 3.2 })).toEqual({
       a: { x: 4, y: 1 },
-      b: { x: 7, y: 1 },
+      b: { x: 6, y: 3 },
     })
   })
 })

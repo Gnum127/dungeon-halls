@@ -1,7 +1,7 @@
 import { isKnownKind, OBJECT_COLORS, OBJECT_KIND_ENTRIES } from '../model/objects'
 import { regionBounds } from '../model/regions'
 import { gridPoints } from '../model/coverage'
-import { doorLeafEnd, doorLength } from '../model/doors'
+import { doorLength } from '../model/doors'
 import type { WallSegment } from '../model/wallSegments'
 import type { MapModel } from '../model/types'
 import type { TerrainRegion } from '../model/regions'
@@ -184,7 +184,13 @@ function drawRegion(
       // Пул: вариант выбирается детерминированно по координате текстурной плитки.
       const variant =
         pool && pool.length > 0 ? pool[pickIndexFromCoords(col, row, pool.length)] : image
-      ctx.drawImage(variant, col * screenSize - offsetX, row * screenSize - offsetY, screenSize, screenSize)
+      ctx.drawImage(
+        variant,
+        col * screenSize - offsetX,
+        row * screenSize - offsetY,
+        screenSize,
+        screenSize,
+      )
     }
   }
   ctx.restore()
@@ -237,13 +243,7 @@ function drawGridPoints(ctx: CanvasRenderingContext2D, model: MapModel, viewport
   const drawPoints = (points: readonly Point[], radius: number) => {
     for (const point of points) {
       ctx.beginPath()
-      ctx.arc(
-        point.x * cellSize - offsetX,
-        point.y * cellSize - offsetY,
-        radius,
-        0,
-        Math.PI * 2,
-      )
+      ctx.arc(point.x * cellSize - offsetX, point.y * cellSize - offsetY, radius, 0, Math.PI * 2)
       ctx.fill()
     }
   }
@@ -347,10 +347,10 @@ function drawWall(
 }
 
 /**
- * Дверь — самостоятельный проём: закрытая створка лежит на отрезке `a`–`b`,
- * открытая повёрнута вокруг петли `a` на `openAngle`. Закрытая рисуется
- * текстурой (по проёму) или жирной заливкой; открытая — заливкой-полосой по
- * створке (текстура не поворачивается).
+ * Дверь — самостоятельный проём: створка всегда закрыта и лежит на отрезке
+ * `a`–`b`. Рисуется текстурой экземпляра (`elementImages[imageId]`) или
+ * текстурой двери по умолчанию (`objectTextures.door`); без них — жирная
+ * заливка по проёму.
  */
 function drawDoor(
   ctx: CanvasRenderingContext2D,
@@ -360,16 +360,16 @@ function drawDoor(
 ): void {
   const { cellSize, offsetX, offsetY } = viewport
   const thickness = Math.max(4, cellSize * DOOR_THICKNESS_FRACTION)
-  const leaf = doorLeafEnd(door)
   const length = doorLength(door) * cellSize
-  const angle = Math.atan2(leaf.y - door.a.y, leaf.x - door.a.x)
+  const angle = Math.atan2(door.b.y - door.a.y, door.b.x - door.a.x)
 
   ctx.save()
   ctx.translate(door.a.x * cellSize - offsetX, door.a.y * cellSize - offsetY)
   ctx.rotate(angle)
 
   const image =
-    door.imageId && door.openAngle === 0 ? textures?.elementImages[door.imageId] : undefined
+    (door.imageId ? textures?.elementImages[door.imageId] : undefined) ??
+    textures?.objectTextures.door
   ctx.fillStyle = DOOR_FILL_COLOR
   if (image) {
     ctx.drawImage(image, 0, -thickness / 2, length, thickness)

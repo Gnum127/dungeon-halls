@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { TileTypeName } from '../model/types'
 import { DOOR_CATALOG } from '../model/doorCatalog'
-import { MAX_DOOR_OPEN_ANGLE } from '../model/doors'
 import { TILE_COLORS } from '../render/colors'
 import type { EditorTool } from '../tools/editorTool'
 import { TerrainPalette } from './TerrainPalette'
@@ -16,19 +15,17 @@ export interface ToolParamsProps {
   vertexCount: number
   autoWalls: boolean
   doorImageId: string | null
-  doorOpenAngle: number
   onSelectTile: (tileType: TileTypeName) => void
   onToggleEraser: () => void
   onVertexCountChange: (count: number) => void
   onAutoWallsChange: (value: boolean) => void
   onDoorImageChange: (imageId: string | null) => void
-  onDoorAngleChange: (angle: number) => void
 }
 
 /**
  * Боковая панель параметров активного инструмента (нижняя плашка выбирает
  * сам инструмент). Для фигур — покрытие, ластик, вершины, авто-стены; для
- * двери — текстура и угол; для курсора/пана/лестницы — подсказка.
+ * двери — текстура; для курсора/пана/лестницы — подсказка.
  */
 export function ToolParams(props: ToolParamsProps) {
   const { t } = useTranslation()
@@ -47,9 +44,7 @@ export function ToolParams(props: ToolParamsProps) {
             aria-hidden="true"
           />
           <span className={styles.fillName}>
-            {erasing
-              ? t('editor.toolParams.erases')
-              : t(`editor.tiles.${props.tileType}`)}
+            {erasing ? t('editor.toolParams.erases') : t(`editor.tiles.${props.tileType}`)}
           </span>
         </div>
         <button
@@ -113,22 +108,6 @@ export function ToolParams(props: ToolParamsProps) {
             ))}
           </select>
         </label>
-        <label className={styles.field}>
-          <span>{t('editor.toolParams.doorAngle')}</span>
-          <input
-            type="number"
-            min={0}
-            max={MAX_DOOR_OPEN_ANGLE}
-            step={1}
-            value={props.doorOpenAngle}
-            onChange={(event) => {
-              const next = Number(event.target.value)
-              if (Number.isInteger(next) && next >= 0 && next <= MAX_DOOR_OPEN_ANGLE) {
-                props.onDoorAngleChange(next)
-              }
-            }}
-          />
-        </label>
       </div>
     )
   }
@@ -140,9 +119,7 @@ export function ToolParams(props: ToolParamsProps) {
   if (tool.type === 'cursor' || tool.type === 'pan') {
     return (
       <p className={styles.hint}>
-        {tool.type === 'pan'
-          ? t('editor.toolParams.panHint')
-          : t('editor.toolParams.cursorHint')}
+        {tool.type === 'pan' ? t('editor.toolParams.panHint') : t('editor.toolParams.cursorHint')}
       </p>
     )
   }

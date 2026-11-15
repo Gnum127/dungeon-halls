@@ -1,5 +1,5 @@
 import { isKnownKind, OBJECT_COLORS } from '../model/objects'
-import { doorLeafEnd, doorLength } from '../model/doors'
+import { doorLength } from '../model/doors'
 import { gridPoints } from '../model/coverage'
 import type { MapModel } from '../model/types'
 import {
@@ -152,10 +152,9 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
   }
 
   for (const door of model.doors) {
-    const leaf = doorLeafEnd(door)
     const length = doorLength(door) * s
     const thickness = Math.max(4, s * DOOR_THICKNESS_FRACTION)
-    const angleDeg = (Math.atan2(leaf.y - door.a.y, leaf.x - door.a.x) * 180) / Math.PI
+    const angleDeg = (Math.atan2(door.b.y - door.a.y, door.b.x - door.a.x) * 180) / Math.PI
     const transform = `translate(${fmt(door.a.x * s)} ${fmt(door.a.y * s)}) rotate(${fmt(angleDeg)})`
     parts.push(
       `<rect x="0" y="${fmt(-thickness / 2)}" width="${fmt(length)}" height="${fmt(thickness)}" fill="${DOOR_FILL_COLOR}" transform="${transform}"/>`,

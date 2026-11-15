@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { applyCommand } from '../model/commands'
 import { createEmptyMap } from '../model/createEmptyMap'
 import { createWallSegment } from '../model/wallSegments'
+import type { Command } from '../model/commands'
 import type { MapModel } from '../model/types'
 import type { Viewport } from '../render/viewport'
 import { useDoorTool } from './useDoorTool'
@@ -42,9 +43,8 @@ interface HarnessProps {
   model: MapModel
   active?: boolean
   imageId?: string | null
-  openAngle?: number
   viewport?: Partial<Viewport>
-  onCommit: (command: unknown) => void
+  onCommit: (command: Command | null) => void
   onPreview: (preview: DoorPreview | null) => void
 }
 
@@ -52,7 +52,6 @@ function Harness({
   model,
   active = true,
   imageId = null,
-  openAngle = 30,
   viewport: vp,
   onCommit,
   onPreview,
@@ -72,9 +71,8 @@ function Harness({
     active,
     model,
     imageId,
-    openAngle,
     viewportRef,
-    onCommit: onCommit as never,
+    onCommit,
   })
   useEffect(() => {
     onPreview(preview)
@@ -84,16 +82,15 @@ function Harness({
 
 function setup(
   model: MapModel,
-  opts: { imageId?: string | null; openAngle?: number; viewport?: Partial<Viewport> } = {},
+  opts: { imageId?: string | null; viewport?: Partial<Viewport> } = {},
 ) {
-  const onCommit = vi.fn()
-  const onPreview = vi.fn()
+  const onCommit = vi.fn<(command: Command | null) => void>()
+  const onPreview = vi.fn<(preview: DoorPreview | null) => void>()
   const renderTree = (active: boolean) => (
     <Harness
       model={model}
       active={active}
       imageId={opts.imageId ?? null}
-      openAngle={opts.openAngle ?? 30}
       viewport={opts.viewport}
       onCommit={onCommit}
       onPreview={onPreview}
@@ -128,10 +125,7 @@ function setup(
 
 describe('useDoorTool', () => {
   it('places a free door over two clicks, snapped to the half grid', () => {
-    const { click, onCommit } = setup(createEmptyMap(12, 4), {
-      imageId: 'door-iron',
-      openAngle: 30,
-    })
+    const { click, onCommit } = setup(createEmptyMap(12, 4), { imageId: 'door-iron' })
     click(1.2 * CELL, 1.2 * CELL)
     click(3.7 * CELL, 1.2 * CELL)
 
@@ -141,22 +135,22 @@ describe('useDoorTool', () => {
         kind: 'addDoor',
         a: { x: 1, y: 1 },
         b: { x: 4, y: 1 },
-        openAngle: 30,
         imageId: 'door-iron',
       }),
     )
   })
 
-  it('runs the door along a wall when the first click lands on it', () => {
+  it('does not snap a door onto a wall', () => {
     const { click, onCommit } = setup(withWall())
-    click(4 * CELL, 0)
-    click(6.2 * CELL, 0)
+    click(4.4 * CELL, 0.3 * CELL)
+    click(6.6 * CELL, 0.3 * CELL)
 
+    // Wall-aligned code would project onto the axis (4.5,0)→(6.5,0).
     expect(onCommit).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: 'addDoor',
         a: { x: 4, y: 0 },
-        b: { x: 6, y: 0 },
+        b: { x: 7, y: 0 },
       }),
     )
   })
@@ -214,16 +208,24 @@ describe('useDoorTool', () => {
     expect(onPreview).toHaveBeenLastCalledWith({ a: { x: 2, y: 2 }, b: { x: 2, y: 2 } })
   })
 
-  it('cycles the leaf angle on a left click at a door', () => {
+  it('leaves a door untouched on a left click at it (no angle cycling)', () => {
     const model = withDoor()
-    const { click, onCommit } = setup(model, { openAngle: 30 })
+    const { click, onCommit } = setup(model)
     click(5 * CELL, 0)
 
-    expect(onCommit).toHaveBeenCalledWith({
-      kind: 'setDoorAngle',
-      id: model.doors[0].id,
-      openAngle: 30,
-    })
+    expect(onCommit).not.toHaveBeenCalled()
+  })
+
+  it('keeps an unfinished opening when a left click lands on an existing door', () => {
+    const model = withDoor()
+    const { click, onPreview, onCommit } = setup(model)
+    click(1.2 * CELL, 1.2 * CELL)
+    onPreview.mockClear()
+
+    click(5 * CELL, 0)
+
+    expect(onPreview).not.toHaveBeenCalled()
+    expect(onCommit).not.toHaveBeenCalled()
   })
 
   it('removes an existing door on a right click', () => {

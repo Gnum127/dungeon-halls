@@ -32,7 +32,6 @@
       "vertices": "Vertices",
       "autoWalls": "Auto walls",
       "doorTexture": "Door texture",
-      "doorAngle": "Leaf angle",
       "cursorHint": "Click — select, drag — move, Delete — remove",
       "panHint": "Hold and drag to pan the map",
       "stairsHint": "Three clicks: start → base → far edge"

@@ -20,10 +20,9 @@ import type { EditorStore } from '../store/EditorStore'
 import type { Command } from '../model/commands'
 import { renderMap } from '../render/renderMap'
 import type { TextureRenderContext } from '../render/sprites/loader'
-import { drawHoverHighlight } from '../render/hoverHighlight'
-import { drawSnapCandidates, toolUsesHoverSnap } from '../render/snapPreview'
+import { drawHoverOverlay } from '../render/hoverHighlight'
 import { drawGhostPreview } from '../render/ghostPreview'
-import { isCommittablePolygon, rectPolygon, regularPolygonPoints } from '../tools/regions'
+import { isCommittablePolygon, rectPreviewPolygon, regularPolygonPoints } from '../tools/regions'
 import { drawRegionWithWalls } from '../tools/regionPreview'
 import { snapToHalfGrid } from '../model/snap'
 import { BASE_CELL_SIZE, zoomAt } from '../render/viewport'
@@ -224,10 +223,7 @@ export function CanvasView({
     }
 
     if (hoverCell && hoverWorld) {
-      drawHoverHighlight(ctx, tool, hoverCell, hoverWorld, viewport)
-    }
-    if (hoverCell && hoverWorld && toolUsesHoverSnap(tool)) {
-      drawSnapCandidates(ctx, model, hoverCell, hoverWorld, viewport)
+      drawHoverOverlay(ctx, model, tool, hoverCell, hoverWorld, viewport)
     }
     if (hoverWorld && tool.type === 'object') {
       // Ghost повторяет ту же точку, что уйдёт в команду размещения (Shift — снап).
@@ -236,24 +232,23 @@ export function CanvasView({
     }
 
     if (tool.type === 'region-rect' && rectPreview) {
-      const polygon = rectPolygon(
-        rectPreview.start.x,
-        rectPreview.start.y,
-        rectPreview.current.x,
-        rectPreview.current.y,
-        model.grid.width,
-        model.grid.height,
-      )
-      drawRegionWithWalls(ctx, model, viewport, tileType, polygon, autoWalls)
+      const polygon = rectPreviewPolygon(rectPreview, model.grid.width, model.grid.height)
+      // Нулевая площадь (клик без протяжки) — превью не рисуем.
+      if (polygon) {
+        drawRegionWithWalls(ctx, model, viewport, tileType, polygon, autoWalls)
+      }
     }
 
     if (tool.type === 'region-polygon' && polygonPreview) {
-      const centerPoint = { x: polygonPreview.center.x + 0.5, y: polygonPreview.center.y + 0.5 }
-      const radialPoint = { x: polygonPreview.current.x + 0.5, y: polygonPreview.current.y + 0.5 }
-      const points = regularPolygonPoints(centerPoint, radialPoint, tool.vertices, {
-        cols: model.grid.width,
-        rows: model.grid.height,
-      })
+      const points = regularPolygonPoints(
+        polygonPreview.center,
+        polygonPreview.current,
+        tool.vertices,
+        {
+          cols: model.grid.width,
+          rows: model.grid.height,
+        },
+      )
       if (isCommittablePolygon(points)) {
         drawRegionWithWalls(ctx, model, viewport, tileType, points, autoWalls)
       }

@@ -14,11 +14,7 @@ export interface GridBounds {
  * в одну точку после клампа, схлопываются (иначе вырожденные рёбра ломают
  * boolean-операции авто-стен).
  */
-export function clampPolygonToGrid(
-  polygon: readonly Point[],
-  cols: number,
-  rows: number,
-): Point[] {
+export function clampPolygonToGrid(polygon: readonly Point[], cols: number, rows: number): Point[] {
   const clamped = polygon.map((point) => ({
     x: Math.min(Math.max(point.x, 0), cols),
     y: Math.min(Math.max(point.y, 0), rows),
@@ -56,8 +52,9 @@ export function isCommittablePolygon(polygon: readonly Point[]): boolean {
 }
 
 /**
- * Прямоугольный полигон по двум угловым клеткам (включительно), обрезанный по
- * границам карты. Возвращает 4 вершины в клеточных координатах.
+ * Прямоугольный полигон по двум угловым мировым точкам (float, «от точки до
+ * точки»: без добавки целой клетки), обрезанный по границам карты.
+ * Возвращает 4 вершины в клеточных координатах.
  */
 export function rectPolygon(
   ax: number,
@@ -68,9 +65,9 @@ export function rectPolygon(
   rows: number,
 ): Point[] {
   const minX = Math.max(0, Math.min(ax, bx))
-  const maxX = Math.min(cols, Math.max(ax, bx) + 1)
+  const maxX = Math.min(cols, Math.max(ax, bx))
   const minY = Math.max(0, Math.min(ay, by))
-  const maxY = Math.min(rows, Math.max(ay, by) + 1)
+  const maxY = Math.min(rows, Math.max(ay, by))
   return [
     { x: minX, y: minY },
     { x: maxX, y: minY },
@@ -79,9 +76,35 @@ export function rectPolygon(
   ]
 }
 
-/** Прямоугольник непустой (есть площадь ≥ 1 клетки). */
+/** Прямоугольник непустой (есть площадь > 0, включая полуклеточные). */
 export function hasRectArea(polygon: readonly Point[]): boolean {
   return polygon.length === 4 && polygon[2].x > polygon[0].x && polygon[2].y > polygon[0].y
+}
+
+/** Диагональ превью драга: две мировые точки (старт и текущая). */
+export interface RectDragDiagonal {
+  readonly start: Point
+  readonly current: Point
+}
+
+/**
+ * Полигон живого превью прямоугольника: клип по карте + гейт нулевой площади.
+ * `null` — клик без протяжки, рисовать нечего.
+ */
+export function rectPreviewPolygon(
+  drag: RectDragDiagonal,
+  cols: number,
+  rows: number,
+): Point[] | null {
+  const polygon = rectPolygon(
+    drag.start.x,
+    drag.start.y,
+    drag.current.x,
+    drag.current.y,
+    cols,
+    rows,
+  )
+  return hasRectArea(polygon) ? polygon : null
 }
 
 /**

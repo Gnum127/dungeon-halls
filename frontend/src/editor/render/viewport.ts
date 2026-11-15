@@ -21,6 +21,21 @@ export function clampCellSize(size: number): number {
 }
 
 /**
+ * Экранная точка → мировые координаты (float-клетки, без округления). Может
+ * вернуть точку вне карты — вызывающий сам решает, что с ней делать.
+ */
+export function screenToWorld(
+  viewport: PanZoomState,
+  screenX: number,
+  screenY: number,
+): { x: number; y: number } {
+  return {
+    x: (screenX + viewport.offsetX) / viewport.cellSize,
+    y: (screenY + viewport.offsetY) / viewport.cellSize,
+  }
+}
+
+/**
  * Экранная точка → клетка (квадратная сетка). Может вернуть клетку вне карты —
  * вызывающий сам решает, что с ней делать (курсор, кисть и т.д.).
  */
@@ -29,10 +44,8 @@ export function screenToCell(
   screenX: number,
   screenY: number,
 ): { x: number; y: number } {
-  return {
-    x: Math.floor((screenX + viewport.offsetX) / viewport.cellSize),
-    y: Math.floor((screenY + viewport.offsetY) / viewport.cellSize),
-  }
+  const world = screenToWorld(viewport, screenX, screenY)
+  return { x: Math.floor(world.x), y: Math.floor(world.y) }
 }
 
 /** Зум с якорем в экранной точке: точка мира под курсором остаётся на месте. */

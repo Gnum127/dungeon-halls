@@ -217,5 +217,11 @@ float; `footprintCells`/`isCellOccupied` удалены; в реестре `stai
 изображения сгенерированы по `docs/texture-generation-guide.md`. Спецификация
 этапов 19–24 — `docs/spec-stages-19-24.md`. План 19–24 выполнен.
 
+Этап 25 (полуклеточные регионы) закрыт: прямоугольник и многогранник строятся
+по мировым float-точкам с привязкой к 0.5 в момент клика (`snapToHalfGrid`,
+`isWorldPointInsideMap`), `rectPolygon` — «от точки до точки» без `+1`;
+Esc/смена инструмента сбрасывают недостроенную фигуру; «Курсор» и «Панорама»
+не подсвечивают клетку под курсором. Спецификация — `docs/spec-stages-25-30.md`.
+
 При старте новой сессии: прочитать AGENTS.md + roadmap +
 guidelines + frontend-guidelines.

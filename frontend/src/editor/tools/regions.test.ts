@@ -7,6 +7,7 @@ import {
   isDrawablePolygon,
   polygonArea,
   rectPolygon,
+  rectPreviewPolygon,
   regularPolygonPoints,
 } from './regions'
 
@@ -14,18 +15,27 @@ describe('rectPolygon', () => {
   it('normalizes corner order', () => {
     expect(rectPolygon(3, 1, 0, 2, 10, 10)).toEqual([
       { x: 0, y: 1 },
-      { x: 4, y: 1 },
-      { x: 4, y: 3 },
-      { x: 0, y: 3 },
+      { x: 3, y: 1 },
+      { x: 3, y: 2 },
+      { x: 0, y: 2 },
     ])
   })
 
   it('clips to the map edges', () => {
     expect(rectPolygon(-5, -5, 2, 2, 10, 10)).toEqual([
       { x: 0, y: 0 },
-      { x: 3, y: 0 },
-      { x: 3, y: 3 },
-      { x: 0, y: 3 },
+      { x: 2, y: 0 },
+      { x: 2, y: 2 },
+      { x: 0, y: 2 },
+    ])
+  })
+
+  it('builds point-to-point from half-cell corners (no implicit +1 cell)', () => {
+    expect(rectPolygon(0.5, 0.5, 3.5, 3.5, 10, 10)).toEqual([
+      { x: 0.5, y: 0.5 },
+      { x: 3.5, y: 0.5 },
+      { x: 3.5, y: 3.5 },
+      { x: 0.5, y: 3.5 },
     ])
   })
 })
@@ -41,6 +51,28 @@ describe('hasRectArea', () => {
         { x: 0, y: 0 },
       ]),
     ).toBe(false)
+  })
+})
+
+describe('rectPreviewPolygon', () => {
+  it('returns the dragged rectangle, clipped to the map', () => {
+    expect(
+      rectPreviewPolygon({ start: { x: -1, y: 1 }, current: { x: 2.5, y: 3 } }, 10, 10),
+    ).toEqual([
+      { x: 0, y: 1 },
+      { x: 2.5, y: 1 },
+      { x: 2.5, y: 3 },
+      { x: 0, y: 3 },
+    ])
+  })
+
+  it('returns null for a zero-area drag (click without stretching)', () => {
+    expect(rectPreviewPolygon({ start: { x: 1, y: 1 }, current: { x: 1, y: 1 } }, 10, 10)).toBe(
+      null,
+    )
+    expect(rectPreviewPolygon({ start: { x: 2, y: 1 }, current: { x: 1, y: 1 } }, 10, 10)).toBe(
+      null,
+    )
   })
 })
 

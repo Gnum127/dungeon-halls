@@ -10,6 +10,7 @@ import {
   EMPTY_GRID_POINT_COLOR,
   GRID_POINT_COLOR,
   LIGHT_MARKER_COLOR,
+  STAIRS_FILL_COLOR,
   STAIRS_OUTLINE_COLOR,
   STAIRS_STEP_COLOR,
   TILE_COLORS,
@@ -256,8 +257,16 @@ describe('buildSvg', () => {
     const svg = buildSvg(model({ stairs }))
     expect(svg).toContain(`stroke="${STAIRS_STEP_COLOR}"`)
     expect(svg).toContain(`stroke="${STAIRS_OUTLINE_COLOR}"`)
+    expect(svg).toContain(`fill="${STAIRS_FILL_COLOR}"`)
     expect(svg).toContain('clip-path="url(#stairs-0)"')
     expect(svg).toContain('<clipPath id="stairs-0">')
+    // Paint order: translucent fill → steps → outline (matches canvas).
+    const fillAt = svg.indexOf(`fill="${STAIRS_FILL_COLOR}"`)
+    const stepsAt = svg.indexOf(`stroke="${STAIRS_STEP_COLOR}"`)
+    const outlineAt = svg.indexOf(`stroke="${STAIRS_OUTLINE_COLOR}"`)
+    expect(fillAt).toBeGreaterThanOrEqual(0)
+    expect(stepsAt).toBeGreaterThan(fillAt)
+    expect(outlineAt).toBeGreaterThan(stepsAt)
     // The step path is not empty (at least one M…L… subpath).
     expect(svg).toMatch(/d="M[^"]*L[^"]*"[^>]*clip-path="url\(#stairs-0\)"/)
   })

@@ -15,6 +15,7 @@ import {
   GRID_POINT_RADIUS,
   LIGHT_GLOW_COLOR,
   LIGHT_MARKER_COLOR,
+  STAIRS_FILL_COLOR,
   STAIRS_OUTLINE_COLOR,
   STAIRS_STEP_COLOR,
   TILE_COLORS,
@@ -73,7 +74,7 @@ describe('renderMap', () => {
     expect(grassIndex).toBeGreaterThan(floorIndex)
   })
 
-  it('draws a stairs entity outline and step lines without filling it', () => {
+  it('draws a stairs entity outline, translucent fill and step lines', () => {
     const stairs = [
       {
         id: 's1',
@@ -88,16 +89,30 @@ describe('renderMap', () => {
     const { ctx, calls } = makeFakeCtx()
     renderMap(ctx, baseModel({ stairs }), viewport)
 
+    // Translucent fill distinguishes the stairs area from the coverage below.
+    expect(calls.filter((c) => c.op === 'fill' && c.fillStyle === STAIRS_FILL_COLOR)).toHaveLength(
+      1,
+    )
     expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === STAIRS_OUTLINE_COLOR)).toBe(true)
     expect(calls.some((c) => c.op === 'stroke' && c.fillStyle === STAIRS_STEP_COLOR)).toBe(true)
     expect(calls.some((c) => c.op === 'clip')).toBe(true)
-    // Stairs are an overlay: the point grid (covered + free) is the only fill
-    // they contribute, no region fill for the stairs polygon itself.
+    // Paint order, same as the SVG builder: fill → steps → outline.
+    const fillIndex = calls.findIndex((c) => c.op === 'fill' && c.fillStyle === STAIRS_FILL_COLOR)
+    const stepIndex = calls.findIndex((c) => c.op === 'stroke' && c.fillStyle === STAIRS_STEP_COLOR)
+    const outlineIndex = calls.findIndex(
+      (c) => c.op === 'stroke' && c.fillStyle === STAIRS_OUTLINE_COLOR,
+    )
+    expect(fillIndex).toBeGreaterThanOrEqual(0)
+    expect(stepIndex).toBeGreaterThan(fillIndex)
+    expect(outlineIndex).toBeGreaterThan(stepIndex)
+    // Stairs stay an overlay: no region-colour fill for the polygon itself.
     const fills = calls.filter((c) => c.op === 'fill')
-    expect(fills.length).toBeGreaterThan(0)
     expect(
       fills.every(
-        (c) => c.fillStyle === GRID_POINT_COLOR || c.fillStyle === EMPTY_GRID_POINT_COLOR,
+        (c) =>
+          c.fillStyle === GRID_POINT_COLOR ||
+          c.fillStyle === EMPTY_GRID_POINT_COLOR ||
+          c.fillStyle === STAIRS_FILL_COLOR,
       ),
     ).toBe(true)
   })

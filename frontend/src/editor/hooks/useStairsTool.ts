@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import type { Command } from '../model/commands'
-import { snapToHalfGrid } from '../model/snap'
+import { snapToCellCharacteristics } from '../model/snap'
 import { isEditableTarget } from '../dom/isEditableTarget'
 import { isValidStairsShape, stairsVertices } from '../tools/stairsPlacement'
 import { stairsHitTest } from '../tools/stairsHitTest'
@@ -29,8 +29,9 @@ const RIGHT_BUTTON = 2
 /**
  * Инструмент лестницы в 3 клика: `start` → `base` (ширина) → `end` (дальний
  * край); четвёртая вершина — зеркало относительно серединного перпендикуляра к
- * базе. Все клики привязаны к 0.5; живое превью. Клик по существующей лестнице
- * выделяет её, правый клик или Delete удаляет; Esc отменяет построение.
+ * базе. Все клики привязаны к характеристическим точкам своих клеток (9 узлов
+ * 0.5×0.5 при покрытии, 4 угла без); живое превью. Клик по существующей
+ * лестнице выделяет её, правый клик или Delete удаляет; Esc отменяет построение.
  */
 export function useStairsTool(options: StairsToolOptions): {
   preview: StairsPreview | null
@@ -110,10 +111,10 @@ export function useStairsTool(options: StairsToolOptions): {
         return
       }
       setSelectedId(null)
-      setClicks([snapToHalfGrid(world)])
+      setClicks([snapToCellCharacteristics(model, world)])
       return
     }
-    const snapped = snapToHalfGrid(world)
+    const snapped = snapToCellCharacteristics(model, world)
     if (clicks.length === 1) {
       setClicks([clicks[0], snapped])
       return
@@ -129,7 +130,7 @@ export function useStairsTool(options: StairsToolOptions): {
     if (!active || clicks.length === 0) return
     const world = worldFromEvent(event)
     if (!Number.isFinite(world.x) || !Number.isFinite(world.y)) return
-    setCursor(snapToHalfGrid(world))
+    setCursor(snapToCellCharacteristics(model, world))
   }
 
   function onPointerCancel() {

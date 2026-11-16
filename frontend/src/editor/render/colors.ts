@@ -13,9 +13,11 @@ export const TILE_COLORS: Record<TileTypeName, string> = {
 }
 
 /** Цвет поперечных линий-ступеней внутри лестницы (отдельная сущность). */
-export const STAIRS_STEP_COLOR = '#2c2519'
-/** Цвет контура лестницы (без заливки). */
-export const STAIRS_OUTLINE_COLOR = '#6b5a3c'
+export const STAIRS_STEP_COLOR = '#1a1008'
+/** Тёмный контур лестницы (этап 27: повышен контраст). */
+export const STAIRS_OUTLINE_COLOR = '#3a2a15'
+/** Полупрозрачная заливка области лестницы поверх покрытия. */
+export const STAIRS_FILL_COLOR = 'rgba(107, 90, 60, 0.15)'
 
 export const GRID_POINT_COLOR = '#4a4a63'
 /** Цвет точки сетки на свободном поле (не покрыто): тусклый на светлом холсте. */

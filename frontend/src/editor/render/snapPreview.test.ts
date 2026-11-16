@@ -42,6 +42,7 @@ describe('toolUsesHoverSnap', () => {
     expect(toolUsesHoverSnap({ type: 'region-polygon', tileType: 'floor', vertices: 6 })).toBe(true)
     expect(toolUsesHoverSnap({ type: 'wall' })).toBe(true)
     expect(toolUsesHoverSnap({ type: 'door', imageId: null })).toBe(true)
+    expect(toolUsesHoverSnap({ type: 'stairs' })).toBe(true)
   })
 
   it('is false for cell/center tools', () => {

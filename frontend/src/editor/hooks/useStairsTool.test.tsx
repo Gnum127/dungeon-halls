@@ -1,9 +1,12 @@
-import { createRef, useEffect } from 'react'
+import { createRef, useEffect, useRef } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { applyCommand } from '../model/commands'
 import { createEmptyMap } from '../model/createEmptyMap'
+import { createTerrainRegion } from '../model/regions'
+import type { Command } from '../model/commands'
 import type { MapModel } from '../model/types'
+import type { Point } from '@/shared/point'
 import type { Viewport } from '../render/viewport'
 import { useStairsTool } from './useStairsTool'
 import type { StairsPreview } from './useStairsTool'
@@ -13,22 +16,26 @@ const CELL = 32
 interface HarnessProps {
   model: MapModel
   active?: boolean
-  onCommit: (command: unknown) => void
+  onCommit: (command: Command | null) => void
   onPreview: (preview: StairsPreview | null) => void
   onSelect: (id: string | null) => void
 }
 
 function Harness({ model, active = true, onCommit, onPreview, onSelect }: HarnessProps) {
   const canvasRef = createRef<HTMLCanvasElement>()
-  const viewportRef = {
-    current: { width: 12 * CELL, height: 12 * CELL, cellSize: CELL, offsetX: 0, offsetY: 0 },
-  } as unknown as React.RefObject<Viewport>
+  const viewportRef = useRef<Viewport>({
+    width: 12 * CELL,
+    height: 12 * CELL,
+    cellSize: CELL,
+    offsetX: 0,
+    offsetY: 0,
+  })
   const { handlers, preview, selectedId } = useStairsTool({
     canvasRef,
     active,
     model,
     viewportRef,
-    onCommit: onCommit as never,
+    onCommit,
   })
   useEffect(() => {
     onPreview(preview)
@@ -40,9 +47,9 @@ function Harness({ model, active = true, onCommit, onPreview, onSelect }: Harnes
 }
 
 function setup(model: MapModel = createEmptyMap(12, 12)) {
-  const onCommit = vi.fn()
-  const onPreview = vi.fn()
-  const onSelect = vi.fn()
+  const onCommit = vi.fn<(command: Command | null) => void>()
+  const onPreview = vi.fn<(preview: StairsPreview | null) => void>()
+  const onSelect = vi.fn<(id: string | null) => void>()
   const renderTree = (active: boolean) => (
     <Harness
       model={model}
@@ -91,6 +98,20 @@ function withStairs(): MapModel {
   })
 }
 
+const square = (x: number, y: number, size: number): Point[] => [
+  { x, y },
+  { x: x + size, y },
+  { x: x + size, y: y + size },
+  { x, y: y + size },
+]
+
+function withCoverage(): MapModel {
+  return applyCommand(createEmptyMap(12, 12), {
+    kind: 'addRegion',
+    region: createTerrainRegion('floor', square(0, 0, 4), 0, 'r'),
+  })
+}
+
 describe('useStairsTool', () => {
   it('places stairs after three snapped clicks', () => {
     const { click, onCommit } = setup()
@@ -102,10 +123,24 @@ describe('useStairsTool', () => {
     expect(onCommit).toHaveBeenCalledWith({
       kind: 'addStairs',
       polygon: [
-        { x: 0, y: 0.5 },
-        { x: 2.5, y: 0.5 },
-        { x: 2, y: 3.5 },
-        { x: 0.5, y: 3.5 },
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+        { x: 2, y: 3 },
+        { x: 0, y: 3 },
+      ],
+    })
+  })
+
+  it('snaps clicks to the nine nodes of a covered cell', () => {
+    const { click, onPreview } = setup(withCoverage())
+    // Over a covered cell the node set is cell + {0; 0.5; 1}², so (0.4,0.4)
+    // resolves to the inner (0.5,0.5) node rather than a bare cell corner.
+    click(0.4 * CELL, 0.4 * CELL)
+
+    expect(onPreview).toHaveBeenLastCalledWith({
+      points: [
+        { x: 0.5, y: 0.5 },
+        { x: 0.5, y: 0.5 },
       ],
     })
   })

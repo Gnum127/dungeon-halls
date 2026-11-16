@@ -14,6 +14,7 @@ import {
   LIGHT_GLOW_COLOR,
   LIGHT_MARKER_COLOR,
   OBJECT_OUTLINE_COLOR,
+  STAIRS_FILL_COLOR,
   STAIRS_OUTLINE_COLOR,
   STAIRS_STEP_COLOR,
   TILE_COLORS,
@@ -68,6 +69,8 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
     const points = entry.polygon.map((p) => `${fmt(p.x * s)},${fmt(p.y * s)}`).join(' ')
     const clipId = `stairs-${index}`
     parts.push(`<clipPath id="${clipId}"><polygon points="${points}"/></clipPath>`)
+    // Полупрозрачная заливка первой — ступени и контур рисуются поверх.
+    parts.push(`<polygon points="${points}" fill="${STAIRS_FILL_COLOR}"/>`)
     const steps = stairsStepSegments(entry.polygon)
       .map(
         (segment) =>

@@ -11,13 +11,14 @@ import type { EditorTool } from '../tools/editorTool'
 import type { Point } from '@/shared/point'
 import type { Viewport } from './viewport'
 
-/** Инструменты, чья привязка идёт к полуклеточной сетке (стены/двери/текстуры). */
+/** Инструменты, чья привязка идёт к полуклеточной сетке (стены/двери/лестницы/текстуры). */
 export function toolUsesHoverSnap(tool: EditorTool): boolean {
   switch (tool.type) {
     case 'region-rect':
     case 'region-polygon':
     case 'wall':
     case 'door':
+    case 'stairs':
       return true
     default:
       return false

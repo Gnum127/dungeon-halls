@@ -32,7 +32,7 @@ describe('drawHoverHighlight', () => {
     expect(strokeRect?.args).toEqual([33, 65, 30, 30])
   })
 
-  it.each(['cursor', 'pan', 'door'] as const)('draws nothing for the %s tool', (type) => {
+  it.each(['cursor', 'pan', 'door', 'stairs'] as const)('draws nothing for the %s tool', (type) => {
     const { ctx, calls } = makeFakeCtx()
     drawHoverHighlight(
       ctx,
@@ -82,6 +82,14 @@ describe('drawHoverOverlay', () => {
       { x: 1.2, y: 1.8 },
       viewport,
     )
+
+    expect(calls.filter((c) => c.op === 'strokeRect')).toHaveLength(0)
+    expect(calls.filter((c) => c.op === 'arc')).toHaveLength(4)
+  })
+
+  it('shows only snap candidates for the stairs tool (no cell highlight)', () => {
+    const { ctx, calls } = makeFakeCtx()
+    drawHoverOverlay(ctx, model, { type: 'stairs' }, { x: 1, y: 1 }, { x: 1.2, y: 1.8 }, viewport)
 
     expect(calls.filter((c) => c.op === 'strokeRect')).toHaveLength(0)
     expect(calls.filter((c) => c.op === 'arc')).toHaveLength(4)

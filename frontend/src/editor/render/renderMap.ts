@@ -20,6 +20,7 @@ import {
   LIGHT_GLOW_COLOR,
   LIGHT_MARKER_COLOR,
   OBJECT_OUTLINE_COLOR,
+  STAIRS_FILL_COLOR,
   STAIRS_OUTLINE_COLOR,
   STAIRS_STEP_COLOR,
   TILE_COLORS,
@@ -197,10 +198,10 @@ function drawRegion(
 }
 
 /**
- * Поперечные линии-ступени внутри лестницы: ось — от середины базы (p0–p1) к
- * середине дальнего края (p2–p3), ступени перпендикулярны оси. Контур — без
- * заливки; линии обрезаны по контуру. Для полигонов ≠4 вершин — горизонтальный
- * фолбэк по bounding box.
+ * Лестница: полупрозрачная заливка области + контур + поперечные линии-ступени.
+ * Ось — от середины базы (p0–p1) к середине дальнего края (p2–p3), ступени
+ * перпендикулярны оси и обрезаны по контуру. Для полигонов ≠4 вершин —
+ * горизонтальный фолбэк по bounding box.
  */
 function drawStairs(
   ctx: CanvasRenderingContext2D,
@@ -211,22 +212,30 @@ function drawStairs(
   const polygon = stairs.polygon
   if (polygon.length < 3) return
 
+  // Порядок как в SVG: заливка → ступени (обрезаны контуром) → контур поверх.
+  ctx.save()
+  tracePolygonPoints(ctx, polygon, viewport)
+  ctx.fillStyle = STAIRS_FILL_COLOR
+  ctx.fill()
+  ctx.clip()
+
+  ctx.strokeStyle = STAIRS_STEP_COLOR
+  ctx.lineWidth = Math.max(1, cellSize * 0.05)
+  for (const segment of stairsStepSegments(polygon)) {
+    ctx.beginPath()
+    ctx.moveTo(segment.a.x * cellSize - offsetX, segment.a.y * cellSize - offsetY)
+    ctx.lineTo(segment.b.x * cellSize - offsetX, segment.b.y * cellSize - offsetY)
+    ctx.stroke()
+  }
+  ctx.restore()
+
+  // Контур — вне клипа и в своём save/restore, чтобы стили не утекали дальше.
   ctx.save()
   tracePolygonPoints(ctx, polygon, viewport)
   ctx.strokeStyle = STAIRS_OUTLINE_COLOR
   ctx.lineWidth = Math.max(1.5, cellSize * 0.06)
   ctx.lineJoin = 'round'
   ctx.stroke()
-  ctx.clip()
-
-  ctx.strokeStyle = STAIRS_STEP_COLOR
-  ctx.lineWidth = Math.max(1, cellSize * 0.05)
-  for (const segment of stairsStepSegments(stairs.polygon)) {
-    ctx.beginPath()
-    ctx.moveTo(segment.a.x * cellSize - offsetX, segment.a.y * cellSize - offsetY)
-    ctx.lineTo(segment.b.x * cellSize - offsetX, segment.b.y * cellSize - offsetY)
-    ctx.stroke()
-  }
   ctx.restore()
 }
 

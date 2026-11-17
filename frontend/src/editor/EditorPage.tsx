@@ -10,14 +10,15 @@ import { ToolParams } from './components/ToolParams'
 import { ToolRail } from './components/ToolRail'
 import type { EditorSectionId } from './components/ToolRail'
 import { usePersistentBoolean } from './hooks/usePersistentBoolean'
+import { useEditor } from './hooks/useEditor'
 import { createEmptyMap } from './model/createEmptyMap'
-import { OBJECT_KIND_ENTRIES, cycleScale } from './model/objects'
+import { OBJECT_KIND_ENTRIES, cycleScale, imageIdForKind } from './model/objects'
 import type { ObjectKindId } from './model/objects'
 import type { ObjectRotation, ObjectScale, TileTypeName } from './model/types'
-import { loadElementImage, saveElementImage } from './render/elementImage'
 import { loadDoorImageId, saveDoorImageId } from './render/doorTexture'
 import { useTextureAtlas } from './hooks/useTextureAtlas'
 import type { TextureRenderContext } from './render/sprites/loader'
+import type { SelectedEntity } from './model/selection'
 import { EditorStore } from './store/EditorStore'
 import type { EditorTool } from './tools/editorTool'
 import { useEditorHotkeys } from './hooks/useEditorHotkeys'
@@ -44,7 +45,8 @@ export function EditorPage() {
   const [tileType, setTileType] = useState<TileTypeName>('floor')
   const [tool, setTool] = useState<EditorTool>(() => ({ type: 'cursor' }))
   const [doorImageId, setDoorImageId] = useState<string | null>(() => loadDoorImageId())
-  const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null)
+  const [objectImageId, setObjectImageId] = useState<string | null | undefined>(undefined)
+  const [selected, setSelected] = useState<SelectedEntity>(null)
   const [fileStatus, setFileStatus] = useState<FileActionStatus | null>(null)
   const [polygonVertexCount, setPolygonVertexCount] = useState(6)
   const [activeSection, setActiveSection] = useState<EditorSectionId | null>('landscape')
@@ -61,26 +63,22 @@ export function EditorPage() {
   const [objectRotation, setObjectRotation] = useState<ObjectRotation>(0)
   const [objectScale, setObjectScale] = useState<ObjectScale>({ w: 1, h: 1 })
 
+  const model = useEditor(store)
+  const selectedObject =
+    selected?.type === 'object'
+      ? model.objects.find((object) => object.id === selected.id)
+      : undefined
+  const selectedDoor =
+    selected?.type === 'door' ? model.doors.find((door) => door.id === selected.id) : undefined
+
   // Последнее непустое покрытие: к нему возвращает переключатель ластика.
   const lastFillTileRef = useRef<TileTypeName>('floor')
 
-  const [elementImageOverrides, setElementImageOverrides] = useState<
-    Partial<Record<ObjectKindId, string | null>>
-  >(() => {
-    const initial: Partial<Record<ObjectKindId, string | null>> = {}
-    for (const entry of OBJECT_KIND_ENTRIES) initial[entry.id] = loadElementImage(entry.id)
-    return initial
-  })
-
   const atlas = useTextureAtlas()
-  // Контекст рендера: атлас текстур + выбранные пользователем изображения видов.
-  const textures = useMemo<TextureRenderContext | undefined>(
-    () => (atlas ? { ...atlas, imageOverrides: elementImageOverrides } : undefined),
-    [atlas, elementImageOverrides],
-  )
+  const textures = useMemo<TextureRenderContext | undefined>(() => atlas ?? undefined, [atlas])
 
   function selectTile(next: TileTypeName) {
-    setSelectedObjectId(null)
+    setSelected(null)
     if (next !== 'empty') lastFillTileRef.current = next
     setTileType(next)
     setTool((current) => withTileType(current, next))
@@ -88,48 +86,53 @@ export function EditorPage() {
 
   function toggleEraser() {
     const next: TileTypeName = tileType === 'empty' ? lastFillTileRef.current : 'empty'
-    setSelectedObjectId(null)
+    setSelected(null)
     setTileType(next)
     setTool((current) => withTileType(current, next))
   }
 
   function selectCursor() {
-    setSelectedObjectId(null)
+    setSelected(null)
     setTool({ type: 'cursor' })
   }
 
   function selectPan() {
-    setSelectedObjectId(null)
+    setSelected(null)
     setTool({ type: 'pan' })
   }
 
   function selectRect() {
-    setSelectedObjectId(null)
+    setSelected(null)
     setTool({ type: 'region-rect', tileType })
   }
 
   function selectPolygon() {
-    setSelectedObjectId(null)
+    setSelected(null)
     setTool({ type: 'region-polygon', tileType, vertices: polygonVertexCount })
   }
 
   function selectEraser() {
-    setSelectedObjectId(null)
+    setSelected(null)
     setTileType('empty')
     setTool((current) => withTileType(current, 'empty'))
   }
 
   function selectDoor() {
-    setSelectedObjectId(null)
+    setSelected(null)
     setTool({ type: 'door', imageId: doorImageId })
   }
 
   function selectStairs() {
-    setSelectedObjectId(null)
+    setSelected(null)
     setTool({ type: 'stairs' })
   }
 
   function changeDoorImage(imageId: string | null) {
+    // Правка выделенной двери не трогает дефолт будущих размещений.
+    if (tool.type === 'cursor' && selectedDoor) {
+      store.dispatch({ kind: 'setDoorImage', id: selectedDoor.id, imageId })
+      return
+    }
     saveDoorImageId(imageId)
     setDoorImageId(imageId)
     if (tool.type === 'door') setTool({ ...tool, imageId })
@@ -141,13 +144,27 @@ export function EditorPage() {
   }
 
   function selectObjectKind(kindId: ObjectKindId) {
-    setSelectedObjectId(null)
+    setSelected(null)
     const scale = defaultScaleForKind(kindId)
     setObjectScale(scale)
-    setTool({ type: 'object', kindId, rotation: objectRotation, scale })
+    setTool({
+      type: 'object',
+      kindId,
+      rotation: objectRotation,
+      scale,
+      // Текстуру чужого вида не переносим (пулы у видов разные).
+      imageId: imageIdForKind(objectImageId, kindId),
+    })
   }
 
+  /** Поворот: выделенный объект в режиме «Курсор» либо настройка будущих размещений. */
   function rotateObject() {
+    if (tool.type === 'cursor' && selectedObject) {
+      const current = selectedObject.rotation ?? 0
+      const next = ((current + 90) % 360) as ObjectRotation
+      store.dispatch({ kind: 'setObjectRotation', id: selectedObject.id, rotation: next })
+      return
+    }
     const next: ObjectRotation = ((objectRotation + 90) % 360) as ObjectRotation
     setObjectRotation(next)
     if (tool.type === 'object') {
@@ -155,6 +172,7 @@ export function EditorPage() {
     }
   }
 
+  /** Размер: выделенный объект в режиме «Курсор» либо цикл размеров инструмента. */
   function resizeObject() {
     if (tool.type !== 'object') return
     const next = cycleScale(tool.kindId, objectScale)
@@ -162,9 +180,18 @@ export function EditorPage() {
     setTool({ ...tool, scale: next })
   }
 
-  function selectElementImage(kindId: ObjectKindId, imageId: string | null) {
-    saveElementImage(kindId, imageId)
-    setElementImageOverrides((prev) => ({ ...prev, [kindId]: imageId }))
+  /**
+   * Смена изображения: выделенный объект (режим «Курсор») либо настройка
+   * будущих размещений (`tool.imageId`). Глобального override видов больше нет.
+   */
+  function changeObjectImage(imageId: string | null | undefined) {
+    // Правка выделенного объекта не трогает дефолт будущих размещений.
+    if (tool.type === 'cursor' && selectedObject) {
+      store.dispatch({ kind: 'setObjectImage', id: selectedObject.id, imageId })
+      return
+    }
+    setObjectImageId(imageId)
+    if (tool.type === 'object') setTool({ ...tool, imageId })
   }
 
   function toggleSection(id: EditorSectionId) {
@@ -187,11 +214,24 @@ export function EditorPage() {
               vertexCount={polygonVertexCount}
               autoWalls={autoWalls}
               doorImageId={doorImageId}
+              selectedObject={selectedObject}
+              selectedDoor={selectedDoor}
               onSelectTile={selectTile}
               onToggleEraser={toggleEraser}
               onVertexCountChange={changeVertexCount}
               onAutoWallsChange={toggleAutoWalls}
               onDoorImageChange={changeDoorImage}
+              onObjectImageChange={changeObjectImage}
+              onObjectScaleChange={(scale) => {
+                if (selectedObject) {
+                  store.dispatch({ kind: 'setObjectScale', id: selectedObject.id, scale })
+                }
+              }}
+              onObjectRotationChange={(rotation) => {
+                if (selectedObject) {
+                  store.dispatch({ kind: 'setObjectRotation', id: selectedObject.id, rotation })
+                }
+              }}
             />
           </SectionPanel>
         )
@@ -206,12 +246,12 @@ export function EditorPage() {
             <ObjectPalette
               activeKindId={tool.type === 'object' ? tool.kindId : null}
               onSelectKind={selectObjectKind}
-              objectRotation={objectRotation}
-              objectScale={objectScale}
+              objectRotation={selectedObject?.rotation ?? objectRotation}
+              objectScale={selectedObject?.scale ?? objectScale}
               onRotate={rotateObject}
               onResize={resizeObject}
-              elementImageOverrides={elementImageOverrides}
-              onSelectElementImage={selectElementImage}
+              imageId={tool.type === 'object' ? tool.imageId : undefined}
+              onSelectImage={changeObjectImage}
             />
           </SectionPanel>
         )
@@ -256,8 +296,8 @@ export function EditorPage() {
         <CanvasView
           store={store}
           tool={tool}
-          selectedObjectId={selectedObjectId}
-          onSelectObject={setSelectedObjectId}
+          selected={selected}
+          onSelect={setSelected}
           tileType={tileType}
           autoWalls={autoWalls}
           textures={textures}

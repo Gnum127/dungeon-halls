@@ -1,12 +1,4 @@
-import {
-  findObjectById,
-  footprintInBounds,
-  isFootprintFree,
-  isKnownKind,
-  nextObjectId,
-  objectFootprint,
-  rectsOverlap,
-} from './objects'
+import { findObjectById, footprintInBounds, isKnownKind, nextObjectId } from './objects'
 import { findLightById, isValidLightColor, isValidLightRadius, nextLightId } from './lights'
 import { assertValidRegion, nextZOrder } from './regions'
 import { isAutoWallSegmentId } from './autoWalls'
@@ -69,9 +61,34 @@ export type Command =
       readonly kindId: string
       readonly rotation?: ObjectRotation
       readonly scale?: ObjectScale
+      readonly imageId?: string | null
     }
   | { readonly kind: 'moveObject'; readonly id: number; readonly x: number; readonly y: number }
   | { readonly kind: 'removeObject'; readonly id: number }
+  | {
+      readonly kind: 'setObjectImage'
+      readonly id: number
+      /** Строка — ассет, `null` — «без текстуры», `undefined` — «по умолчанию». */
+      readonly imageId: string | null | undefined
+    }
+  | {
+      readonly kind: 'setObjectScale'
+      readonly id: number
+      readonly scale: ObjectScale
+    }
+  | {
+      readonly kind: 'setObjectRotation'
+      readonly id: number
+      readonly rotation: ObjectRotation
+    }
+  | {
+      readonly kind: 'setObjectBounds'
+      readonly id: number
+      readonly x: number
+      readonly y: number
+      readonly scale: ObjectScale
+    }
+  | { readonly kind: 'setDoorImage'; readonly id: string; readonly imageId: string | null }
   | {
       readonly kind: 'addLight'
       readonly x: number
@@ -180,6 +197,13 @@ function assertValidObject(object: MapObject): void {
       throw new RangeError('Object scale must be integers >= 1')
     }
   }
+  if (
+    object.imageId !== undefined &&
+    object.imageId !== null &&
+    (typeof object.imageId !== 'string' || object.imageId.length === 0)
+  ) {
+    throw new RangeError('Object imageId must be null or a non-empty string')
+  }
   if (!footprintInBounds(object)) {
     throw new RangeError(`Object ${object.id} origin is outside the map`)
   }
@@ -239,16 +263,8 @@ function validateSnapshot(snapshot: MapSnapshot): void {
     assertValidStairsPolygon(stairs)
   }
 
-  const seenObjects: MapObject[] = []
   for (const object of snapshot.objects) {
     assertValidObject(object)
-    const footprint = objectFootprint(object)
-    for (const other of seenObjects) {
-      if (rectsOverlap(footprint, objectFootprint(other))) {
-        throw new RangeError(`Object ${object.id} overlaps object ${other.id}`)
-      }
-    }
-    seenObjects.push(object)
   }
   for (const light of snapshot.lights) {
     assertValidLight(light, grid)
@@ -367,6 +383,7 @@ function addObject(
   kindId: string,
   rotation?: ObjectRotation,
   scale?: ObjectScale,
+  imageId?: string | null,
 ): MapModel {
   if (!isKnownKind(kindId)) {
     throw new RangeError(`Unknown object kind: ${kindId}`)
@@ -378,14 +395,12 @@ function addObject(
     y,
     ...(rotation !== undefined && { rotation }),
     ...(scale !== undefined && { scale }),
+    ...(imageId !== undefined && { imageId }),
   }
   if (!footprintInBounds(object)) {
     throw new RangeError(`Object origin (${x}, ${y}) is out of bounds`)
   }
-  const { w, h } = objectFootprint(object)
-  if (!isFootprintFree(model.objects, x, y, w, h)) {
-    throw new RangeError(`Object footprint at (${x}, ${y}) overlaps with another object`)
-  }
+  // Коллизии убраны (этап 28): объекты можно ставить вплотную/внахлёст.
   return { ...model, objects: [...model.objects, cloneObject(object)] }
 }
 
@@ -401,11 +416,6 @@ function moveObject(model: MapModel, id: number, x: number, y: number): MapModel
   if (!footprintInBounds(moved)) {
     throw new RangeError(`Object origin (${x}, ${y}) is out of bounds`)
   }
-  const { w, h } = objectFootprint(moved)
-  const others = model.objects.filter((candidate) => candidate.id !== id)
-  if (!isFootprintFree(others, x, y, w, h)) {
-    throw new RangeError(`Object footprint at (${x}, ${y}) overlaps with another object`)
-  }
   return {
     ...model,
     objects: model.objects.map((candidate) => (candidate.id === id ? moved : candidate)),
@@ -417,6 +427,86 @@ function removeObject(model: MapModel, id: number): MapModel {
     throw new RangeError(`Object ${id} not found`)
   }
   return { ...model, objects: model.objects.filter((candidate) => candidate.id !== id) }
+}
+
+/** Обновляет объект по id, если есть изменения (иначе no-op — история не пишется). */
+function updateObject(
+  model: MapModel,
+  id: number,
+  patch: Partial<Pick<MapObject, 'imageId' | 'scale' | 'rotation' | 'x' | 'y'>>,
+): MapModel {
+  const object = findObjectById(model.objects, id)
+  if (!object) {
+    throw new RangeError(`Object ${id} not found`)
+  }
+  const next: MapObject = { ...object, ...patch }
+  if (next.scale !== undefined) {
+    const { w, h } = next.scale
+    if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1) {
+      throw new RangeError('Object scale must be integers >= 1')
+    }
+  }
+  if (next.rotation !== undefined && ![0, 90, 180, 270].includes(next.rotation)) {
+    throw new RangeError(`Invalid object rotation: ${String(next.rotation)}`)
+  }
+  if (
+    next.imageId !== undefined &&
+    next.imageId !== null &&
+    (typeof next.imageId !== 'string' || next.imageId.length === 0)
+  ) {
+    throw new RangeError('Object imageId must be null or a non-empty string')
+  }
+  if (!footprintInBounds(next)) {
+    throw new RangeError(`Object origin (${next.x}, ${next.y}) is out of bounds`)
+  }
+  if (deepEqual(object, next)) return model
+  return {
+    ...model,
+    objects: model.objects.map((candidate) => (candidate.id === id ? next : candidate)),
+  }
+}
+
+/**
+ * Меняет изображение экземпляра: строка — конкретный ассет, `null` — явно
+ * «без текстуры» (свотч), `undefined` — «по умолчанию» (свойство снимается,
+ * рендер идёт по `objectTextures` → `defaultImage`). no-op без записи истории.
+ */
+function setObjectImage(model: MapModel, id: number, imageId: string | null | undefined): MapModel {
+  const object = findObjectById(model.objects, id)
+  if (!object) {
+    throw new RangeError(`Object ${id} not found`)
+  }
+  if (
+    imageId !== undefined &&
+    imageId !== null &&
+    (typeof imageId !== 'string' || imageId.length === 0)
+  ) {
+    throw new RangeError('Object imageId must be undefined, null or a non-empty string')
+  }
+  if (object.imageId === imageId) return model
+  const { imageId: _previous, ...rest } = object
+  const next: MapObject = imageId === undefined ? rest : { ...rest, imageId }
+  return {
+    ...model,
+    objects: model.objects.map((candidate) => (candidate.id === id ? next : candidate)),
+  }
+}
+
+function setDoorImage(model: MapModel, id: string, imageId: string | null): MapModel {
+  const door = findDoorById(model.doors, id)
+  if (!door) {
+    throw new RangeError(`Door ${id} not found`)
+  }
+  if (imageId !== null && (typeof imageId !== 'string' || imageId.length === 0)) {
+    throw new RangeError('Door imageId must be null or a non-empty string')
+  }
+  if (door.imageId === imageId) return model
+  return {
+    ...model,
+    doors: model.doors.map((candidate) =>
+      candidate.id === id ? { ...candidate, imageId } : candidate,
+    ),
+  }
 }
 
 function addLight(model: MapModel, x: number, y: number, radius: number, color: string): MapModel {
@@ -484,11 +574,33 @@ export function applyCommand(model: MapModel, command: Command): MapModel {
     case 'removeStairs':
       return removeStairs(model, command.id)
     case 'addObject':
-      return addObject(model, command.x, command.y, command.kindId, command.rotation, command.scale)
+      return addObject(
+        model,
+        command.x,
+        command.y,
+        command.kindId,
+        command.rotation,
+        command.scale,
+        command.imageId,
+      )
     case 'moveObject':
       return moveObject(model, command.id, command.x, command.y)
     case 'removeObject':
       return removeObject(model, command.id)
+    case 'setObjectImage':
+      return setObjectImage(model, command.id, command.imageId)
+    case 'setObjectScale':
+      return updateObject(model, command.id, { scale: command.scale })
+    case 'setObjectRotation':
+      return updateObject(model, command.id, { rotation: command.rotation })
+    case 'setObjectBounds':
+      return updateObject(model, command.id, {
+        x: command.x,
+        y: command.y,
+        scale: command.scale,
+      })
+    case 'setDoorImage':
+      return setDoorImage(model, command.id, command.imageId)
     case 'addLight':
       return addLight(model, command.x, command.y, command.radius, command.color)
     case 'removeLight':

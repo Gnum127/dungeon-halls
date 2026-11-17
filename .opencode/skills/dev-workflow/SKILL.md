@@ -43,7 +43,9 @@ fallback); `RenderModePicker`/`renderMode.ts`/`useSpriteAtlas` удалены, �
 (без магнита к стене), текстура `objectTextures.door`, при построении только
 точки снапа. Этап 27: клики лестницы снапятся к характеристическим точкам
 клеток (9 узлов), клетка не подсвечивается; контрастнее контур/ступени + заливка
-`STAIRS_FILL_COLOR`. План этапов 19–27 выполнен.
+`STAIRS_FILL_COLOR`. Этап 28: `imageId` в экземпляре объекта (без глобальных
+override), единое выделение `SelectedEntity` + рамка/хендлы, ресайз/поворот/Delete
+в «Курсоре», коллизии убраны, вид `ladder`. План этапов 19–28 выполнен.
 
 ## Перед началом работы
 
@@ -140,6 +142,15 @@ npm run build      # сборка + проверка типов tsc
   серединного перпендикуляра к базе), все клики/курсор — `snapToCellCharacteristics`;
   клетка при построении не подсвечивается (только точки снапа); клик выделяет
   (`stairsHitTest`), Delete/правый клик удаляет.
+- **Объекты / выделение (этап 28)**: `MapObject.imageId` — изображение
+  экземпляра (`null` = без текстуры, `undefined` = `defaultImage` вида);
+  глобального `elementImageOverrides`/`render/elementImage.ts` больше нет.
+  Единый `SelectedEntity` (`model/selection.ts`) + рамка
+  (`render/selectionHighlight.ts`); в «Курсоре» — перемещение, ресайз за угол
+  (`resizedFootprint` → `setObjectBounds`, живое превью) и поворот
+  (R → `setObjectRotation`), Delete удаляет объект/дверь; коллизии не
+  проверяются; параметры выделенного — в `ToolParams`. Новый вид реестра —
+  `ladder`.
 - **Псевдорандом текстур**: `shared/random.ts` — собственный целочисленный хеш
   `hashFromCoords(x, y)` (`Math.imul`-микс; без зависимости от `generator/`),
   `pickIndexFromCoords(x, y, len)` = `hash % len`. Пул — `tileTextures[tile].pool`
@@ -192,8 +203,8 @@ npm run build      # сборка + проверка типов tsc
   Загрузчик `render/sprites/loader.ts` (`loadTextureManifest`/`loadElementManifest`/
   `loadTextures`), хук `hooks/useTextureAtlas.ts`. Атлас → `TextureRenderContext`
   (`textures`) в `CanvasView`/`MapFileActions`, дальше в `renderMap`/PNG-экспорт.
-  Приоритет текстуры объекта: element-image override → `objectTextures` →
-  `defaultImage` → цвет. `element-images` остаются для дверей и явного выбора.
+  Приоритет текстуры объекта (этап 28): `imageId` экземпляра → `objectTextures` →
+  `defaultImage` → цвет. `element-images` — пул изображений экземпляров/дверей.
   Режима «цвета/спрайты» нет — `RenderModePicker`/`renderMode.ts` удалены.
 
 - **Полуклеточные регионы (этап 25)**: `useRectRegionTool`/`usePolygonRegionTool`

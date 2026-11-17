@@ -4,7 +4,6 @@ import type { Command } from '../model/commands'
 import type { MapModel } from '../model/types'
 import { snapToHalfGrid } from '../model/snap'
 import type { EditorTool } from '../tools/editorTool'
-import { isFootprintFreeAt } from '../tools/objects'
 import type { Viewport } from '../render/viewport'
 import { useWorldPointFromEvent } from './useCellFromEvent'
 
@@ -21,8 +20,9 @@ const LEFT_BUTTON = 0
 /**
  * Инструмент объекта: размещение кликом в произвольной точке (float-мировые
  * клетки, левый-верхний угол — под курсором), без привязки к сетке; Shift
- * снапит точку к полуклетке. Выделение, перемещение и удаление выделенного —
- * задача инструмента «Курсор» (`useCursorTool`).
+ * снапит точку к полуклетке. Коллизии не проверяются (этап 28): объекты можно
+ * ставить вплотную/внахлёст. Выделение, перемещение, ресайз и удаление
+ * выделенного — задача инструмента «Курсор» (`useCursorTool`).
  */
 export function useObjectTools(options: ObjectToolsOptions): {
   handlers: {
@@ -43,7 +43,6 @@ export function useObjectTools(options: ObjectToolsOptions): {
     if (anchor.x < 0 || anchor.y < 0 || anchor.x >= width || anchor.y >= height) return
 
     event.preventDefault()
-    if (!isFootprintFreeAt(model, anchor.x, anchor.y, tool.scale.w, tool.scale.h)) return
     store.dispatch({
       kind: 'addObject',
       x: anchor.x,
@@ -51,6 +50,7 @@ export function useObjectTools(options: ObjectToolsOptions): {
       kindId: tool.kindId,
       rotation: tool.rotation,
       scale: tool.scale,
+      ...(tool.imageId !== undefined && { imageId: tool.imageId }),
     })
   }
 

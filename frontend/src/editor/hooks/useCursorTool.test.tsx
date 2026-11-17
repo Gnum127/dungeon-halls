@@ -1,9 +1,11 @@
-import { createRef } from 'react'
+import { createRef, useEffect, useRef } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { createEmptyMap } from '../model/createEmptyMap'
+import type { Command } from '../model/commands'
 import type { MapModel } from '../model/types'
 import type { Viewport } from '../render/viewport'
+import type { SelectedEntity } from '../model/selection'
 import { useCursorTool } from './useCursorTool'
 
 const CELL = 32
@@ -17,47 +19,62 @@ function withObject(x: number, y: number): MapModel {
   }
 }
 
-interface HarnessProps {
-  model: MapModel
-  selectedId: number | null
-  active?: boolean
-  onSelect: (id: number | null) => void
-  dispatch: (command: unknown) => void
+function withDoor(): MapModel {
+  return {
+    ...createEmptyMap(COLS, ROWS),
+    doors: [{ id: 'door-1', a: { x: 2, y: 2 }, b: { x: 3, y: 2 }, imageId: null }],
+  }
 }
 
-function Harness({ model, selectedId, active = true, onSelect, dispatch }: HarnessProps) {
+interface HarnessProps {
+  model: MapModel
+  selected: SelectedEntity
+  active?: boolean
+  onSelect: (entity: SelectedEntity) => void
+  dispatch: (command: Command) => void
+  onPreview?: (preview: unknown) => void
+}
+
+function Harness({ model, selected, active = true, onSelect, dispatch, onPreview }: HarnessProps) {
   const canvasRef = createRef<HTMLCanvasElement>()
-  const viewportRef = {
-    current: {
-      width: COLS * CELL,
-      height: ROWS * CELL,
-      cellSize: CELL,
-      offsetX: 0,
-      offsetY: 0,
-    },
-  } as unknown as React.RefObject<Viewport>
-  const { handlers } = useCursorTool({
+  const viewportRef = useRef<Viewport>({
+    width: COLS * CELL,
+    height: ROWS * CELL,
+    cellSize: CELL,
+    offsetX: 0,
+    offsetY: 0,
+  })
+  const { handlers, resizePreview } = useCursorTool({
     canvasRef,
     viewportRef,
-    store: { dispatch: dispatch as never },
+    store: { dispatch },
     model,
     active,
-    selectedId,
+    selected,
     onSelect,
   })
+  useEffect(() => {
+    onPreview?.(resizePreview)
+  }, [resizePreview, onPreview])
   return <canvas ref={canvasRef} data-testid="canvas" {...handlers} />
 }
 
-function setup(model: MapModel, selectedId: number | null = null, active = true) {
-  const onSelect = vi.fn()
-  const dispatch = vi.fn()
+function setup(
+  model: MapModel,
+  selected: SelectedEntity = null,
+  active = true,
+  onPreview?: (preview: unknown) => void,
+) {
+  const onSelect = vi.fn<(entity: SelectedEntity) => void>()
+  const dispatch = vi.fn<(command: Command) => void>()
   render(
     <Harness
       model={model}
-      selectedId={selectedId}
+      selected={selected}
       active={active}
       onSelect={onSelect}
       dispatch={dispatch}
+      onPreview={onPreview}
     />,
   )
   const canvas = screen.getByTestId('canvas')
@@ -94,7 +111,7 @@ describe('useCursorTool', () => {
     const { canvas, onSelect, dispatch } = setup(withObject(1, 1))
 
     fireEvent.pointerDown(canvas, { button: 0, pointerId: 1, clientX: cellX(1), clientY: cellX(1) })
-    expect(onSelect).toHaveBeenCalledWith(1)
+    expect(onSelect).toHaveBeenCalledWith({ type: 'object', id: 1 })
     expect(dispatch).not.toHaveBeenCalled()
 
     fireEvent.pointerMove(canvas, {
@@ -107,6 +124,113 @@ describe('useCursorTool', () => {
 
     expect(dispatch).toHaveBeenCalledTimes(1)
     expect(dispatch).toHaveBeenCalledWith({ kind: 'moveObject', id: 1, x: 3, y: 2 })
+  })
+
+  it('selects a door on click', () => {
+    const { canvas, onSelect, dispatch } = setup(withDoor())
+
+    fireEvent.pointerDown(canvas, {
+      button: 0,
+      pointerId: 1,
+      clientX: 2.5 * CELL,
+      clientY: 2 * CELL,
+    })
+
+    expect(onSelect).toHaveBeenCalledWith({ type: 'door', id: 'door-1' })
+    expect(dispatch).not.toHaveBeenCalled()
+  })
+
+  it('removes the selected door with Delete', () => {
+    const { dispatch } = setup(withDoor(), { type: 'door', id: 'door-1' })
+
+    fireEvent.keyDown(window, { key: 'Delete' })
+
+    expect(dispatch).toHaveBeenCalledWith({ kind: 'removeDoor', id: 'door-1' })
+  })
+
+  it('resizes the selected object by dragging a corner handle', () => {
+    const model: MapModel = {
+      ...createEmptyMap(COLS, ROWS),
+      objects: [{ id: 1, kindId: 'torch', x: 1, y: 1 }],
+    }
+    const { canvas, dispatch } = setup(model, { type: 'object', id: 1 })
+
+    // Угол (2,2) footprint'а 1×1: тянем к (3,4) → origin (1,1), размер 2×3.
+    fireEvent.pointerDown(canvas, {
+      button: 0,
+      pointerId: 1,
+      clientX: 2 * CELL,
+      clientY: 2 * CELL,
+    })
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      buttons: 1,
+      clientX: 3 * CELL,
+      clientY: 4 * CELL,
+    })
+    fireEvent.pointerUp(canvas, { pointerId: 1, clientX: 3 * CELL, clientY: 4 * CELL })
+
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({
+      kind: 'setObjectBounds',
+      id: 1,
+      x: 1,
+      y: 1,
+      scale: { w: 2, h: 3 },
+    })
+  })
+
+  it('moves (not resizes) a selected 1×1 object dragged from its centre', () => {
+    const model: MapModel = {
+      ...createEmptyMap(COLS, ROWS),
+      objects: [{ id: 1, kindId: 'chair', x: 1, y: 1 }],
+    }
+    const { canvas, dispatch } = setup(model, { type: 'object', id: 1 })
+
+    // Центр клетки (1.5,1.5) — вне хит-зоны угловых хендлов.
+    fireEvent.pointerDown(canvas, {
+      button: 0,
+      pointerId: 1,
+      clientX: 1.5 * CELL,
+      clientY: 1.5 * CELL,
+    })
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      buttons: 1,
+      clientX: 3.5 * CELL,
+      clientY: 2.5 * CELL,
+    })
+    fireEvent.pointerUp(canvas, { pointerId: 1, clientX: 3.5 * CELL, clientY: 2.5 * CELL })
+
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({ kind: 'moveObject', id: 1, x: 3, y: 2 })
+  })
+
+  it('shows a live resize preview without dispatching until release', () => {
+    const previews: unknown[] = []
+    const model: MapModel = {
+      ...createEmptyMap(COLS, ROWS),
+      objects: [{ id: 1, kindId: 'torch', x: 1, y: 1 }],
+    }
+    const { canvas, dispatch } = setup(model, { type: 'object', id: 1 }, true, (preview) =>
+      previews.push(preview),
+    )
+
+    fireEvent.pointerDown(canvas, { button: 0, pointerId: 1, clientX: 2 * CELL, clientY: 2 * CELL })
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      buttons: 1,
+      clientX: 3 * CELL,
+      clientY: 4 * CELL,
+    })
+
+    expect(previews.at(-1)).toEqual({ x: 1, y: 1, scale: { w: 2, h: 3 } })
+    expect(dispatch).not.toHaveBeenCalled()
+
+    fireEvent.pointerUp(canvas, { pointerId: 1, clientX: 3 * CELL, clientY: 4 * CELL })
+
+    expect(previews.at(-1)).toBeNull()
+    expect(dispatch).toHaveBeenCalledTimes(1)
   })
 
   it('does not dispatch when the drag returns to the origin cell', () => {
@@ -131,7 +255,7 @@ describe('useCursorTool', () => {
   })
 
   it('removes the selected object on Delete', () => {
-    const { dispatch } = setup(withObject(1, 1), 1)
+    const { dispatch } = setup(withObject(1, 1), { type: 'object', id: 1 })
 
     fireEvent.keyDown(window, { key: 'Delete' })
 
@@ -139,7 +263,7 @@ describe('useCursorTool', () => {
   })
 
   it('removes the selected object on Backspace too', () => {
-    const { dispatch } = setup(withObject(1, 1), 1)
+    const { dispatch } = setup(withObject(1, 1), { type: 'object', id: 1 })
 
     fireEvent.keyDown(window, { key: 'Backspace' })
 
@@ -197,7 +321,7 @@ describe('useCursorTool', () => {
     expect(dispatch).toHaveBeenCalledWith({ kind: 'moveObject', id: 1, x: 7, y: 1 })
   })
 
-  it('does not drop onto an occupied cell', () => {
+  it('allows dropping onto another object (collisions removed, этап 28)', () => {
     const model: MapModel = {
       ...createEmptyMap(COLS, ROWS),
       objects: [
@@ -216,7 +340,7 @@ describe('useCursorTool', () => {
     })
     fireEvent.pointerUp(canvas, { pointerId: 1, clientX: cellX(3), clientY: cellX(2) })
 
-    expect(dispatch).not.toHaveBeenCalled()
+    expect(dispatch).toHaveBeenCalledWith({ kind: 'moveObject', id: 1, x: 3, y: 2 })
   })
 
   it('applies the move when the button is released outside the window', () => {

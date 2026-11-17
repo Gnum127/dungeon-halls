@@ -32,6 +32,8 @@ export const CANVAS_BACKGROUND_COLOR = '#ffffff'
 export const FALLBACK_OBJECT_COLOR = '#888888'
 export const OBJECT_OUTLINE_COLOR = '#00000066'
 export const HIGHLIGHT_COLOR = '#6c47c8'
+/** Полупрозрачная заливка выделения (этап 28) — область объекта яснее. */
+export const HIGHLIGHT_FILL_COLOR = 'rgba(108, 71, 200, 0.15)'
 /** Цвет точек-кандидатов привязки при наведении. */
 export const SNAP_CANDIDATE_COLOR = '#7d7da3'
 /** Радиус точки-кандидата в экранных пикселях. */

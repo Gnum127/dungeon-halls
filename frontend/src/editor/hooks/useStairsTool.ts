@@ -5,6 +5,7 @@ import { snapToCellCharacteristics } from '../model/snap'
 import { isEditableTarget } from '../dom/isEditableTarget'
 import { isValidStairsShape, stairsVertices } from '../tools/stairsPlacement'
 import { stairsHitTest } from '../tools/stairsHitTest'
+import type { SelectedEntity } from '../model/selection'
 import type { MapModel } from '../model/types'
 import type { Point } from '@/shared/point'
 import type { Viewport } from '../render/viewport'
@@ -15,6 +16,8 @@ interface StairsToolOptions {
   active: boolean
   model: MapModel
   viewportRef: RefObject<Viewport>
+  selected: SelectedEntity
+  onSelect: (entity: SelectedEntity) => void
   onCommit: (command: Command | null) => void
 }
 
@@ -35,7 +38,6 @@ const RIGHT_BUTTON = 2
  */
 export function useStairsTool(options: StairsToolOptions): {
   preview: StairsPreview | null
-  selectedId: string | null
   handlers: {
     onPointerDown: (event: ReactPointerEvent<HTMLCanvasElement>) => void
     onPointerMove: (event: ReactPointerEvent<HTMLCanvasElement>) => void
@@ -43,26 +45,27 @@ export function useStairsTool(options: StairsToolOptions): {
     onPointerLeave: () => void
   }
 } {
-  const { canvasRef, active, model, viewportRef, onCommit } = options
+  const { canvasRef, active, model, viewportRef, selected, onSelect, onCommit } = options
   const worldFromEvent = useWorldPointFromEvent(canvasRef, viewportRef)
   const [clicks, setClicks] = useState<Point[]>([])
   const [cursor, setCursor] = useState<Point | null>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const selectedId = selected?.type === 'stairs' ? selected.id : null
 
-  // Деактивация инструмента сбрасывает недостроенную лестницу и выделение;
-  // удалённая лестница не остаётся выделенной (рендер-фаза, без эффектов).
+  // Деактивация инструмента сбрасывает недостроенную лестницу и выделение.
   const [wasActive, setWasActive] = useState(active)
   if (active !== wasActive) {
     setWasActive(active)
     if (!active) {
       setClicks([])
       setCursor(null)
-      setSelectedId(null)
     }
   }
-  if (selectedId && !model.stairs.some((stairs) => stairs.id === selectedId)) {
-    setSelectedId(null)
-  }
+
+  // Сброс выделения при деактивации — эффектом, а не в рендер-фазе
+  // (нельзя обновлять родителя во время рендера другого компонента).
+  useEffect(() => {
+    if (!active) onSelect(null)
+  }, [active, onSelect])
 
   useEffect(() => {
     if (!active || clicks.length === 0) return
@@ -80,11 +83,11 @@ export function useStairsTool(options: StairsToolOptions): {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Delete' || isEditableTarget(event.target)) return
       onCommit({ kind: 'removeStairs', id: selectedId })
-      setSelectedId(null)
+      onSelect(null)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [active, selectedId, onCommit])
+  }, [active, selectedId, onCommit, onSelect])
 
   function onPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (!active) return
@@ -98,7 +101,7 @@ export function useStairsTool(options: StairsToolOptions): {
       event.preventDefault()
       setClicks([])
       setCursor(null)
-      setSelectedId(null)
+      onSelect(null)
       onCommit({ kind: 'removeStairs', id: hit })
       return
     }
@@ -107,10 +110,10 @@ export function useStairsTool(options: StairsToolOptions): {
     if (clicks.length === 0) {
       const hit = stairsHitTest(world, model.stairs)
       if (hit) {
-        setSelectedId(hit)
+        onSelect({ type: 'stairs', id: hit })
         return
       }
-      setSelectedId(null)
+      onSelect(null)
       setClicks([snapToCellCharacteristics(model, world)])
       return
     }
@@ -152,7 +155,6 @@ export function useStairsTool(options: StairsToolOptions): {
 
   return {
     preview,
-    selectedId,
     handlers: { onPointerDown, onPointerMove, onPointerCancel, onPointerLeave },
   }
 }

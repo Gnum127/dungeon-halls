@@ -83,6 +83,10 @@
       не совпадают, двери НЕ привязаны к стене (этап 26: угла створки нет)
 - [ ] `StairsPolygon`: ≥3 вершин, без самопересечений; в модели — оверлей без
       заливки/стен (заливка рисуется на этапе 27, в данных её нет)
+- [ ] `MapObject.imageId` (этап 28): `null` = без текстуры, `undefined` = по
+      умолчанию вида; команды `setObjectImage`/`setObjectScale`/
+      `setObjectRotation`/`setObjectBounds`/`setDoorImage`; коллизии не
+      проверяются (place/move/IO)
 - [ ] `addRegionWithWalls`: ОДНА запись истории, undo возвращает и регион, и стены
 - [ ] IO v6: только v6, чужая версия → MapLoadError; roundtrip детерминирован
 - [ ] Авто-стены: один `WallSegment` на замкнутый контур; вложенные контуры —
@@ -111,6 +115,11 @@
       к характеристическим точкам клеток (этап 27); выделенная лестница —
       замкнутый контур `HIGHLIGHT_COLOR` (`drawStairsSelection`)
 - [ ] Culling: видимые регионы/стены по bounding-box, вне viewport не рисуются
+- [ ] Выделение (этап 28): рамка объекта по footprint'у + 4 угловых хендла и
+      полоса двери — `render/selectionHighlight.ts`; контур лестницы —
+      `render/stairsHighlight.ts` (`drawStairsSelection`);
+      резолв изображения объекта — `imageId` экземпляра → `objectTextures` →
+      `defaultImage` → цвет
 - [ ] FakeCtx-тесты на каждый элемент рендера (регион, стена, дверь, лестница, тайлинг)
 
 ### Сетка и снап (этап 16)
@@ -184,6 +193,8 @@
       `cycleDoorOpenAngle` в коде; ключа `doorAngle` в локалях нет (этап 26)
 - [ ] `objectTextures` манифеста содержит только известные виды объектов и
       зарезервированный ключ `door` (валидатор отвергает прочие ключи)
+- [ ] Нет `render/elementImage.ts`, `elementImageOverrides`, `imageOverrides`
+      (этап 28: выбор изображения — в экземпляре)
 
 ## Definition of Done
 

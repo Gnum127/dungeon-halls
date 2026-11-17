@@ -32,6 +32,11 @@
       "vertices": "Vertices",
       "autoWalls": "Auto walls",
       "doorTexture": "Door texture",
+      "texture": "Texture",
+      "objectSize": "Size",
+      "objectRotation": "Rotation",
+      "selectedObject": "Object selected",
+      "selectedDoor": "Door selected",
       "cursorHint": "Click — select, drag — move, Delete — remove",
       "panHint": "Hold and drag to pan the map",
       "stairsHint": "Three clicks: start → base → far edge"
@@ -74,10 +79,12 @@
       "bush": "Bush",
       "tree": "Tree",
       "rock": "Rock",
+      "ladder": "Ladder",
       "rotate": "Rotate (R)",
       "resize": "Size",
       "image": "Image",
-      "imageDefault": "Default"
+      "imageDefault": "Default",
+      "imageNone": "No texture"
     },
     "files": {
       "save": "Save",

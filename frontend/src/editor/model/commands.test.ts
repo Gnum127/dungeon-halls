@@ -3,7 +3,7 @@ import { applyCommand } from './commands'
 import { createEmptyMap } from './createEmptyMap'
 import { createTerrainRegion } from './regions'
 import { createWallSegment } from './wallSegments'
-import type { MapModel } from './types'
+import type { MapModel, ObjectRotation } from './types'
 
 const SQUARE = [
   { x: 0, y: 0 },
@@ -390,11 +390,12 @@ describe('setWalls set-semantics', () => {
 })
 
 describe('objects (edge cases)', () => {
-  it('rejects overlap when moving into an occupied cell', () => {
+  it('allows moving into an occupied cell (collisions removed, этап 28)', () => {
     let model = applyCommand(makeMap(), { kind: 'addObject', x: 0, y: 0, kindId: 'chair' })
     model = applyCommand(model, { kind: 'addObject', x: 2, y: 0, kindId: 'chair' })
     const id = model.objects[0].id
-    expect(() => applyCommand(model, { kind: 'moveObject', id, x: 2, y: 0 })).toThrow(/overlaps/)
+    const moved = applyCommand(model, { kind: 'moveObject', id, x: 2, y: 0 })
+    expect(moved.objects.find((object) => object.id === id)).toMatchObject({ x: 2, y: 0 })
   })
 
   it('is a no-op when moving to the same cell', () => {
@@ -419,6 +420,116 @@ describe('objects (edge cases)', () => {
       scale: { w: 2, h: 1 },
     })
     expect(model.objects[0]).toMatchObject({ x: 2, y: 0, scale: { w: 2, h: 1 } })
+  })
+
+  it('stores the per-instance imageId on placement', () => {
+    const model = applyCommand(makeMap(), {
+      kind: 'addObject',
+      x: 1,
+      y: 1,
+      kindId: 'table',
+      imageId: 'table-round',
+    })
+    expect(model.objects[0].imageId).toBe('table-round')
+  })
+})
+
+describe('setObject* commands (этап 28)', () => {
+  const withObject = () =>
+    applyCommand(makeMap(), { kind: 'addObject', x: 1, y: 1, kindId: 'table' })
+
+  it('sets the per-instance image and no-ops on the same value', () => {
+    const model = withObject()
+    const id = model.objects[0].id
+    const next = applyCommand(model, { kind: 'setObjectImage', id, imageId: 'table-round' })
+    expect(next.objects[0].imageId).toBe('table-round')
+    expect(applyCommand(next, { kind: 'setObjectImage', id, imageId: 'table-round' })).toBe(next)
+    expect(
+      applyCommand(model, { kind: 'setObjectImage', id, imageId: null }).objects[0],
+    ).toHaveProperty('imageId', null)
+  })
+
+  it('resets to the default image (undefined removes the property)', () => {
+    const model = withObject()
+    const id = model.objects[0].id
+    const withImage = applyCommand(model, { kind: 'setObjectImage', id, imageId: 'table-round' })
+    const reset = applyCommand(withImage, { kind: 'setObjectImage', id, imageId: undefined })
+    expect(reset.objects[0]).not.toHaveProperty('imageId')
+    // Повторный сброс — no-op.
+    expect(applyCommand(reset, { kind: 'setObjectImage', id, imageId: undefined })).toBe(reset)
+  })
+
+  it('sets scale/rotation, no-ops on the same value, rejects invalid input', () => {
+    const model = withObject()
+    const id = model.objects[0].id
+    expect(
+      applyCommand(model, { kind: 'setObjectScale', id, scale: { w: 2, h: 2 } }).objects[0].scale,
+    ).toEqual({ w: 2, h: 2 })
+    expect(
+      applyCommand(model, { kind: 'setObjectRotation', id, rotation: 270 }).objects[0].rotation,
+    ).toBe(270)
+    // no-op не увеличивает историю (возвращается тот же объект модели).
+    const scaled = applyCommand(model, { kind: 'setObjectScale', id, scale: { w: 2, h: 2 } })
+    expect(applyCommand(scaled, { kind: 'setObjectScale', id, scale: { w: 2, h: 2 } })).toBe(scaled)
+    const rotated = applyCommand(model, { kind: 'setObjectRotation', id, rotation: 90 })
+    expect(applyCommand(rotated, { kind: 'setObjectRotation', id, rotation: 90 })).toBe(rotated)
+    expect(() =>
+      applyCommand(model, { kind: 'setObjectScale', id, scale: { w: 0, h: 1 } }),
+    ).toThrow(/scale/)
+    expect(() =>
+      applyCommand(model, { kind: 'setObjectRotation', id, rotation: 45 as ObjectRotation }),
+    ).toThrow(/rotation/)
+    expect(() => applyCommand(model, { kind: 'setObjectImage', id: 99, imageId: null })).toThrow(
+      /not found/,
+    )
+    expect(() => applyCommand(model, { kind: 'setObjectImage', id, imageId: '' })).toThrow(
+      /imageId/,
+    )
+  })
+
+  it('sets origin and size together via setObjectBounds and no-ops on the same value', () => {
+    const model = withObject()
+    const id = model.objects[0].id
+    const next = applyCommand(model, {
+      kind: 'setObjectBounds',
+      id,
+      x: 2,
+      y: 3,
+      scale: { w: 2, h: 4 },
+    })
+    expect(next.objects[0]).toMatchObject({ x: 2, y: 3, scale: { w: 2, h: 4 } })
+    expect(
+      applyCommand(next, { kind: 'setObjectBounds', id, x: 2, y: 3, scale: { w: 2, h: 4 } }),
+    ).toBe(next)
+  })
+
+  it('rejects setObjectBounds outside the grid or with an invalid scale', () => {
+    const model = withObject()
+    const id = model.objects[0].id
+    // origin за верхним/левым краем — недопустим (как при размещении кликом).
+    expect(() =>
+      applyCommand(model, { kind: 'setObjectBounds', id, x: -1, y: 0, scale: { w: 1, h: 1 } }),
+    ).toThrow(/out of bounds/)
+    expect(() =>
+      applyCommand(model, { kind: 'setObjectBounds', id, x: 0, y: 0, scale: { w: 0, h: 1 } }),
+    ).toThrow(/scale/)
+  })
+})
+
+describe('setDoorImage (этап 28)', () => {
+  const withDoor = () =>
+    applyCommand(makeMap(), { kind: 'addDoor', a: { x: 1, y: 1 }, b: { x: 2, y: 1 } })
+
+  it('sets the door image, no-ops on the same value and validates input', () => {
+    const model = withDoor()
+    const id = model.doors[0].id
+    const next = applyCommand(model, { kind: 'setDoorImage', id, imageId: 'door-iron' })
+    expect(next.doors[0].imageId).toBe('door-iron')
+    expect(applyCommand(next, { kind: 'setDoorImage', id, imageId: 'door-iron' })).toBe(next)
+    expect(() => applyCommand(model, { kind: 'setDoorImage', id: 'nope', imageId: null })).toThrow(
+      /not found/,
+    )
+    expect(() => applyCommand(model, { kind: 'setDoorImage', id, imageId: '' })).toThrow(/imageId/)
   })
 })
 
@@ -518,8 +629,8 @@ describe('replaceMap (invariants & aliasing)', () => {
     ).toThrow(/Unknown object kind/)
   })
 
-  it('rejects a snapshot with overlapping objects or duplicate object/light ids', () => {
-    expect(() =>
+  it('accepts overlapping objects in a snapshot but rejects duplicate object/light ids', () => {
+    expect(
       applyCommand(makeMap(), {
         kind: 'replaceMap',
         snapshot: {
@@ -534,8 +645,8 @@ describe('replaceMap (invariants & aliasing)', () => {
           ],
           lights: [],
         },
-      }),
-    ).toThrow(/overlaps/)
+      }).objects,
+    ).toHaveLength(2)
     expect(() =>
       applyCommand(makeMap(), {
         kind: 'replaceMap',

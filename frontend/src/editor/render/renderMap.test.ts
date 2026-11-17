@@ -498,40 +498,38 @@ describe('renderMap', () => {
     expect(calls.some((c) => c.op === 'drawImage' && c.args[0] === image)).toBe(true)
   })
 
-  it('prefers the user image override over the object texture', () => {
+  it('prefers the per-instance imageId over the kind texture', () => {
     const texture = {} as HTMLImageElement
-    const override = {} as HTMLImageElement
+    const own = {} as HTMLImageElement
     const textures = {
       tileTextures: {},
       objectTextures: { table: texture },
-      elementImages: { 'table-round': override },
-      imageOverrides: { table: 'table-round' },
+      elementImages: { 'table-round': own },
     }
     const { ctx, calls } = makeFakeCtx()
     renderMap(
       ctx,
-      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }),
+      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1, imageId: 'table-round' }] }),
       viewport,
       textures,
     )
 
     const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
-    expect(drawn).toContain(override)
+    expect(drawn).toContain(own)
     expect(drawn).not.toContain(texture)
   })
 
-  it('falls through to the object texture when the override image is absent', () => {
+  it('falls through to the kind texture when the instance image is absent', () => {
     const texture = {} as HTMLImageElement
     const textures = {
       tileTextures: {},
       objectTextures: { table: texture },
       elementImages: {},
-      imageOverrides: { table: 'table-round' },
     }
     const { ctx, calls } = makeFakeCtx()
     renderMap(
       ctx,
-      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }),
+      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1, imageId: 'table-round' }] }),
       viewport,
       textures,
     )
@@ -539,26 +537,24 @@ describe('renderMap', () => {
     expect(calls.some((c) => c.op === 'drawImage' && c.args[0] === texture)).toBe(true)
   })
 
-  it('treats an explicit null override as the kind default (uses the manifest texture)', () => {
+  it('treats an explicit null imageId as a colour swatch (no texture)', () => {
     const texture = {} as HTMLImageElement
     const defaultImage = {} as HTMLImageElement
     const textures = {
       tileTextures: {},
       objectTextures: { table: texture },
       elementImages: { 'table-wooden': defaultImage },
-      imageOverrides: { table: null },
     }
     const { ctx, calls } = makeFakeCtx()
     renderMap(
       ctx,
-      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }),
+      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1, imageId: null }] }),
       viewport,
       textures,
     )
 
-    const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => c.args[0])
-    expect(drawn).toContain(texture)
-    expect(drawn).not.toContain(defaultImage)
+    expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
+    expect(calls.some((c) => c.op === 'fill' && c.fillStyle === OBJECT_COLORS.table)).toBe(true)
   })
 
   it('falls back to the kind default element image when no texture is loaded', () => {
@@ -572,6 +568,24 @@ describe('renderMap', () => {
     renderMap(
       ctx,
       baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }),
+      viewport,
+      textures,
+    )
+
+    expect(calls.some((c) => c.op === 'drawImage' && c.args[0] === fallback)).toBe(true)
+  })
+
+  it('falls back to the kind default element image when an instance image is missing', () => {
+    const fallback = {} as HTMLImageElement
+    const textures = {
+      tileTextures: {},
+      objectTextures: {},
+      elementImages: { 'table-wooden': fallback },
+    }
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(
+      ctx,
+      baseModel({ objects: [{ id: 1, kindId: 'table', x: 1, y: 1, imageId: 'gone' }] }),
       viewport,
       textures,
     )

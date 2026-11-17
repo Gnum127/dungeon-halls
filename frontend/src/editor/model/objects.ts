@@ -80,6 +80,15 @@ export const OBJECT_KIND_REGISTRY = {
       { w: 2, h: 2 },
     ],
   },
+  ladder: {
+    labelKey: 'editor.objects.ladder',
+    color: '#8a6e4b',
+    category: 'dungeon' as const,
+    defaultScale: { w: 1, h: 1 },
+    defaultImage: 'ladder-wooden',
+    imagePool: ['ladder-wooden'],
+    scales: [{ w: 1, h: 1 }],
+  },
 } as const
 
 export type ObjectKindId = keyof typeof OBJECT_KIND_REGISTRY
@@ -137,12 +146,30 @@ export function isKnownKind(kindId: string): kindId is ObjectKindId {
  * (кнопка «Размер» для таких видов не показывается).
  */
 export function cycleScale(kindId: ObjectKindId, current: ObjectScale): ObjectScale {
-  const scales = (
-    OBJECT_KIND_REGISTRY[kindId] as { readonly scales?: ReadonlyArray<ObjectScale> }
-  ).scales
+  const scales = (OBJECT_KIND_REGISTRY[kindId] as { readonly scales?: ReadonlyArray<ObjectScale> })
+    .scales
   if (!scales || scales.length === 0) return current
   const index = scales.findIndex((scale) => scale.w === current.w && scale.h === current.h)
   return scales[(index + 1) % scales.length]
+}
+
+/** Пул imageId вида (пустой массив, если у вида нет пикера текстуры). */
+export function imagePoolForKind(kindId: ObjectKindId): readonly string[] {
+  const entry = OBJECT_KIND_ENTRIES.find((candidate) => candidate.id === kindId)
+  return entry?.imagePool ?? []
+}
+
+/**
+ * Приводит выбранный imageId к виду: текстуру чужого пула сбрасывает в
+ * «по умолчанию» (`undefined`), `null` («без текстуры») и валидную строку
+ * оставляет как есть. Не переносит текстуру одного вида на другой.
+ */
+export function imageIdForKind(
+  imageId: string | null | undefined,
+  kindId: ObjectKindId,
+): string | null | undefined {
+  if (imageId === null || imageId === undefined) return imageId
+  return imagePoolForKind(kindId).includes(imageId) ? imageId : undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -189,7 +216,11 @@ export function isFootprintFree(
 }
 
 /** Объект, чей footprint содержит точку (x,y), последний в массиве (z-order). */
-export function topmostObjectAt(objects: readonly MapObject[], x: number, y: number): MapObject | undefined {
+export function topmostObjectAt(
+  objects: readonly MapObject[],
+  x: number,
+  y: number,
+): MapObject | undefined {
   for (let i = objects.length - 1; i >= 0; i -= 1) {
     const obj = objects[i]
     const { x: ox, y: oy, w, h } = objectFootprint(obj)

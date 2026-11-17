@@ -8,11 +8,11 @@
 
 ## Состав модуля
 
-| Файл                            | Назначение                                                                     |
-| ------------------------------- | ------------------------------------------------------------------------------ |
-| `manifest.ts`                   | типы `TextureManifest`/`ElementImageManifest`, валидаторы, константы пути/версии |
-| `loader.ts`                     | `loadTextureManifest` / `loadElementManifest` / `loadTextures` / `resolveSpriteUrl`, кэш и таймауты |
-| `../../hooks/useTextureAtlas.ts` | React-состояние атласа текстур для EditorPage                                 |
+| Файл                             | Назначение                                                                                          |
+| -------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `manifest.ts`                    | типы `TextureManifest`/`ElementImageManifest`, валидаторы, константы пути/версии                    |
+| `loader.ts`                      | `loadTextureManifest` / `loadElementManifest` / `loadTextures` / `resolveSpriteUrl`, кэш и таймауты |
+| `../../hooks/useTextureAtlas.ts` | React-состояние атласа текстур для EditorPage                                                       |
 
 ## Ассеты
 
@@ -25,8 +25,10 @@
   `/sprites/tiles/floor_stone.png`. Префикс `sprites/` — часть конвенции.
 
 Текущий набор:
+
 - Текстуры ландшафта (`tileTextures`): floor, grass, stone, water, sand.
-- Текстуры объектов (`objectTextures`): table, chair, chest, barrel, bush, rock, tree.
+- Текстуры объектов (`objectTextures`): table, chair, chest, barrel, bush, rock,
+  tree, door, ladder.
 
 Файлы картинок генерируются по `docs/texture-generation-guide.md`.
 
@@ -81,7 +83,8 @@ public/sprites/
 
 ## Приоритет текстуры объекта
 
-1. Явный выбор пользователя (element-image override из палитры объектов).
+1. `imageId` экземпляра (`MapObject.imageId`, этап 28): строка — конкретный ассет
+   из element-images, `null` — явно «без текстуры» (цветной свотч).
 2. Текстурный ассет вида (`objectTextures`) — основная графика.
 3. `defaultImage` вида из element-images — фолбэк, если текстуры нет.
 4. Цветной свотч (`OBJECT_COLORS`).

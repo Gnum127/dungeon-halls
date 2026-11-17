@@ -67,6 +67,28 @@ describe('EditorPage', () => {
     expect(screen.getByRole('combobox', { name: 'Door texture' })).toHaveValue('door-wooden')
   })
 
+  it('does not carry an object texture over to another kind', async () => {
+    await renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Objects' }))
+
+    fireEvent.click(screen.getByRole('button', { name: /^Table/ }))
+    const tableSelect = screen.getByRole('combobox', { name: 'Image' })
+    fireEvent.change(tableSelect, { target: { value: 'table-round' } })
+    expect(tableSelect).toHaveValue('table-round')
+
+    // Другой вид: текстуру стола не переносим — селект на «По умолчанию».
+    fireEvent.click(screen.getByRole('button', { name: /^Tree/ }))
+    const treeSelect = screen.getByRole('combobox', { name: 'Image' })
+    const selectedOption = (within(treeSelect).getAllByRole('option') as HTMLOptionElement[]).find(
+      (option) => option.selected,
+    )
+    expect(selectedOption?.value).toBe('')
+
+    // Возврат к столу помнит выбранную ранее текстуру.
+    fireEvent.click(screen.getByRole('button', { name: /^Table/ }))
+    expect(screen.getByRole('combobox', { name: 'Image' })).toHaveValue('table-round')
+  })
+
   it('switches to the stairs tool from the bottom bar', async () => {
     const { bar } = await renderPage()
     fireEvent.click(within(bar).getByRole('button', { name: 'Stairs' }))

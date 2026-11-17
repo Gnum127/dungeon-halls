@@ -16,6 +16,8 @@ export type EditorTool =
       readonly kindId: ObjectKindId
       readonly rotation: ObjectRotation
       readonly scale: ObjectScale
+      /** Выбранное изображение для будущих размещений (этап 28). */
+      readonly imageId?: string | null
     }
   | { readonly type: 'region-rect'; readonly tileType: TileTypeName }
   | {

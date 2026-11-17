@@ -27,6 +27,8 @@ export interface ObjectScale {
  * `x`/`y` — float-координата левого-верхнего угла в мировых единицах (клетках):
  * объект НЕ привязан к сетке и может свисать за правый/нижний край.
  * Rotation — косметическое свойство, влияет только на рендер, НЕ на footprint.
+ * `imageId` — выбранное изображение экземпляра (этап 28): `null` = явно без
+ * текстуры, `undefined` = «по умолчанию» (`defaultImage` вида).
  */
 export interface MapObject {
   readonly id: number
@@ -35,6 +37,7 @@ export interface MapObject {
   readonly y: number
   readonly rotation?: ObjectRotation
   readonly scale?: ObjectScale
+  readonly imageId?: string | null
 }
 
 /** Сетка карты: размеры в клетках и размер клетки в пикселях. */

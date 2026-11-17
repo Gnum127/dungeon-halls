@@ -32,6 +32,11 @@
       "vertices": "Вершин",
       "autoWalls": "Авто-стены",
       "doorTexture": "Текстура двери",
+      "texture": "Текстура",
+      "objectSize": "Размер",
+      "objectRotation": "Поворот",
+      "selectedObject": "Выделен объект",
+      "selectedDoor": "Выделена дверь",
       "cursorHint": "Клик — выделить, перетаскивание — переместить, Delete — удалить",
       "panHint": "Зажать и тянуть карту",
       "stairsHint": "Три клика: начало → база → дальний край"
@@ -74,10 +79,12 @@
       "bush": "Куст",
       "tree": "Дерево",
       "rock": "Камень",
+      "ladder": "Лестница",
       "rotate": "Повернуть (R)",
       "resize": "Размер",
       "image": "Изображение",
-      "imageDefault": "По умолчанию"
+      "imageDefault": "По умолчанию",
+      "imageNone": "Без текстуры"
     },
     "files": {
       "save": "Сохранить",

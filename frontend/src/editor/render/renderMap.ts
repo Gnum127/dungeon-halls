@@ -51,32 +51,33 @@ export interface RenderMapOptions {
 export const MAX_TEXTURE_TILES_PER_REGION = 20_000
 
 /**
- * Изображение объекта по приоритету:
- * override изображения для вида (localStorage) → текстурный ассет вида (манифест
- * текстур) → defaultImage вида (element-images) → undefined (= цветной свотч).
+ * Изображение объекта по приоритету (этап 28):
+ * `imageId` экземпляра (`elementImages[imageId]`) → текстурный ассет вида
+ * (манифест, `objectTextures[kindId]`) → `defaultImage` вида (element-images) →
+ * undefined (= цветной свотч).
  *
- * Текстурный ассет идёт ВЫШЕ element-image по умолчанию: сгенерированные
- * крупные текстуры объектов — основная графика этапа 24, а `defaultImage` из
- * element-images остаётся лишь фолбэком для видов без текстуры. Явный выбор
- * пользователя (override) по-прежнему побеждает всё.
+ * `imageId === null` — явный выбор «без текстуры»: сразу свотч. Текстурный
+ * ассет идёт ВЫШЕ element-image по умолчанию: сгенерированные крупные текстуры
+ * объектов — основная графика этапа 24, `defaultImage` — лишь фолбэк.
  */
 function resolveObjectImage(
   textures: TextureRenderContext | undefined,
-  kindId: string,
+  object: MapModel['objects'][number],
 ): HTMLImageElement | undefined {
-  if (!textures || !isKnownKind(kindId)) return undefined
+  if (!textures || !isKnownKind(object.kindId)) return undefined
 
-  const overrideId = textures.imageOverrides?.[kindId]
-  const overrideImage = overrideId ? textures.elementImages[overrideId] : undefined
-  if (overrideImage) return overrideImage
+  const entry = OBJECT_KIND_ENTRIES.find((e) => e.id === object.kindId)
+  const defaultImage = entry?.defaultImage ? textures.elementImages[entry.defaultImage] : undefined
 
-  const texture = textures.objectTextures[kindId]
-  if (texture) return texture
-
-  const entry = OBJECT_KIND_ENTRIES.find((e) => e.id === kindId)
-  const defaultId = entry?.defaultImage
-  const defaultImage = defaultId ? textures.elementImages[defaultId] : undefined
-  return defaultImage
+  if (object.imageId === null) return undefined
+  if (object.imageId !== undefined) {
+    return (
+      textures.elementImages[object.imageId] ??
+      textures.objectTextures[object.kindId] ??
+      defaultImage
+    )
+  }
+  return textures.objectTextures[object.kindId] ?? defaultImage
 }
 
 /**
@@ -288,7 +289,7 @@ function drawObject(
     return
   }
   const rotation = object.rotation ?? 0
-  const image = resolveObjectImage(textures, object.kindId)
+  const image = resolveObjectImage(textures, object)
 
   ctx.save()
   ctx.translate(cx, cy)

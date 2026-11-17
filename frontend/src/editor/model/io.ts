@@ -1,4 +1,4 @@
-import { isKnownKind, objectFootprint, rectsOverlap } from './objects'
+import { isKnownKind } from './objects'
 import { isValidLightColor, isValidLightRadius } from './lights'
 import { isMapDimension } from '@/config/map.config'
 import { assertValidRegion, isTileTypeName, isValidPolygon } from './regions'
@@ -173,13 +173,12 @@ function parseStairs(value: unknown): StairsPolygon[] {
 function parseObjects(value: unknown): MapObject[] {
   if (!Array.isArray(value)) throw new MapLoadError('objects must be an array')
   const seenIds = new Set<number>()
-  const seenObjects: MapObject[] = []
   const objects: MapObject[] = []
   for (const candidate of value) {
     if (typeof candidate !== 'object' || candidate === null) {
       throw new MapLoadError('Every object must be a JSON object')
     }
-    const { id, kindId, x, y, rotation, scale } = candidate as Record<string, unknown>
+    const { id, kindId, x, y, rotation, scale, imageId } = candidate as Record<string, unknown>
     if (!Number.isInteger(id) || (id as number) < 1) {
       throw new MapLoadError(`Object id must be a positive integer, got ${String(id)}`)
     }
@@ -215,6 +214,14 @@ function parseObjects(value: unknown): MapObject[] {
       parsedScale = { w: w as number, h: h as number }
     }
 
+    let parsedImageId: string | null | undefined
+    if (imageId !== undefined) {
+      if (imageId !== null && (typeof imageId !== 'string' || imageId.length === 0)) {
+        throw new MapLoadError('Object imageId must be null or a non-empty string')
+      }
+      parsedImageId = imageId
+    }
+
     const object: MapObject = {
       id: id as number,
       kindId,
@@ -222,14 +229,8 @@ function parseObjects(value: unknown): MapObject[] {
       y,
       ...(parsedRotation !== undefined && { rotation: parsedRotation }),
       ...(parsedScale !== undefined && { scale: parsedScale }),
+      ...(parsedImageId !== undefined && { imageId: parsedImageId }),
     }
-    const footprint = objectFootprint(object)
-    for (const other of seenObjects) {
-      if (rectsOverlap(footprint, objectFootprint(other))) {
-        throw new MapLoadError(`Objects ${object.id} and ${other.id} overlap`)
-      }
-    }
-    seenObjects.push(object)
     objects.push(object)
   }
   return objects
@@ -299,6 +300,7 @@ export function serializeMap(model: MapModel): string {
       y: object.y,
       ...(object.rotation !== undefined && { rotation: object.rotation }),
       ...(object.scale !== undefined && { scale: { ...object.scale } }),
+      ...(object.imageId !== undefined && { imageId: object.imageId }),
     })),
     lights: model.lights.map((light) => ({ ...light })),
   })

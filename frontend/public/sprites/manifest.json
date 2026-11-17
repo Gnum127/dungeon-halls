@@ -15,6 +15,7 @@
     "bush": { "path": "sprites/objects/bush_green.png" },
     "rock": { "path": "sprites/objects/rock_boulder.png" },
     "tree": { "path": "sprites/objects/tree_oak.png" },
-    "door": { "path": "sprites/objects/door_wooden.png" }
+    "door": { "path": "sprites/objects/door_wooden.png" },
+    "ladder": { "path": "sprites/objects/ladder_wooden.png" }
   }
 }

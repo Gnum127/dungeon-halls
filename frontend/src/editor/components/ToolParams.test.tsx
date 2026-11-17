@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { DOOR_CATALOG } from '../model/doorCatalog'
 import type { TileTypeName } from '../model/types'
 import type { EditorTool } from '../tools/editorTool'
+import { NO_IMAGE_SELECT_VALUE } from './imageSelect'
 import { ToolParams } from './ToolParams'
 import type { ToolParamsProps } from './ToolParams'
 
@@ -18,6 +19,9 @@ function renderParams(overrides: Partial<ToolParamsProps> = {}) {
     onVertexCountChange: vi.fn(),
     onAutoWallsChange: vi.fn(),
     onDoorImageChange: vi.fn(),
+    onObjectImageChange: vi.fn(),
+    onObjectScaleChange: vi.fn(),
+    onObjectRotationChange: vi.fn(),
     ...overrides,
   }
   render(<ToolParams {...props} />)
@@ -96,6 +100,67 @@ describe('ToolParams — дверь', () => {
   it('shows no leaf-angle field anymore', () => {
     renderParams({ tool: doorTool })
     expect(screen.queryByRole('spinbutton')).toBeNull()
+  })
+})
+
+describe('ToolParams — выделение (этап 28)', () => {
+  it('shows object texture, size and rotation controls for the selected object', () => {
+    const props = renderParams({
+      tool: { type: 'cursor' },
+      selectedObject: { id: 5, kindId: 'table', x: 1, y: 1, scale: { w: 2, h: 1 } },
+    })
+
+    expect(screen.getByText('Object selected')).toBeInTheDocument()
+    const texture = screen.getByRole('combobox', { name: 'Texture' })
+    fireEvent.change(texture, { target: { value: 'table-round' } })
+    expect(props.onObjectImageChange).toHaveBeenCalledWith('table-round')
+
+    // «По умолчанию» → undefined, «без текстуры» → null (этап 28).
+    fireEvent.change(texture, { target: { value: '' } })
+    expect(props.onObjectImageChange).toHaveBeenLastCalledWith(undefined)
+    fireEvent.change(texture, { target: { value: NO_IMAGE_SELECT_VALUE } })
+    expect(props.onObjectImageChange).toHaveBeenLastCalledWith(null)
+
+    const size = screen.getByRole('combobox', { name: 'Size' })
+    expect(size).toHaveValue('2x1')
+    fireEvent.change(size, { target: { value: '1x2' } })
+    expect(props.onObjectScaleChange).toHaveBeenCalledWith({ w: 1, h: 2 })
+
+    const rotation = screen.getByRole('combobox', { name: 'Rotation' })
+    fireEvent.change(rotation, { target: { value: '90' } })
+    expect(props.onObjectRotationChange).toHaveBeenCalledWith(90)
+  })
+
+  it('shows a size field for a resized kind without a fixed scale list', () => {
+    renderParams({
+      tool: { type: 'cursor' },
+      selectedObject: { id: 7, kindId: 'chair', x: 1, y: 1, scale: { w: 2, h: 3 } },
+    })
+
+    // У chair нет списка scales, но размер ≠ 1×1 — поле показываем.
+    expect(screen.getByRole('combobox', { name: 'Size' })).toHaveValue('2x3')
+  })
+
+  it('hides the size field for an unscaled default kind', () => {
+    renderParams({
+      tool: { type: 'cursor' },
+      selectedObject: { id: 8, kindId: 'chair', x: 1, y: 1 },
+    })
+
+    expect(screen.queryByRole('combobox', { name: 'Size' })).toBeNull()
+  })
+
+  it('shows only the door texture picker for the selected door', () => {
+    const props = renderParams({
+      tool: { type: 'cursor' },
+      selectedDoor: { id: 'd1', a: { x: 1, y: 1 }, b: { x: 2, y: 1 }, imageId: null },
+    })
+
+    expect(screen.getByText('Door selected')).toBeInTheDocument()
+    const select = screen.getByRole('combobox', { name: 'Door texture' })
+    fireEvent.change(select, { target: { value: 'door-stone' } })
+    expect(props.onDoorImageChange).toHaveBeenCalledWith('door-stone')
+    expect(screen.queryByRole('combobox', { name: 'Size' })).toBeNull()
   })
 })
 

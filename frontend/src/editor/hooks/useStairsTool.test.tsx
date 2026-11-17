@@ -1,4 +1,4 @@
-import { createRef, useEffect, useRef } from 'react'
+import { createRef, useEffect, useRef, useState } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { applyCommand } from '../model/commands'
@@ -8,6 +8,7 @@ import type { Command } from '../model/commands'
 import type { MapModel } from '../model/types'
 import type { Point } from '@/shared/point'
 import type { Viewport } from '../render/viewport'
+import type { SelectedEntity } from '../model/selection'
 import { useStairsTool } from './useStairsTool'
 import type { StairsPreview } from './useStairsTool'
 
@@ -18,7 +19,7 @@ interface HarnessProps {
   active?: boolean
   onCommit: (command: Command | null) => void
   onPreview: (preview: StairsPreview | null) => void
-  onSelect: (id: string | null) => void
+  onSelect: (entity: SelectedEntity) => void
 }
 
 function Harness({ model, active = true, onCommit, onPreview, onSelect }: HarnessProps) {
@@ -30,26 +31,29 @@ function Harness({ model, active = true, onCommit, onPreview, onSelect }: Harnes
     offsetX: 0,
     offsetY: 0,
   })
-  const { handlers, preview, selectedId } = useStairsTool({
+  const [selected, setSelected] = useState<SelectedEntity>(null)
+  const { handlers, preview } = useStairsTool({
     canvasRef,
     active,
     model,
     viewportRef,
+    selected,
+    onSelect: (entity) => {
+      setSelected(entity)
+      onSelect(entity)
+    },
     onCommit,
   })
   useEffect(() => {
     onPreview(preview)
   }, [preview, onPreview])
-  useEffect(() => {
-    onSelect(selectedId)
-  }, [selectedId, onSelect])
   return <canvas ref={canvasRef} data-testid="canvas" {...handlers} />
 }
 
 function setup(model: MapModel = createEmptyMap(12, 12)) {
   const onCommit = vi.fn<(command: Command | null) => void>()
   const onPreview = vi.fn<(preview: StairsPreview | null) => void>()
-  const onSelect = vi.fn<(id: string | null) => void>()
+  const onSelect = vi.fn<(entity: SelectedEntity) => void>()
   const renderTree = (active: boolean) => (
     <Harness
       model={model}
@@ -205,7 +209,7 @@ describe('useStairsTool', () => {
     click(4 * CELL, 3 * CELL)
 
     expect(onCommit).not.toHaveBeenCalled()
-    expect(onSelect).toHaveBeenLastCalledWith(id)
+    expect(onSelect).toHaveBeenLastCalledWith({ type: 'stairs', id })
   })
 
   it('deletes the selected stairs with Delete', () => {

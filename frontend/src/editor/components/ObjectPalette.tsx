@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { ObjectCategory, ObjectKindEntry, ObjectKindId } from '../model/objects'
 import type { ObjectRotation, ObjectScale } from '../model/types'
 import { OBJECT_KIND_ENTRIES } from '../model/objects'
+import { NO_IMAGE_SELECT_VALUE, imageIdToSelectValue, selectValueToImageId } from './imageSelect'
 import styles from './ObjectPalette.module.css'
 
 const CATEGORY_ORDER: ObjectCategory[] = ['structural', 'furniture', 'dungeon']
@@ -29,9 +30,10 @@ interface ObjectPaletteProps {
   onRotate: () => void
   /** Цикл по доступным размерам активного вида («Размер»). */
   onResize: () => void
-  /** Выбранные изображения видов; null = «по умолчанию». */
-  elementImageOverrides: Readonly<Partial<Record<ObjectKindId, string | null>>>
-  onSelectElementImage: (kindId: ObjectKindId, imageId: string | null) => void
+  /** Выбранное изображение для будущих размещений (этап 28):
+   * `undefined` — по умолчанию, `null` — без текстуры, строка — ассет. */
+  imageId: string | null | undefined
+  onSelectImage: (imageId: string | null | undefined) => void
 }
 
 /**
@@ -46,8 +48,8 @@ export function ObjectPalette({
   objectScale,
   onRotate,
   onResize,
-  elementImageOverrides,
-  onSelectElementImage,
+  imageId,
+  onSelectImage,
 }: ObjectPaletteProps) {
   const { t } = useTranslation()
   const [collapsed, setCollapsed] = useState<Partial<Record<ObjectCategory, boolean>>>({})
@@ -56,7 +58,7 @@ export function ObjectPalette({
   const activeKind = activeKindId
     ? OBJECT_KIND_ENTRIES.find((entry) => entry.id === activeKindId)
     : undefined
-  const hasSizes = activeKind?.scales !== undefined
+  const hasSizes = (activeKind?.scales?.length ?? 0) > 1
   const hasImagePool = activeKind?.imagePool !== undefined
 
   return (
@@ -92,15 +94,14 @@ export function ObjectPalette({
               className={styles.imagePick}
               aria-label={t('editor.objects.image')}
               title={t('editor.objects.image')}
-              value={elementImageOverrides[activeKindId] ?? ''}
-              onChange={(e) =>
-                onSelectElementImage(activeKindId, e.target.value === '' ? null : e.target.value)
-              }
+              value={imageIdToSelectValue(imageId)}
+              onChange={(e) => onSelectImage(selectValueToImageId(e.target.value))}
             >
               <option value="">{t('editor.objects.imageDefault')}</option>
-              {activeKind.imagePool?.map((imageId) => (
-                <option key={imageId} value={imageId}>
-                  {imageId}
+              <option value={NO_IMAGE_SELECT_VALUE}>{t('editor.objects.imageNone')}</option>
+              {activeKind.imagePool?.map((imageIdOption) => (
+                <option key={imageIdOption} value={imageIdOption}>
+                  {imageIdOption}
                 </option>
               ))}
             </select>

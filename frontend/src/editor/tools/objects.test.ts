@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createEmptyMap } from '../model/createEmptyMap'
 import type { MapModel, MapObject } from '../model/types'
-import { isFootprintFreeAt, topmostObjectAt } from './objects'
+import { topmostObjectAt } from './objects'
 
 const TORCH_KIND = 'torch'
 const CHEST_KIND = 'chest'
@@ -62,18 +62,4 @@ describe('topmostObjectAt', () => {
   })
 })
 
-describe('isFootprintFreeAt', () => {
-  it('mirrors topmostObjectAt for a 1×1 footprint', () => {
-    const model = makeModel([{ id: 1, x: 1, y: 1, kindId: TORCH_KIND }])
 
-    expect(isFootprintFreeAt(model, 0, 0, 1, 1)).toBe(true)
-    expect(isFootprintFreeAt(model, 1, 1, 1, 1)).toBe(false)
-  })
-
-  it('rejects a footprint overlapping a float object', () => {
-    const model = makeModel([{ id: 1, x: 1.5, y: 1.5, kindId: TORCH_KIND }])
-
-    expect(isFootprintFreeAt(model, 1, 1, 1, 1)).toBe(false)
-    expect(isFootprintFreeAt(model, 2.5, 2.5, 1, 1)).toBe(true)
-  })
-})

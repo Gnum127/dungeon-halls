@@ -9,6 +9,8 @@ import {
   OBJECT_KINDS,
   cycleScale,
   footprintInBounds,
+  imageIdForKind,
+  imagePoolForKind,
   isFootprintFree,
   isKnownKind,
   objectFootprint,
@@ -47,6 +49,7 @@ describe('OBJECT_KIND_REGISTRY', () => {
       'bush',
       'tree',
       'rock',
+      'ladder',
     ])
     expect(OBJECT_KIND_ENTRIES.map((entry) => entry.id)).toEqual(OBJECT_KINDS)
     expect(Object.keys(OBJECT_COLORS)).toEqual(OBJECT_KINDS)
@@ -173,6 +176,21 @@ describe('cycleScale', () => {
   it('returns the current scale unchanged for kinds without a size list', () => {
     expect(cycleScale('chair', { w: 2, h: 2 })).toEqual({ w: 2, h: 2 })
     expect(cycleScale('torch', { w: 1, h: 1 })).toEqual({ w: 1, h: 1 })
+  })
+})
+
+describe('imagePoolForKind / imageIdForKind', () => {
+  it('returns the kind image pool (empty for kinds without one)', () => {
+    expect(imagePoolForKind('table')).toEqual(['table-wooden', 'table-round'])
+    expect(imagePoolForKind('tree')).toEqual(['tree-oak'])
+  })
+
+  it('keeps default/none and a valid id, drops a foreign id', () => {
+    expect(imageIdForKind(undefined, 'tree')).toBeUndefined()
+    expect(imageIdForKind(null, 'tree')).toBeNull()
+    expect(imageIdForKind('tree-oak', 'tree')).toBe('tree-oak')
+    // Текстура другого вида сбрасывается в «по умолчанию».
+    expect(imageIdForKind('table-round', 'tree')).toBeUndefined()
   })
 })
 

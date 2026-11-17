@@ -305,6 +305,36 @@ describe('deserializeMap rejects malformed sections', () => {
     expect(loaded.doors[0]).not.toHaveProperty('openAngle')
   })
 
+  it('round-trips the per-instance object imageId', () => {
+    const model = applyCommand(createEmptyMap(4, 4), {
+      kind: 'addObject',
+      x: 1,
+      y: 1,
+      kindId: 'table',
+      imageId: 'table-round',
+    })
+    expect(deserializeMap(serializeMap(model)).objects[0].imageId).toBe('table-round')
+    // null (явно «без текстуры») тоже сохраняется.
+    const withoutTexture = deserializeMap(
+      JSON.stringify(
+        withRaw((raw) => ((raw.objects as Record<string, unknown>[])[0].imageId = null)),
+      ),
+    )
+    expect(withoutTexture.objects[0]).toHaveProperty('imageId', null)
+  })
+
+  it('rejects an object with a non-string non-null imageId', () => {
+    for (const bad of [42, ''] as const) {
+      expect(() =>
+        deserializeMap(
+          JSON.stringify(
+            withRaw((raw) => ((raw.objects as Record<string, unknown>[])[0].imageId = bad)),
+          ),
+        ),
+      ).toThrow(/imageId/)
+    }
+  })
+
   it('rejects a stairs entry with a degenerate polygon or duplicate id', () => {
     expect(() =>
       deserializeMap(
@@ -364,17 +394,16 @@ describe('deserializeMap rejects malformed sections', () => {
     expect(model.objects[0].x).toBe(19)
   })
 
-  it('rejects two distinct objects whose footprints overlap', () => {
-    expect(() =>
-      deserializeMap(
-        JSON.stringify(
-          withRaw((raw) => {
-            const objects = raw.objects as Record<string, unknown>[]
-            objects.push({ id: 2, kindId: 'chair', x: 3, y: 2 })
-          }),
-        ),
+  it('accepts two distinct objects whose footprints overlap (collisions removed)', () => {
+    const loaded = deserializeMap(
+      JSON.stringify(
+        withRaw((raw) => {
+          const objects = raw.objects as Record<string, unknown>[]
+          objects.push({ id: 2, kindId: 'chair', x: 3, y: 2 })
+        }),
       ),
-    ).toThrow(/overlap/)
+    )
+    expect(loaded.objects).toHaveLength(2)
   })
 
   it('rejects a light with a bad radius, color or duplicate id', () => {

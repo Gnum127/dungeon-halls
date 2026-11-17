@@ -2,6 +2,7 @@ import { createRef } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { createEmptyMap } from '../model/createEmptyMap'
+import type { Command } from '../model/commands'
 import type { MapModel } from '../model/types'
 import type { EditorTool } from '../tools/editorTool'
 import type { Viewport } from '../render/viewport'
@@ -21,7 +22,7 @@ const TOOL: Extract<EditorTool, { type: 'object' }> = {
 interface HarnessProps {
   model: MapModel
   tool?: EditorTool
-  dispatch: (command: unknown) => void
+  dispatch: (command: Command) => void
 }
 
 function Harness({ model, tool = TOOL, dispatch }: HarnessProps) {
@@ -38,7 +39,7 @@ function Harness({ model, tool = TOOL, dispatch }: HarnessProps) {
   const { handlers } = useObjectTools({
     canvasRef,
     viewportRef,
-    store: { dispatch: dispatch as never },
+    store: { dispatch },
     model,
     tool,
   })
@@ -139,7 +140,7 @@ describe('useObjectTools', () => {
     )
   })
 
-  it('does not place onto an occupied footprint', () => {
+  it('allows placing onto an occupied footprint (collisions removed, этап 28)', () => {
     const model: MapModel = {
       ...createEmptyMap(COLS, ROWS),
       objects: [{ id: 1, kindId: 'torch', x: 1, y: 1 }],
@@ -148,7 +149,29 @@ describe('useObjectTools', () => {
 
     fireEvent.pointerDown(canvas, { button: 0, clientX: worldPx(1.2), clientY: worldPx(1) })
 
-    expect(dispatch).not.toHaveBeenCalled()
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'addObject', x: 1.2, y: 1 }),
+    )
+  })
+
+  it('passes a string tool imageId through to addObject', () => {
+    const { canvas, dispatch } = setup(createEmptyMap(COLS, ROWS), {
+      ...TOOL,
+      imageId: 'torch-stand',
+    })
+    fireEvent.pointerDown(canvas, { button: 0, clientX: worldPx(1), clientY: worldPx(1) })
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'addObject', imageId: 'torch-stand' }),
+    )
+  })
+
+  it('passes an explicit null imageId through to addObject (no texture)', () => {
+    const { canvas, dispatch } = setup(createEmptyMap(COLS, ROWS), { ...TOOL, imageId: null })
+    fireEvent.pointerDown(canvas, { button: 0, clientX: worldPx(1), clientY: worldPx(1) })
+    // null («без текстуры») не должен превращаться в undefined («по умолчанию»).
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'addObject', imageId: null }),
+    )
   })
 
   it('is inert for a non-object tool', () => {
@@ -159,7 +182,7 @@ describe('useObjectTools', () => {
     expect(dispatch).not.toHaveBeenCalled()
   })
 
-  it('rejects a multi-cell footprint that overlaps another object', () => {
+  it('allows a multi-cell footprint that overlaps another object (collisions removed)', () => {
     const model: MapModel = {
       ...createEmptyMap(COLS, ROWS),
       objects: [{ id: 1, kindId: 'torch', x: 2, y: 2 }],
@@ -167,9 +190,11 @@ describe('useObjectTools', () => {
     const tool: EditorTool = { ...TOOL, scale: { w: 2, h: 1 } }
     const { canvas, dispatch } = setup(model, tool)
 
-    // Footprint [1.5..3.5)×[2..3) накрывает объект в (2,2).
+    // Footprint 2×1 в (1.5,2) внахлёст с объектом в (2,2) — теперь разрешено.
     fireEvent.pointerDown(canvas, { button: 0, clientX: worldPx(1.5), clientY: worldPx(2) })
 
-    expect(dispatch).not.toHaveBeenCalled()
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'addObject', x: 1.5, y: 2, scale: { w: 2, h: 1 } }),
+    )
   })
 })

@@ -12,6 +12,8 @@ import { useDoorTool } from '../hooks/useDoorTool'
 import { useStairsTool } from '../hooks/useStairsTool'
 import { DOOR_FILL_COLOR, DOOR_THICKNESS_FRACTION, STAIRS_OUTLINE_COLOR } from '../render/colors'
 import { drawStairsSelection } from '../render/stairsHighlight'
+import { drawDoorSelection, drawObjectSelection } from '../render/selectionHighlight'
+import type { SelectedEntity } from '../model/selection'
 import { useRectRegionTool } from '../hooks/useRectRegionTool'
 import { usePolygonRegionTool } from '../hooks/usePolygonRegionTool'
 import { useWallTool } from '../hooks/useWallTool'
@@ -35,8 +37,9 @@ import styles from './CanvasView.module.css'
 interface CanvasViewProps {
   store: EditorStore
   tool: EditorTool
-  selectedObjectId: number | null
-  onSelectObject: (id: number | null) => void
+  /** Единое выделение (объект/дверь/лестница), этап 28. */
+  selected: SelectedEntity
+  onSelect: (entity: SelectedEntity) => void
   /** Текущее покрытие для инструментов регионов (кисть заливки). */
   tileType: TileTypeName
   /** Авто-стены: пересчитывать контур при построении регионов. */
@@ -52,8 +55,8 @@ const DEFAULT_LIGHT_COLOR = '#ffd682'
 export function CanvasView({
   store,
   tool,
-  selectedObjectId,
-  onSelectObject,
+  selected,
+  onSelect,
   tileType,
   autoWalls,
   textures,
@@ -155,19 +158,18 @@ export function CanvasView({
     onCommit,
   })
 
-  const {
-    handlers: stairsHandlers,
-    preview: stairsPreview,
-    selectedId: stairsSelectedId,
-  } = useStairsTool({
+  const handleSelect = useCallback((entity: SelectedEntity) => onSelect(entity), [onSelect])
+
+  const { handlers: stairsHandlers, preview: stairsPreview } = useStairsTool({
     canvasRef,
     active: tool.type === 'stairs',
     model,
     viewportRef,
+    selected,
+    onSelect: handleSelect,
     onCommit,
   })
 
-  const handleSelect = useCallback((id: number | null) => onSelectObject(id), [onSelectObject])
   const { handlers: objectHandlers } = useObjectTools({
     canvasRef,
     viewportRef,
@@ -176,13 +178,13 @@ export function CanvasView({
     tool,
   })
 
-  const { handlers: cursorHandlers } = useCursorTool({
+  const { handlers: cursorHandlers, resizePreview } = useCursorTool({
     canvasRef,
     viewportRef,
     store,
     model,
     active: tool.type === 'cursor',
-    selectedId: selectedObjectId,
+    selected,
     onSelect: handleSelect,
   })
 
@@ -215,9 +217,27 @@ export function CanvasView({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     renderMap(ctx, model, viewport, textures)
 
-    if (tool.type === 'stairs' && stairsSelectedId) {
-      const selected = model.stairs.find((stairs) => stairs.id === stairsSelectedId)
-      if (selected) drawStairsSelection(ctx, selected.polygon, viewport)
+    if (selected) {
+      const selectedStairs =
+        selected.type === 'stairs'
+          ? model.stairs.find((entry) => entry.id === selected.id)
+          : undefined
+      const selectedObject =
+        selected.type === 'object'
+          ? model.objects.find((entry) => entry.id === selected.id)
+          : undefined
+      const selectedDoor =
+        selected.type === 'door' ? model.doors.find((entry) => entry.id === selected.id) : undefined
+      if (selectedStairs) drawStairsSelection(ctx, selectedStairs.polygon, viewport)
+      if (selectedObject) {
+        // Во время ресайза рамка/хендлы идут по превью, а не по модели.
+        const frame =
+          resizePreview !== null
+            ? { ...selectedObject, x: resizePreview.x, y: resizePreview.y, scale: resizePreview.scale }
+            : selectedObject
+        drawObjectSelection(ctx, frame, viewport)
+      }
+      if (selectedDoor) drawDoorSelection(ctx, selectedDoor, viewport)
     }
 
     if (hoverCell && hoverWorld) {
@@ -318,7 +338,8 @@ export function CanvasView({
     wallPreview,
     doorPreview,
     stairsPreview,
-    stairsSelectedId,
+    selected,
+    resizePreview,
     tileType,
     autoWalls,
     textures,

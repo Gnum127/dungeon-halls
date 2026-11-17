@@ -1,4 +1,3 @@
-import type { ObjectKindId } from '../../model/objects'
 import type { TileTypeName } from '@/shared/tiles'
 import type { ElementImageManifest, ObjectTextureKey, TextureManifest } from './manifest'
 import {
@@ -31,19 +30,12 @@ export interface TextureAtlas {
 }
 
 /**
- * Контекст рендера (renderMap, pngExport): атлас + выбор изображения для вида.
- * imageOverrides — настройка просмотра (localStorage), не данные модели.
- * Приоритет резолва изображения объекта — в `renderMap.resolveObjectImage`
- * (override → `objectTextures` → `defaultImage` → цвет).
+ * Контекст рендера (renderMap, pngExport): готовый атлас текстур. Выбор
+ * изображения экземпляра хранится в модели (`MapObject.imageId`), не здесь
+ * (этап 28). Приоритет резолва изображения объекта — в
+ * `renderMap.resolveObjectImage`.
  */
-export interface TextureRenderContext extends TextureAtlas {
-  /**
-   * Выбранные пользователем изображения видов пула; null = «по умолчанию»
-   * (следовать обычному приоритету вида: `objectTextures` → `defaultImage`),
-   * отсутствующий ключ = ничего не выбрано. Слой страницы, накладываемый на атлас.
-   */
-  readonly imageOverrides?: Readonly<Partial<Record<ObjectKindId, string | null>>>
-}
+export type TextureRenderContext = TextureAtlas
 
 // Пути в манифесте относительны базовому URL статики Vite ('/' по умолчанию).
 export function resolveSpriteUrl(path: string): string {

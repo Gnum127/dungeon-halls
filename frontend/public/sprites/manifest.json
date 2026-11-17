@@ -12,6 +12,7 @@
     "chair": { "path": "sprites/objects/chair_wooden.png" },
     "chest": { "path": "sprites/objects/chest_wooden.png" },
     "barrel": { "path": "sprites/objects/barrel_wooden.png" },
+    "torch": { "path": "sprites/objects/torch_wall.png" },
     "bush": { "path": "sprites/objects/bush_green.png" },
     "rock": { "path": "sprites/objects/rock_boulder.png" },
     "tree": { "path": "sprites/objects/tree_oak.png" },

@@ -183,6 +183,10 @@ describe('shipped texture manifest', () => {
       ),
     ).toBe(true)
     expect(objectKeys).toContain('door')
+    // Каждый вид объекта имеет собственный спрайт (иначе — цветной placeholder, этап 30).
+    for (const kind of OBJECT_KINDS) {
+      expect(objectKeys).toContain(kind)
+    }
   })
 })
 

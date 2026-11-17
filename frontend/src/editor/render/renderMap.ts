@@ -15,6 +15,10 @@ import {
   EMPTY_GRID_POINT_COLOR,
   EMPTY_GRID_POINT_RADIUS_SCALE,
   FALLBACK_OBJECT_COLOR,
+  GRID_LINE_COLOR,
+  GRID_LINE_UNDERLAY_COLOR,
+  GRID_LINE_UNDERLAY_WIDTH,
+  GRID_LINE_WIDTH,
   GRID_POINT_COLOR,
   GRID_POINT_RADIUS,
   LIGHT_GLOW_COLOR,
@@ -82,9 +86,9 @@ function resolveObjectImage(
 
 /**
  * Единственная точка рендера карты: чистая функция от модели и вьюпорта.
- * Порядок слоёв: фон → регионы (по zOrder) → лестницы → сетка → объекты →
- * стены → двери → свет. Текстуры всегда с fallback на цвет: отсутствие
- * атласа/текстуры = цветная плитка/свотч.
+ * Порядок слоёв: фон → регионы (по zOrder) → лестницы → линии сетки → точки
+ * сетки → объекты → стены → двери → свет. Текстуры всегда с fallback на цвет:
+ * отсутствие атласа/текстуры = цветная плитка/свотч.
  *
  * Контракт: вызывающий обязан выставить ctx.setTransform(dpr,…) и передать
  * viewport в CSS-пикселях; renderMap работает в CSS-координатах.
@@ -110,6 +114,7 @@ export function renderMap(
     drawStairs(ctx, stairs, viewport)
   }
 
+  drawGridLines(ctx, model, viewport)
   drawGridPoints(ctx, model, viewport)
 
   for (const object of model.objects) {
@@ -237,6 +242,44 @@ function drawStairs(
   ctx.lineWidth = Math.max(1.5, cellSize * 0.06)
   ctx.lineJoin = 'round'
   ctx.stroke()
+  ctx.restore()
+}
+
+/**
+ * Линии сетки (этап 29): белая подложка шире, тёмная линия поверх неё —
+ * белые стыки перекрыты тёмной, сетка контрастна на любом покрытии. Рисуются
+ * поверх текстур ландшафта и лестниц, ПОД точками сетки и объектами. Линии
+ * проходят по границам видимых клеток (как точки — по углам).
+ */
+function drawGridLines(ctx: CanvasRenderingContext2D, model: MapModel, viewport: Viewport): void {
+  const { cellSize, offsetX, offsetY } = viewport
+  const { width: cols, height: rows } = model.grid
+  const { firstCol, lastCol, firstRow, lastRow } = visibleCellRange(viewport, cols, rows)
+  const left = firstCol * cellSize - offsetX
+  const top = firstRow * cellSize - offsetY
+  const right = (lastCol + 1) * cellSize - offsetX
+  const bottom = (lastRow + 1) * cellSize - offsetY
+
+  ctx.save()
+  const strokeGrid = (color: string, lineWidth: number) => {
+    ctx.strokeStyle = color
+    ctx.lineWidth = lineWidth
+    ctx.beginPath()
+    for (let col = firstCol; col <= lastCol + 1; col += 1) {
+      const x = col * cellSize - offsetX
+      ctx.moveTo(x, top)
+      ctx.lineTo(x, bottom)
+    }
+    for (let row = firstRow; row <= lastRow + 1; row += 1) {
+      const y = row * cellSize - offsetY
+      ctx.moveTo(left, y)
+      ctx.lineTo(right, y)
+    }
+    ctx.stroke()
+  }
+
+  strokeGrid(GRID_LINE_UNDERLAY_COLOR, GRID_LINE_UNDERLAY_WIDTH)
+  strokeGrid(GRID_LINE_COLOR, GRID_LINE_WIDTH)
   ctx.restore()
 }
 

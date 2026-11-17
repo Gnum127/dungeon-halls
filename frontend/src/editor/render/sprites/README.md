@@ -21,8 +21,8 @@
 - Готовые изображения элементов (иконки объектов, двери):
   `frontend/public/element-images/manifest.json` — отдельный пул по `imageId`.
 - **Пути в манифесте отсчитываются от корня статики** (base URL), а не от
-  каталога `sprites/`: запись `"sprites/tiles/floor_stone.png"` →
-  `/sprites/tiles/floor_stone.png`. Префикс `sprites/` — часть конвенции.
+  каталога `sprites/`: запись `"sprites/tiles/floor_wood.png"` →
+  `/sprites/tiles/floor_wood.png`. Префикс `sprites/` — часть конвенции.
 
 Текущий набор:
 
@@ -37,7 +37,7 @@
 ```
 public/sprites/
   manifest.json
-  tiles/<name>.png      # floor_stone.png, grass.png, … (не привязаны к ключам TILE_TYPES)
+  tiles/<name>.png      # floor_wood.png, grass.png, … (не привязаны к ключам TILE_TYPES)
   objects/<name>.png    # table_wooden.png, tree_oak.png, …
 ```
 
@@ -50,7 +50,7 @@ public/sprites/
 {
   "version": 2,
   "tileTextures": {
-    "floor": { "path": "sprites/tiles/floor_stone.png", "size": 1024 },
+    "floor": { "path": "sprites/tiles/floor_wood.png", "size": 512 },
     "grass": { "path": "sprites/tiles/grass.png", "size": 1024 }
   },
   "objectTextures": {

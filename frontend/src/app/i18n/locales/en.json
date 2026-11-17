@@ -57,7 +57,7 @@
     },
     "tiles": {
       "empty": "Eraser",
-      "floor": "Floor",
+      "floor": "Wooden Floor",
       "grass": "Grass",
       "water": "Water",
       "stone": "Stone",

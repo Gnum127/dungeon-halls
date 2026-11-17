@@ -9,6 +9,10 @@ import {
   EMPTY_GRID_POINT_COLOR,
   EMPTY_GRID_POINT_RADIUS_SCALE,
   FALLBACK_OBJECT_COLOR,
+  GRID_LINE_COLOR,
+  GRID_LINE_UNDERLAY_COLOR,
+  GRID_LINE_UNDERLAY_WIDTH,
+  GRID_LINE_WIDTH,
   GRID_POINT_COLOR,
   GRID_POINT_RADIUS_RATIO,
   LIGHT_GLOW_COLOR,
@@ -43,8 +47,8 @@ function fmt(n: number): string {
 /**
  * Векторная печать карты: чистая функция модель → строка SVG без DOM.
  * Слои повторяют порядок renderMap: фон → регионы (по zOrder) → лестницы →
- * сетка → объекты → стены → двери; свет — только с includeLight.
- * Спрайтовый режим игнорируется: SVG всегда цветной векторный.
+ * линии сетки → точки сетки → объекты → стены → двери; свет — только с
+ * includeLight. Спрайтовый режим игнорируется: SVG всегда цветной векторный.
  */
 export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
   const s = SVG_UNITS_PER_CELL
@@ -84,6 +88,29 @@ export function buildSvg(model: MapModel, options?: BuildSvgOptions): string {
       `<polygon points="${points}" fill="none" stroke="${STAIRS_OUTLINE_COLOR}" stroke-width="${fmt(Math.max(1.5, s * 0.06))}" stroke-linejoin="round"/>`,
     )
   })
+
+  // Линии сетки (этап 29): белая подложка шире, тёмная линия поверх — паритет
+  // с canvas (белая под чёрной, стыки перекрыты). Под точками сетки и объектами.
+  const gridUnderlayWidth = fmt(GRID_LINE_UNDERLAY_WIDTH)
+  const gridLineWidth = fmt(GRID_LINE_WIDTH)
+  const gridLineElements = (color: string, lineWidth: string): string[] => {
+    const elements: string[] = []
+    for (let col = 0; col <= model.grid.width; col += 1) {
+      const x = fmt(col * s)
+      elements.push(
+        `<line x1="${x}" y1="0" x2="${x}" y2="${fmt(height)}" stroke="${color}" stroke-width="${lineWidth}"/>`,
+      )
+    }
+    for (let row = 0; row <= model.grid.height; row += 1) {
+      const y = fmt(row * s)
+      elements.push(
+        `<line x1="0" y1="${y}" x2="${fmt(width)}" y2="${y}" stroke="${color}" stroke-width="${lineWidth}"/>`,
+      )
+    }
+    return elements
+  }
+  parts.push(...gridLineElements(GRID_LINE_UNDERLAY_COLOR, gridUnderlayWidth))
+  parts.push(...gridLineElements(GRID_LINE_COLOR, gridLineWidth))
 
   const pointRadius = fmt(s * GRID_POINT_RADIUS_RATIO)
   const emptyPointRadius = fmt(s * GRID_POINT_RADIUS_RATIO * EMPTY_GRID_POINT_RADIUS_SCALE)

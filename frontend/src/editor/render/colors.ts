@@ -22,6 +22,14 @@ export const STAIRS_FILL_COLOR = 'rgba(107, 90, 60, 0.15)'
 export const GRID_POINT_COLOR = '#4a4a63'
 /** Цвет точки сетки на свободном поле (не покрыто): тусклый на светлом холсте. */
 export const EMPTY_GRID_POINT_COLOR = '#d0d0d0'
+/** Подложка линий сетки (этап 29): белая, шире тёмной — контраст на любом фоне. */
+export const GRID_LINE_UNDERLAY_COLOR = 'rgba(255, 255, 255, 0.7)'
+/** Толщина белой подложки линий сетки в экранных пикселях. */
+export const GRID_LINE_UNDERLAY_WIDTH = 2
+/** Тёмная линия сетки поверх подложки (этап 29). */
+export const GRID_LINE_COLOR = 'rgba(30, 30, 40, 0.5)'
+/** Толщина тёмной линии сетки в экранных пикселях. */
+export const GRID_LINE_WIDTH = 1
 /** Радиус точки сетки в экранных пикселях (постоянный, не зависит от зума). */
 export const GRID_POINT_RADIUS = 1.5
 /** Радиус точки сетки в SVG (доля клетки) — для печати. */

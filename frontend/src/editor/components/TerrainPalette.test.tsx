@@ -7,7 +7,7 @@ describe('TerrainPalette', () => {
     render(<TerrainPalette selected={null} onSelect={vi.fn()} />)
 
     expect(screen.getByRole('group', { name: 'Terrain types' })).toBeInTheDocument()
-    for (const name of ['Eraser', 'Floor', 'Grass', 'Water', 'Stone', 'Sand', 'Wall']) {
+    for (const name of ['Eraser', 'Wooden Floor', 'Grass', 'Water', 'Stone', 'Sand', 'Wall']) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument()
     }
     // Stairs is a separate entity now, not a coverage tile.

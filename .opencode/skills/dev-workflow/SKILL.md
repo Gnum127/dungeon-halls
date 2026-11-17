@@ -207,6 +207,13 @@ npm run build      # сборка + проверка типов tsc
   `defaultImage` → цвет. `element-images` — пул изображений экземпляров/дверей.
   Режима «цвета/спрайты» нет — `RenderModePicker`/`renderMode.ts` удалены.
 
+- **Линии сетки (этап 29)**: `renderMap.drawGridLines` — по границам видимых
+  клеток, белая подложка шире (`GRID_LINE_UNDERLAY_*`) + тёмная линия поверх
+  (`GRID_LINE_*`); слой между лестницами и точками сетки (поверх текстур, под
+  точками/объектами). SVG-паритет — `<line>` в `print/svg.ts`. Тайл `floor`
+  подписан «Деревянный пол», текстура `public/sprites/tiles/floor_wood.png`
+  (512, бесшовное дерево; `floor_stone.png` удалён).
+
 - **Полуклеточные регионы (этап 25)**: `useRectRegionTool`/`usePolygonRegionTool`
   берут мировую точку (`useWorldPointFromEvent`) и снапят её `snapToHalfGrid`
   в момент клика; `rectPolygon` не добавляет `+1` — полигон строится «от точки

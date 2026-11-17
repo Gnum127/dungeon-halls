@@ -1,7 +1,7 @@
 {
   "version": 2,
   "tileTextures": {
-    "floor": { "path": "sprites/tiles/floor_stone.png", "size": 1024 },
+    "floor": { "path": "sprites/tiles/floor_wood.png", "size": 512 },
     "grass": { "path": "sprites/tiles/grass.png", "size": 1024 },
     "stone": { "path": "sprites/tiles/stone_rough.png", "size": 1024 },
     "water": { "path": "sprites/tiles/water.png", "size": 1024 },

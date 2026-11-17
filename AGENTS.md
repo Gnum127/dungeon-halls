@@ -41,7 +41,7 @@ frontend/src/
   editor/     canvas-движок: векторная модель, рендер, инструменты, undo/redo, save/load
     model/    MapModel v6: TerrainRegion, WallSegment, Door, StairsPolygon, MapObject, MapLight;
               regions.ts/wallSegments.ts/doors.ts/stairs.ts, autoWalls.ts, commands.ts, io.ts, objects.ts, lights.ts
-    render/   векторный рендер: renderMap (регионы/лестницы/точечная сетка/объекты/стены/двери/свет),
+    render/   векторный рендер: renderMap (регионы/лестницы/линии сетки/точки сетки/объекты/стены/двери/свет),
               geometry.ts, regionPreview, cellHighlight, ghostPreview, colors, sprites/
     tools/    инструменты: regions (rect/polygon), regionCommit, autoWalls-коммит,
               wall/door/object/light, generatorAdapter, pngExport
@@ -154,9 +154,10 @@ npm run build      # production-сборка в dist/ (включает пров
   (Shift — снап к полклетке); коллизии отключены.
 - **Свет**: источники с радиусом и цветом.
 - **Рендер**: векторные регионы с текстурами ландшафта (заливка цветом + тайлинг
-  бесшовной текстуры шагом `size`, под точечной сеткой), лестницы (контур +
-  ступени), точечная сетка, объекты (текстуры растянуты на footprint, поверх
-  сетки), стены с телом, двери, свет.
+  бесшовной текстуры шагом `size`), лестницы (контур + ступени), линии сетки
+  (белая подложка + тёмная линия поверх текстур, под точками/объектами),
+  точечная сетка, объекты (текстуры растянуты на footprint, поверх сетки),
+  стены с телом, двери, свет.
 - **Сетка и снап**: точечная сетка (яркие точки углов покрытых клеток + тусклые
   на свободном поле, canvas + SVG/PDF из одного источника — `gridPoints` в
   `model/coverage.ts`); при наведении — точки-кандидаты
@@ -252,6 +253,13 @@ Esc/смена инструмента сбрасывают недостроен�
 выделенного объекта и двери правятся в панели «Ландшафт» (`ToolParams`);
 добавлен вид «Лестница» (`ladder`) с текстурой `ladder_wooden.png`.
 Спецификация — `docs/spec-stages-25-30.md`.
+
+Этап 29 (линии сетки + пол) закрыт: `renderMap.drawGridLines` рисует линии сетки
+(белая подложка шире + тёмная линия поверх) поверх текстур ландшафта и лестниц,
+ПОД точками сетки и объектами; тот же слой — в SVG (`print/svg.ts`). Тайл «Пол»
+переименован в «Деревянный пол» (`floor`), текстура — `floor_wood.png` (512,
+бесшовное дерево, `floor_stone.png` удалён). Спецификация —
+`docs/spec-stages-25-30.md`.
 
 При старте новой сессии: прочитать AGENTS.md + roadmap +
 guidelines + frontend-guidelines.

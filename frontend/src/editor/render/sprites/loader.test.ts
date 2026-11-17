@@ -93,7 +93,7 @@ describe('loadTextureManifest', () => {
   it('returns a validated manifest', async () => {
     const manifest = {
       version: 2,
-      tileTextures: { floor: { path: 'tiles/floor_stone.png', size: 256 } },
+      tileTextures: { floor: { path: 'tiles/floor_wood.png', size: 256 } },
       objectTextures: {},
     }
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(manifest)))
@@ -114,7 +114,7 @@ describe('loadTextures', () => {
     const atlas = await loadTextures({
       version: 2,
       tileTextures: {
-        floor: { path: 'tiles/floor_stone.png', size: 256 },
+        floor: { path: 'tiles/floor_wood.png', size: 256 },
         grass: { path: 'tiles/missing.png', size: 128 },
       },
       objectTextures: {},

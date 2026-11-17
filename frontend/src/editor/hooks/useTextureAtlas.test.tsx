@@ -46,7 +46,7 @@ describe('useTextureAtlas', () => {
         }
         return jsonResponse({
           version: 2,
-          tileTextures: { floor: { path: 'sprites/tiles/floor_stone.png', size: 256 } },
+          tileTextures: { floor: { path: 'sprites/tiles/floor_wood.png', size: 256 } },
           objectTextures: {},
         })
       }),
@@ -104,7 +104,7 @@ describe('useTextureAtlas', () => {
         }
         return jsonResponse({
           version: 2,
-          tileTextures: { floor: { path: 'sprites/tiles/floor_stone.png', size: 256 } },
+          tileTextures: { floor: { path: 'sprites/tiles/floor_wood.png', size: 256 } },
           objectTextures: {},
         })
       }),

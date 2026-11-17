@@ -8,6 +8,8 @@ import { MAP_VERSION } from '../model/types'
 import {
   DOOR_FILL_COLOR,
   EMPTY_GRID_POINT_COLOR,
+  GRID_LINE_COLOR,
+  GRID_LINE_UNDERLAY_COLOR,
   GRID_POINT_COLOR,
   LIGHT_MARKER_COLOR,
   STAIRS_FILL_COLOR,
@@ -218,6 +220,23 @@ describe('buildSvg', () => {
       y: Number(match[2]) / SVG_UNITS_PER_CELL,
     }))
     expect(coords).toEqual(expected)
+  })
+
+  it('draws grid lines (white underlay under the dark line) before points', () => {
+    const svg = buildSvg(model())
+
+    const underlayAt = svg.indexOf(`stroke="${GRID_LINE_UNDERLAY_COLOR}"`)
+    const darkAt = svg.indexOf(`stroke="${GRID_LINE_COLOR}"`)
+    const pointsAt = svg.indexOf('<circle')
+
+    expect(underlayAt).toBeGreaterThanOrEqual(0)
+    expect(darkAt).toBeGreaterThan(underlayAt)
+    expect(pointsAt).toBeGreaterThan(darkAt)
+    // Белая подложка шире тёмной линии.
+    expect(svg).toContain(`stroke="${GRID_LINE_UNDERLAY_COLOR}" stroke-width="2"`)
+    expect(svg).toContain(`stroke="${GRID_LINE_COLOR}" stroke-width="1"`)
+    // Паритет с canvas: обе линии по всем границам клеток (4×4 → 5+5 на цвет).
+    expect((svg.match(/<line /g) ?? []).length).toBe(2 * (5 + 5))
   })
 
   it('renders a door as a filled rectangle along its opening', () => {

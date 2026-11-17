@@ -14,7 +14,7 @@ import {
 const VALID = {
   version: 2,
   tileTextures: {
-    floor: { path: 'sprites/tiles/floor_stone.png', size: 256 },
+    floor: { path: 'sprites/tiles/floor_wood.png', size: 256 },
     grass: { path: 'sprites/tiles/grass.png', size: 512 },
   },
   objectTextures: { table: { path: 'sprites/objects/table_wooden.png' } },
@@ -33,7 +33,7 @@ describe('validateTextureManifest', () => {
     expect(validateTextureManifest(VALID)).toEqual({
       version: 2,
       tileTextures: {
-        floor: { path: 'sprites/tiles/floor_stone.png', size: 256 },
+        floor: { path: 'sprites/tiles/floor_wood.png', size: 256 },
         grass: { path: 'sprites/tiles/grass.png', size: 512 },
       },
       objectTextures: { table: { path: 'sprites/objects/table_wooden.png' } },
@@ -78,7 +78,7 @@ describe('validateTextureManifest', () => {
     ).toEqual({
       version: 2,
       tileTextures: {
-        floor: { path: 'sprites/tiles/floor_stone.png', size: 256 },
+        floor: { path: 'sprites/tiles/floor_wood.png', size: 256 },
         grass: { path: 'sprites/tiles/grass.png', size: 512 },
       },
       objectTextures: { door: { path: 'sprites/objects/door_wooden.png' } },
@@ -171,6 +171,8 @@ describe('shipped texture manifest', () => {
     const tileKeys = Object.keys(parsed?.tileTextures ?? {})
     expect(tileKeys).toContain('floor')
     expect(tileKeys.every((key) => (TILE_TYPES as readonly string[]).includes(key))).toBe(true)
+    // Этап 29: пол — деревянная текстура 512×512.
+    expect(parsed?.tileTextures.floor).toEqual({ path: 'sprites/tiles/floor_wood.png', size: 512 })
 
     const objectKeys = Object.keys(parsed?.objectTextures ?? {})
     expect(objectKeys.length).toBeGreaterThan(0)

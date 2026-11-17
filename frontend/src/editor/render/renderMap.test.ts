@@ -11,6 +11,8 @@ import {
   DOOR_FILL_COLOR,
   EMPTY_GRID_POINT_COLOR,
   EMPTY_GRID_POINT_RADIUS_SCALE,
+  GRID_LINE_COLOR,
+  GRID_LINE_UNDERLAY_COLOR,
   GRID_POINT_COLOR,
   GRID_POINT_RADIUS,
   LIGHT_GLOW_COLOR,
@@ -183,6 +185,23 @@ describe('renderMap', () => {
     ).toBe(true)
   })
 
+  it('draws grid lines (white underlay under the dark line) before points', () => {
+    const { ctx, calls } = makeFakeCtx()
+    renderMap(ctx, baseModel(), viewport)
+
+    const underlayIndex = calls.findIndex(
+      (c) => c.op === 'stroke' && c.fillStyle === GRID_LINE_UNDERLAY_COLOR,
+    )
+    const darkIndex = calls.findIndex((c) => c.op === 'stroke' && c.fillStyle === GRID_LINE_COLOR)
+    const firstPointIndex = calls.findIndex((c) => c.op === 'arc')
+
+    // Подложка под тёмной линией; обе — до точек сетки (линии поверх текстур,
+    // под точками/объектами).
+    expect(underlayIndex).toBeGreaterThanOrEqual(0)
+    expect(darkIndex).toBeGreaterThan(underlayIndex)
+    expect(firstPointIndex).toBeGreaterThan(darkIndex)
+  })
+
   it('draws walls with a body and an outline', () => {
     const wall = createWallSegment(
       [
@@ -215,11 +234,15 @@ describe('renderMap', () => {
       2,
     )
 
-    const starts = calls.filter((c) => c.op === 'moveTo').map((c) => c.args[0] as number)
+    const gridStrokeIndex = calls.findIndex(
+      (c) => c.op === 'stroke' && c.fillStyle === GRID_LINE_COLOR,
+    )
+    const wallCalls = calls.slice(gridStrokeIndex + 1)
+    const starts = wallCalls.filter((c) => c.op === 'moveTo').map((c) => c.args[0] as number)
     // Opening 1.5..2.5 plus 1/6 clearance → ends at 1.3333 and 2.6667 cells (*32px).
     expect(starts[0]).toBeCloseTo(0)
     expect(starts[1]).toBeCloseTo((2.5 + 1 / 6) * 32)
-    const ends = calls.filter((c) => c.op === 'lineTo').map((c) => c.args[0] as number)
+    const ends = wallCalls.filter((c) => c.op === 'lineTo').map((c) => c.args[0] as number)
     expect(ends[0]).toBeCloseTo((1.5 - 1 / 6) * 32)
     expect(ends[1]).toBeCloseTo(4 * 32)
   })
@@ -614,7 +637,7 @@ describe('renderMap', () => {
     expect(drawn).not.toContain(elementImage)
   })
 
-  it('draws landscape textures before the grid and object textures after it', () => {
+  it('draws grid lines over landscape textures and stairs, under points and objects', () => {
     const regionImage = {} as HTMLImageElement
     const objectImage = {} as HTMLImageElement
     const textures = {
@@ -623,19 +646,37 @@ describe('renderMap', () => {
       elementImages: {},
     }
     const region = createTerrainRegion('floor', square(0, 0, 4, 4), 0, 'r')
+    const stairs = {
+      id: 's1',
+      polygon: square(1, 1, 2, 2),
+    }
     const { ctx, calls } = makeFakeCtx()
     renderMap(
       ctx,
-      baseModel({ regions: [region], objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }] }),
+      baseModel({
+        regions: [region],
+        stairs: [stairs],
+        objects: [{ id: 1, kindId: 'table', x: 1, y: 1 }],
+      }),
       viewport,
       textures,
     )
 
     const regionIndex = calls.findIndex((c) => c.op === 'drawImage' && c.args[0] === regionImage)
+    const stairsIndex = calls.findIndex((c) => c.op === 'fill' && c.fillStyle === STAIRS_FILL_COLOR)
+    const underlayIndex = calls.findIndex(
+      (c) => c.op === 'stroke' && c.fillStyle === GRID_LINE_UNDERLAY_COLOR,
+    )
+    const darkIndex = calls.findIndex((c) => c.op === 'stroke' && c.fillStyle === GRID_LINE_COLOR)
     const gridIndex = calls.findIndex((c) => c.op === 'arc')
     const objectIndex = calls.findIndex((c) => c.op === 'drawImage' && c.args[0] === objectImage)
+
     expect(regionIndex).toBeGreaterThanOrEqual(0)
-    expect(gridIndex).toBeGreaterThan(regionIndex)
+    expect(stairsIndex).toBeGreaterThan(regionIndex)
+    // Линии сетки — поверх текстур ландшафта и лестниц, под точками/объектами.
+    expect(underlayIndex).toBeGreaterThan(stairsIndex)
+    expect(darkIndex).toBeGreaterThan(underlayIndex)
+    expect(gridIndex).toBeGreaterThan(darkIndex)
     expect(objectIndex).toBeGreaterThan(gridIndex)
   })
 

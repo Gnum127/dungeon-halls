@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { EXPORT_CELL_SIZE, renderToCanvas } from './pngExport'
 import { createEmptyMap } from '../model/createEmptyMap'
 import { createTerrainRegion } from '../model/regions'
+import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH } from '@/config/map.config'
 import { makeFakeCtx } from '../render/testFakeCtx'
 import type { Point } from '@/shared/point'
 
@@ -16,6 +17,20 @@ describe('renderToCanvas', () => {
   it('rejects a map larger than the canvas limits before allocating', () => {
     const big = createEmptyMap(1000, 1)
     expect(() => renderToCanvas(big)).toThrow(/exceeds canvas limits/)
+  })
+
+  it('allows the default-size map at 64px (regression: canvas side limit)', () => {
+    const { ctx } = makeFakeCtx()
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext')
+    getContext.mockImplementation(() => ctx)
+    try {
+      // 200×200 при 64px = 12800 < MAX_EXPORT_SIDE (16384) — должно проходить.
+      expect(() =>
+        renderToCanvas(createEmptyMap(DEFAULT_MAP_WIDTH, DEFAULT_MAP_HEIGHT)),
+      ).not.toThrow()
+    } finally {
+      getContext.mockRestore()
+    }
   })
 
   it('rejects an invalid page window', () => {

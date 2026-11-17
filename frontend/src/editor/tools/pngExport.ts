@@ -8,7 +8,6 @@ import type { PageRect } from '../print/pages'
 export const EXPORT_CELL_SIZE = 64
 
 const MAX_EXPORT_SIDE = 16384
-const MAX_EXPORT_AREA = 134_217_728
 
 /** Страховка от невалидного окна страницы: отрицательный сдвиг молча
  * обрезал бы карту. Источник страниц — paginateMap, но API публичный. */
@@ -112,8 +111,12 @@ export function renderToCanvas(
     height = Math.ceil(bounds.height)
   }
   // Большие canvas браузеры молча не растеризуют — отказываем заранее с причиной.
-  if (width > MAX_EXPORT_SIDE || height > MAX_EXPORT_SIDE || width * height > MAX_EXPORT_AREA) {
-    throw new RangeError(`Export size ${width}x${height} exceeds canvas limits`)
+  // Предел по стороне (16384 — лимит Chromium) косвенно ограничивает и площадь;
+  // дефолтная карта 200×200 при 64px/клетку (12800) теперь проходит (этап 30).
+  if (width > MAX_EXPORT_SIDE || height > MAX_EXPORT_SIDE) {
+    throw new RangeError(
+      `Export size ${width}x${height} exceeds canvas limits (max side ${MAX_EXPORT_SIDE})`,
+    )
   }
 
   const canvas = document.createElement('canvas')

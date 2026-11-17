@@ -27,8 +27,8 @@
 Текущий набор:
 
 - Текстуры ландшафта (`tileTextures`): floor, grass, stone, water, sand.
-- Текстуры объектов (`objectTextures`): table, chair, chest, barrel, bush, rock,
-  tree, door, ladder.
+- Текстуры объектов (`objectTextures`): table, chair, chest, barrel, torch, bush,
+  rock, tree, door, ladder.
 
 Файлы картинок генерируются по `docs/texture-generation-guide.md`.
 
@@ -42,7 +42,8 @@ public/sprites/
 ```
 
 - Формат PNG; тайлы — квадратные бесшовные (поставлены 1024×1024), объекты —
-  квадратные с прозрачным фоном (поставлены 1024×1024).
+  с прозрачным фоном (в основном 1024×1024; дверь/лестница/факел — не-квадратные,
+  растягиваются на footprint).
 
 ## Схема манифеста
 

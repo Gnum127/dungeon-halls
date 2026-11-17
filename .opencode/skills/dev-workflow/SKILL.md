@@ -214,6 +214,12 @@ npm run build      # сборка + проверка типов tsc
   подписан «Деревянный пол», текстура `public/sprites/tiles/floor_wood.png`
   (512, бесшовное дерево; `floor_stone.png` удалён).
 
+- **Багфиксы (этап 30)**: PNG-экспорт целой карты ограничен стороной canvas
+  (`MAX_EXPORT_SIDE = 16384`, косвенно и площадь) — дефолтная 200×200 при
+  64px/клетку проходит; у КАЖДОГО вида объекта есть спрайт `objectTextures`
+  (добавлен `torch` → `sprites/objects/torch_wall.png`), иначе рисуется цветной
+  плейсхолдер.
+
 - **Полуклеточные регионы (этап 25)**: `useRectRegionTool`/`usePolygonRegionTool`
   берут мировую точку (`useWorldPointFromEvent`) и снапят её `snapToHalfGrid`
   в момент клика; `rectPolygon` не добавляет `+1` — полигон строится «от точки
